@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  
+  <Fragment>
+    <!-- Core Application Files Component Group -->
+    <ComponentGroup Id="CoreApplicationFiles">
+      <!-- Main RevitPy Assemblies -->
+      <Component Id="RevitPyCore" Guid="33333333-4444-5555-6666-777777777777" Directory="BinDir">
+        <File Id="RevitPyCoreLib" Source="$(var.SolutionDir)..\src\RevitPy.Core\bin\$(var.Configuration)\RevitPy.Core.dll" />
+        <File Id="RevitPyRuntimeLib" Source="$(var.SolutionDir)..\src\RevitPy.Runtime\bin\$(var.Configuration)\RevitPy.Runtime.dll" />
+        <File Id="RevitPyBridgeLib" Source="$(var.SolutionDir)..\src\RevitPy.Bridge\bin\$(var.Configuration)\RevitPy.Bridge.dll" />
+        <File Id="RevitPyHostLib" Source="$(var.SolutionDir)..\src\RevitPy.Host\bin\$(var.Configuration)\RevitPy.Host.dll" />
+      </Component>
+
+      <!-- Python Package Files -->
+      <Component Id="RevitPyPythonPackage" Guid="44444444-5555-6666-7777-888888888888" Directory="LibDir">
+        <File Id="RevitPyPythonInit" Source="$(var.SolutionDir)..\revitpy\__init__.py" />
+        <File Id="RevitPyApiInit" Source="$(var.SolutionDir)..\revitpy\api\__init__.py" />
+        <File Id="RevitPyApiElement" Source="$(var.SolutionDir)..\revitpy\api\element.py" />
+        <File Id="RevitPyApiQuery" Source="$(var.SolutionDir)..\revitpy\api\query.py" />
+        <File Id="RevitPyApiTransaction" Source="$(var.SolutionDir)..\revitpy\api\transaction.py" />
+        <File Id="RevitPyApiWrapper" Source="$(var.SolutionDir)..\revitpy\api\wrapper.py" />
+        <File Id="RevitPyApiExceptions" Source="$(var.SolutionDir)..\revitpy\api\exceptions.py" />
+      </Component>
+
+      <!-- Dependencies -->
+      <Component Id="RevitPyDependencies" Guid="55555555-6666-7777-8888-999999999999" Directory="BinDir">
+        <File Id="NewtonsoftJson" Source="$(var.SolutionDir)Dependencies\Newtonsoft.Json.dll" />
+        <File Id="SystemTextJson" Source="$(var.SolutionDir)Dependencies\System.Text.Json.dll" />
+        <File Id="MicrosoftExtensionsDI" Source="$(var.SolutionDir)Dependencies\Microsoft.Extensions.DependencyInjection.dll" />
+        <File Id="MicrosoftExtensionsLogging" Source="$(var.SolutionDir)Dependencies\Microsoft.Extensions.Logging.dll" />
+      </Component>
+
+      <!-- Include the Service and Uninstall Registry -->
+      <ComponentRef Id="RevitPyService" />
+      <ComponentRef Id="UninstallRegistry" />
+      <ComponentRef Id="FirewallRules" />
+    </ComponentGroup>
+
+    <!-- Configuration Files Component Group -->
+    <ComponentGroup Id="ConfigurationFiles">
+      <Component Id="MainConfiguration" Guid="66666666-7777-8888-9999-aaaaaaaaaaaa" Directory="ConfigDir">
+        <File Id="AppSettingsJson" Source="$(var.SolutionDir)config\appsettings.json" />
+        <File Id="AppSettingsProdJson" Source="$(var.SolutionDir)config\appsettings.Production.json" />
+        <File Id="LoggingJson" Source="$(var.SolutionDir)config\logging.json" />
+      </Component>
+
+      <!-- Shared Configuration in Common App Data -->
+      <Component Id="SharedConfiguration" Guid="77777777-8888-9999-aaaa-bbbbbbbbbbbb" Directory="SharedConfigDir">
+        <File Id="DefaultConfig" Source="$(var.SolutionDir)config\default.yaml" />
+        <File Id="RevitVersionsConfig" Source="$(var.SolutionDir)config\revit-versions.json" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Logging Components -->
+    <ComponentGroup Id="LoggingComponents">
+      <Component Id="LogDirectories" Guid="88888888-9999-aaaa-bbbb-cccccccccccc" Directory="LogsDir">
+        <CreateFolder />
+      </Component>
+
+      <Component Id="SharedLogDirectories" Guid="99999999-aaaa-bbbb-cccc-dddddddddddd" Directory="SharedLogsDir">
+        <CreateFolder />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Python Runtime Files -->
+    <ComponentGroup Id="PythonRuntimeFiles">
+      <!-- Python Executable and Core DLLs -->
+      <Component Id="PythonExecutable" Guid="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" Directory="PythonDir">
+        <File Id="PythonExe" Source="$(var.SolutionDir)python\python.exe" />
+        <File Id="Python311Dll" Source="$(var.SolutionDir)python\python311.dll" />
+        <File Id="Python3Dll" Source="$(var.SolutionDir)python\python3.dll" />
+      </Component>
+
+      <!-- Python Scripts -->
+      <Component Id="PythonScripts" Guid="bbbbbbbb-cccc-dddd-eeee-ffffffffffff" Directory="PythonScriptsDir">
+        <File Id="PipExe" Source="$(var.SolutionDir)python\Scripts\pip.exe" />
+        <File Id="PipScript" Source="$(var.SolutionDir)python\Scripts\pip3.11.exe" />
+      </Component>
+
+      <!-- Python Standard Library (Sample - would need to include all files) -->
+      <Component Id="PythonStandardLibrary" Guid="cccccccc-dddd-eeee-ffff-000000000000" Directory="PythonLibDir">
+        <!-- This would typically be generated from the actual Python installation -->
+        <File Id="PythonLibOS" Source="$(var.SolutionDir)python\Lib\os.py" />
+        <File Id="PythonLibSys" Source="$(var.SolutionDir)python\Lib\sys.py" />
+        <!-- Add more core library files as needed -->
+      </Component>
+    </ComponentGroup>
+
+    <!-- Revit 2022 Integration -->
+    <ComponentGroup Id="Revit2022Integration">
+      <Component Id="Revit2022Addin" Guid="dddddddd-eeee-ffff-0000-111111111111" Directory="Revit2022UserAddins">
+        <File Id="RevitPy2022Addin" Source="$(var.SolutionDir)addins\RevitPy.addin" />
+        <File Id="RevitPy2022Manifest" Source="$(var.SolutionDir)addins\RevitPy2022.addin" />
+      </Component>
+
+      <!-- Revit 2022 Registry Entries -->
+      <Component Id="Revit2022Registry" Guid="eeeeeeee-ffff-0000-1111-222222222222" Directory="INSTALLDIR">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Autodesk\Revit\Addins\2022">
+          <RegistryValue Name="RevitPy" Value="[Revit2022UserAddins]RevitPy2022.addin" Type="string" />
+        </RegistryKey>
+      </Component>
+
+      <ComponentRef Id="Revit2022Addin" />
+      <ComponentRef Id="Revit2022Registry" />
+    </ComponentGroup>
+
+    <!-- Revit 2023 Integration -->
+    <ComponentGroup Id="Revit2023Integration">
+      <Component Id="Revit2023Addin" Guid="ffffffff-0000-1111-2222-333333333333" Directory="Revit2023UserAddins">
+        <File Id="RevitPy2023Addin" Source="$(var.SolutionDir)addins\RevitPy.addin" />
+        <File Id="RevitPy2023Manifest" Source="$(var.SolutionDir)addins\RevitPy2023.addin" />
+      </Component>
+
+      <!-- Revit 2023 Registry Entries -->
+      <Component Id="Revit2023Registry" Guid="00000000-1111-2222-3333-444444444444" Directory="INSTALLDIR">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Autodesk\Revit\Addins\2023">
+          <RegistryValue Name="RevitPy" Value="[Revit2023UserAddins]RevitPy2023.addin" Type="string" />
+        </RegistryKey>
+      </Component>
+
+      <ComponentRef Id="Revit2023Addin" />
+      <ComponentRef Id="Revit2023Registry" />
+    </ComponentGroup>
+
+    <!-- Revit 2024 Integration -->
+    <ComponentGroup Id="Revit2024Integration">
+      <Component Id="Revit2024Addin" Guid="11111111-2222-3333-4444-555555555555" Directory="Revit2024UserAddins">
+        <File Id="RevitPy2024Addin" Source="$(var.SolutionDir)addins\RevitPy.addin" />
+        <File Id="RevitPy2024Manifest" Source="$(var.SolutionDir)addins\RevitPy2024.addin" />
+      </Component>
+
+      <!-- Revit 2024 Registry Entries -->
+      <Component Id="Revit2024Registry" Guid="22222222-3333-4444-5555-666666666666" Directory="INSTALLDIR">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Autodesk\Revit\Addins\2024">
+          <RegistryValue Name="RevitPy" Value="[Revit2024UserAddins]RevitPy2024.addin" Type="string" />
+        </RegistryKey>
+      </Component>
+
+      <ComponentRef Id="Revit2024Addin" />
+      <ComponentRef Id="Revit2024Registry" />
+    </ComponentGroup>
+
+    <!-- Revit 2025 Integration -->
+    <ComponentGroup Id="Revit2025Integration">
+      <Component Id="Revit2025Addin" Guid="33333333-4444-5555-6666-777777777777" Directory="Revit2025UserAddins">
+        <File Id="RevitPy2025Addin" Source="$(var.SolutionDir)addins\RevitPy.addin" />
+        <File Id="RevitPy2025Manifest" Source="$(var.SolutionDir)addins\RevitPy2025.addin" />
+      </Component>
+
+      <!-- Revit 2025 Registry Entries -->
+      <Component Id="Revit2025Registry" Guid="44444444-5555-6666-7777-888888888888" Directory="INSTALLDIR">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\Autodesk\Revit\Addins\2025">
+          <RegistryValue Name="RevitPy" Value="[Revit2025UserAddins]RevitPy2025.addin" Type="string" />
+        </RegistryKey>
+      </Component>
+
+      <ComponentRef Id="Revit2025Addin" />
+      <ComponentRef Id="Revit2025Registry" />
+    </ComponentGroup>
+
+    <!-- Environment Variables Component -->
+    <ComponentGroup Id="EnvironmentVariables">
+      <Component Id="RevitPyEnvironment" Guid="55555555-6666-7777-8888-999999999999" Directory="INSTALLDIR">
+        <!-- Add RevitPy to PATH -->
+        <Environment Id="RevitPyPath" 
+                     Name="PATH" 
+                     Value="[INSTALLDIR]bin" 
+                     Permanent="no" 
+                     Part="last" 
+                     Action="set" 
+                     System="yes" />
+
+        <!-- Set REVITPY_HOME environment variable -->
+        <Environment Id="RevitPyHome" 
+                     Name="REVITPY_HOME" 
+                     Value="[INSTALLDIR]" 
+                     Permanent="no" 
+                     Action="set" 
+                     System="yes" />
+
+        <!-- Set Python path for RevitPy -->
+        <Environment Id="RevitPyPythonPath" 
+                     Name="REVITPY_PYTHON" 
+                     Value="[PythonDir]python.exe" 
+                     Permanent="no" 
+                     Action="set" 
+                     System="yes" />
+      </Component>
+    </ComponentGroup>
+
+  </Fragment>
+</Wix>

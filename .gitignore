@@ -1,0 +1,138 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+htmlcov/
+
+# Documentation and AI Files
+.claude/
+CLAUDE.md
+*_SUMMARY.md
+*_CHECKLIST.md
+*_REQUIREMENTS.md
+*_PROCEDURES.md
+*_ASSESSMENT.md
+*_AUDIT.md
+IMPLEMENTATION_SUMMARY.md
+COMPREHENSIVE_SECURITY_QUALITY_ASSESSMENT.md
+EXAMPLES_AND_TEMPLATES_GUIDE.md
+ORM_COMPLETION_SUMMARY.md
+SECURITY_FIXES_SUMMARY.md
+RevitPy-*.md
+REVITPY_*.md
+v1-project.md
+README_OLD.md
+dependency_audit.json
+complexity_report.json
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Secrets and Credentials
+.env.*
+*.key
+*.pem
+*.crt
+*.cer
+secrets/
+credentials/
+
+# OS Files
+Thumbs.db
+Desktop.ini
+
+# Temporary Files
+*.tmp
+*.temp
+*.bak
+tmp/
+temp/
+
+# Build Artifacts
+*.dll
+*.exe
+*.msi
+
+# Node modules (if any)
+node_modules/
+
+# Package Manager
+package-lock.json
+yarn.lock
+
+# C# / .NET (for bridge components)
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Installer artifacts
+installer/output/
+installer/temp/
+
+# Development server
+dev-server/temp/
+dev-server/cache/
+
+# Proof of concepts - might contain experimental code
+proof-of-concepts/experimental/
+proof-of-concepts/temp/

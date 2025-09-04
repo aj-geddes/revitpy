@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RevitPy Group Policy Administrative Template -->
+<policyDefinitionResources xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+  <displayName>RevitPy Administrative Template</displayName>
+  <description>Administrative template for managing RevitPy deployment and configuration</description>
+  
+  <resources>
+    <stringTable>
+      <!-- Category Names -->
+      <string id="RevitPy">RevitPy</string>
+      <string id="RevitPy_Installation">Installation</string>
+      <string id="RevitPy_Configuration">Configuration</string>
+      <string id="RevitPy_Security">Security</string>
+      <string id="RevitPy_Updates">Updates</string>
+      
+      <!-- Installation Policies -->
+      <string id="AutoInstall">Automatically install RevitPy</string>
+      <string id="AutoInstall_Help">
+        This policy setting allows you to configure automatic installation of RevitPy on domain computers.
+        
+        If you enable this policy setting, RevitPy will be automatically installed on computers during startup or user logon.
+        
+        If you disable or do not configure this policy setting, RevitPy will not be automatically installed.
+      </string>
+      
+      <string id="InstallPath">RevitPy installation path</string>
+      <string id="InstallPath_Help">
+        This policy setting allows you to specify the installation path for RevitPy.
+        
+        If you enable this policy setting, RevitPy will be installed to the specified path.
+        
+        If you disable or do not configure this policy setting, RevitPy will be installed to the default path (C:\Program Files\RevitPy).
+      </string>
+      
+      <string id="RevitVersions">Supported Revit versions</string>
+      <string id="RevitVersions_Help">
+        This policy setting allows you to specify which Revit versions should have RevitPy integration enabled.
+        
+        If you enable this policy setting, RevitPy add-ins will be configured for the specified Revit versions only.
+        
+        If you disable or do not configure this policy setting, RevitPy will be configured for all detected Revit versions.
+      </string>
+      
+      <!-- Configuration Policies -->
+      <string id="ConfigurationFile">Organization configuration file</string>
+      <string id="ConfigurationFile_Help">
+        This policy setting allows you to specify a centralized configuration file for RevitPy.
+        
+        If you enable this policy setting, RevitPy will use the specified configuration file and users will not be able to modify certain settings.
+        
+        If you disable or do not configure this policy setting, RevitPy will use default configuration settings.
+      </string>
+      
+      <string id="LogLevel">Logging level</string>
+      <string id="LogLevel_Help">
+        This policy setting allows you to configure the logging level for RevitPy.
+        
+        If you enable this policy setting, RevitPy will log messages according to the specified level:
+        - Error: Only error messages
+        - Warning: Error and warning messages
+        - Information: Error, warning, and informational messages
+        - Debug: All messages including detailed debugging information
+        
+        If you disable or do not configure this policy setting, RevitPy will use the default logging level (Information).
+      </string>
+      
+      <string id="EnableTelemetry">Enable telemetry</string>
+      <string id="EnableTelemetry_Help">
+        This policy setting allows you to control whether RevitPy collects and sends telemetry data.
+        
+        If you enable this policy setting, RevitPy will collect usage statistics and error reports.
+        
+        If you disable this policy setting, RevitPy will not collect any telemetry data.
+        
+        If you do not configure this policy setting, users can choose whether to enable telemetry.
+      </string>
+      
+      <!-- Security Policies -->
+      <string id="CodeSigningRequired">Require code signing</string>
+      <string id="CodeSigningRequired_Help">
+        This policy setting allows you to require that all RevitPy scripts and add-ins be digitally signed.
+        
+        If you enable this policy setting, RevitPy will only execute signed code from trusted publishers.
+        
+        If you disable or do not configure this policy setting, RevitPy will execute both signed and unsigned code.
+      </string>
+      
+      <string id="TrustedPublishers">Trusted code publishers</string>
+      <string id="TrustedPublishers_Help">
+        This policy setting allows you to specify a list of trusted publishers for RevitPy code.
+        
+        If you enable this policy setting, RevitPy will only execute code signed by the specified publishers.
+        
+        If you disable or do not configure this policy setting, RevitPy will accept code from any publisher.
+      </string>
+      
+      <string id="SandboxMode">Enable sandbox mode</string>
+      <string id="SandboxMode_Help">
+        This policy setting allows you to enable sandbox mode for RevitPy script execution.
+        
+        If you enable this policy setting, RevitPy scripts will run in a restricted environment with limited system access.
+        
+        If you disable or do not configure this policy setting, RevitPy scripts will run with normal privileges.
+      </string>
+      
+      <!-- Update Policies -->
+      <string id="AutoUpdate">Enable automatic updates</string>
+      <string id="AutoUpdate_Help">
+        This policy setting allows you to control automatic updates for RevitPy.
+        
+        If you enable this policy setting, RevitPy will automatically check for and install updates.
+        
+        If you disable this policy setting, RevitPy will not check for updates automatically.
+        
+        If you do not configure this policy setting, users can choose whether to enable automatic updates.
+      </string>
+      
+      <string id="UpdateChannel">Update channel</string>
+      <string id="UpdateChannel_Help">
+        This policy setting allows you to specify which update channel RevitPy should use.
+        
+        If you enable this policy setting, RevitPy will receive updates from the specified channel:
+        - Stable: Tested, stable releases
+        - Beta: Pre-release versions with new features
+        - Dev: Development builds (not recommended for production)
+        
+        If you disable or do not configure this policy setting, RevitPy will use the Stable channel.
+      </string>
+      
+      <string id="UpdateServer">Update server URL</string>
+      <string id="UpdateServer_Help">
+        This policy setting allows you to specify a custom update server for RevitPy.
+        
+        If you enable this policy setting, RevitPy will check for updates from the specified server.
+        
+        If you disable or do not configure this policy setting, RevitPy will use the default update server.
+      </string>
+      
+      <!-- Value Options -->
+      <string id="LogLevel_Error">Error</string>
+      <string id="LogLevel_Warning">Warning</string>
+      <string id="LogLevel_Information">Information</string>
+      <string id="LogLevel_Debug">Debug</string>
+      
+      <string id="UpdateChannel_Stable">Stable</string>
+      <string id="UpdateChannel_Beta">Beta</string>
+      <string id="UpdateChannel_Dev">Development</string>
+    </stringTable>
+    
+    <presentationTable>
+      <!-- Text input presentations -->
+      <presentation id="InstallPath_Presentation">
+        <textBox refId="InstallPath_TextBox">
+          <label>Installation path:</label>
+          <defaultValue>C:\Program Files\RevitPy</defaultValue>
+        </textBox>
+      </presentation>
+      
+      <presentation id="RevitVersions_Presentation">
+        <textBox refId="RevitVersions_TextBox">
+          <label>Revit versions (comma-separated):</label>
+          <defaultValue>2022,2023,2024,2025</defaultValue>
+        </textBox>
+      </presentation>
+      
+      <presentation id="ConfigurationFile_Presentation">
+        <textBox refId="ConfigurationFile_TextBox">
+          <label>Configuration file path:</label>
+        </textBox>
+      </presentation>
+      
+      <presentation id="TrustedPublishers_Presentation">
+        <listBox refId="TrustedPublishers_List">Trusted Publishers:</listBox>
+      </presentation>
+      
+      <presentation id="UpdateServer_Presentation">
+        <textBox refId="UpdateServer_TextBox">
+          <label>Update server URL:</label>
+          <defaultValue>https://updates.revitpy.com</defaultValue>
+        </textBox>
+      </presentation>
+      
+      <!-- Dropdown presentations -->
+      <presentation id="LogLevel_Presentation">
+        <dropdownList refId="LogLevel_DropDown" noSort="true" defaultItem="2">Logging Level:</dropdownList>
+      </presentation>
+      
+      <presentation id="UpdateChannel_Presentation">
+        <dropdownList refId="UpdateChannel_DropDown" noSort="true" defaultItem="0">Update Channel:</dropdownList>
+      </presentation>
+    </presentationTable>
+  </resources>
+</policyDefinitionResources>

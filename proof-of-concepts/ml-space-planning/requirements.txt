@@ -1,0 +1,52 @@
+# ML-Powered Space Planning POC Requirements
+# These libraries are IMPOSSIBLE to use in PyRevit due to IronPython 2.7 limitations
+
+# Core machine learning
+tensorflow>=2.13.0
+scikit-learn>=1.3.0
+torch>=2.0.0
+xgboost>=1.7.0
+
+# Optimization libraries  
+cvxpy>=1.3.0
+scipy>=1.10.0
+pulp>=2.7.0
+
+# Data manipulation
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Visualization
+plotly>=5.15.0
+matplotlib>=3.6.0
+seaborn>=0.12.0
+
+# Reinforcement learning
+stable-baselines3>=2.0.0
+gymnasium>=0.28.0
+
+# Graph algorithms for space relationships
+networkx>=3.1
+
+# Geometric algorithms
+shapely>=2.0.0
+alphashape>=1.3.1
+
+# Genetic algorithms
+deap>=1.3.0
+
+# Time series analysis for occupancy prediction
+prophet>=1.1.0
+
+# Advanced clustering
+scikit-learn-extra>=0.3.0
+hdbscan>=0.8.0
+
+# Model interpretation
+shap>=0.42.0
+
+# Configuration management
+hydra-core>=1.3.0
+
+# Progress tracking
+tqdm>=4.65.0

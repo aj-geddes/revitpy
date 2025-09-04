@@ -1,0 +1,46 @@
+# Minimal requirements for desktop package registry
+# Focused on essential dependencies only
+
+# Core web framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+
+# Database (SQLite support)
+sqlalchemy==2.0.23
+aiosqlite==0.19.0
+
+# File handling
+aiofiles==23.2.1
+
+# HTTP client for registry communication  
+httpx==0.25.2
+aiohttp==3.9.1
+
+# Security
+cryptography==42.0.2
+bcrypt==4.1.2
+python-jose[cryptography]==3.3.0
+
+# Package management
+packaging==23.2
+
+# CLI and output
+click==8.1.7
+rich==13.7.0
+typer==0.9.0
+
+# Configuration
+pyyaml==6.0.1
+python-multipart==0.0.6
+
+# Optional caching (Redis)
+redis==5.0.0
+
+# Utilities
+python-dateutil==2.8.2
+python-slugify==8.0.1
+
+# Development/testing (optional)
+pytest==7.4.3
+pytest-asyncio==0.21.1

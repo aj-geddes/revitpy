@@ -1,0 +1,31 @@
+{
+  "project_name": "My RevitPy Add-in",
+  "project_slug": "{{ cookiecutter.project_name.lower().replace(' ', '-').replace('_', '-') }}",
+  "project_description": "A comprehensive RevitPy add-in for Revit automation",
+  "author_name": "Your Name",
+  "author_email": "your.email@example.com",
+  "company": "Your Company",
+  "version": "1.0.0",
+  "python_version": "3.11",
+  "license": ["MIT", "Apache-2.0", "BSD-3-Clause", "GPL-3.0", "Proprietary"],
+  "create_ribbon_tab": "y",
+  "ribbon_tab_name": "{{ cookiecutter.project_name }}",
+  "create_dockable_panel": "y",
+  "use_external_events": "y",
+  "include_ui_framework": ["WPF", "WinForms", "None"],
+  "include_settings_manager": "y",
+  "include_logging": "y",
+  "use_dependency_injection": "y",
+  "create_command_pattern": "y",
+  "include_unit_tests": "y",
+  "include_integration_tests": "y",
+  "create_installer": "y",
+  "revit_versions": {
+    "2022": "y",
+    "2023": "y", 
+    "2024": "y",
+    "2025": "y"
+  },
+  "target_framework": "net48",
+  "assembly_guid": "{{ 99999999 | random | string + '-' + 9999 | random | string + '-' + 9999 | random | string + '-' + 9999 | random | string + '-' + 999999999999 | random | string }}"
+}

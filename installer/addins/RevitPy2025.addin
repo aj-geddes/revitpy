@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>RevitPy</Name>
+    <Assembly>C:\Program Files\RevitPy\bin\RevitPy.Bridge.dll</Assembly>
+    <AddInId>C9B9B9C1-4C4C-4C4C-8888-999999999999</AddInId>
+    <FullClassName>RevitPy.Bridge.RevitPyApplication</FullClassName>
+    <VendorId>REVITPY</VendorId>
+    <VendorDescription>RevitPy Team - Modern Python Framework for Revit</VendorDescription>
+    <Description>RevitPy for Revit 2025 - Modern Python Framework for Revit Development</Description>
+    <VisibilityMode>NotVisibleWhenNoActiveDocument</VisibilityMode>
+  </AddIn>
+</RevitAddIns>

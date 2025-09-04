@@ -1,0 +1,77 @@
+# Advanced Structural Analysis POC Requirements
+# These libraries are IMPOSSIBLE to use in PyRevit due to IronPython 2.7 limitations
+
+# Core numerical computing
+numpy>=1.24.0
+scipy>=1.10.0
+pandas>=2.0.0
+
+# Finite Element Analysis
+fenics>=2019.1.0
+dolfin>=2019.1.0
+
+# Advanced optimization
+cvxpy>=1.3.0
+pulp>=2.7.0
+
+# Matrix operations and sparse solvers
+scikit-sparse>=0.4.8
+sksparse>=0.4.8
+
+# Engineering calculations
+engineering-notation>=0.8.0
+pint>=0.22  # Units handling
+
+# Structural analysis
+openseespy>=3.4.0.1  # OpenSees Python wrapper
+pyfem>=1.0.0
+
+# Visualization
+matplotlib>=3.6.0
+plotly>=5.15.0
+mayavi>=4.8.1  # 3D visualization
+
+# Machine learning for optimization
+scikit-learn>=1.3.0
+tensorflow>=2.13.0
+
+# Statistical analysis
+statsmodels>=0.14.0
+
+# Geometric algorithms
+shapely>=2.0.0
+trimesh>=3.23.0
+
+# CAD/BIM integration
+ifcopenshell>=0.7.0
+pythonocc-core>=7.7.0
+
+# Load combinations and standards
+aisc>=0.1.0  # AISC steel design
+concrete-properties>=0.5.0
+
+# Seismic analysis
+pytsmod>=0.1.0
+obspy>=1.4.0  # Seismology tools
+
+# Wind analysis
+windrose>=1.9.0
+
+# Optimization algorithms
+deap>=1.3.0  # Genetic algorithms
+pymoo>=0.6.0  # Multi-objective optimization
+
+# Performance computing
+numba>=0.57.0
+joblib>=1.3.0
+
+# Data visualization
+seaborn>=0.12.0
+bokeh>=3.2.0
+
+# Configuration management
+pydantic>=2.0.0
+hydra-core>=1.3.0
+
+# Progress tracking
+tqdm>=4.65.0

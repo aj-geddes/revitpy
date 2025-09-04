@@ -1,0 +1,66 @@
+# Parameter Management Utility Requirements
+# RevitPy core dependencies
+revitpy>=1.0.0
+
+# Data processing and manipulation
+pandas>=1.5.0
+numpy>=1.24.0
+openpyxl>=3.0.10
+xlsxwriter>=3.0.8
+
+# CSV and data handling
+chardet>=5.1.0
+python-dateutil>=2.8.2
+
+# Progress tracking and UI
+tqdm>=4.64.0
+click>=8.1.0
+
+# Configuration and validation
+pyyaml>=6.0
+jsonschema>=4.17.0
+cerberus>=1.3.4
+
+# Logging and monitoring  
+structlog>=22.3.0
+colorama>=0.4.6
+
+# Testing dependencies
+pytest>=7.2.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+pytest-xdist>=3.2.0
+
+# Development dependencies
+black>=22.12.0
+isort>=5.11.0
+flake8>=6.0.0
+mypy>=1.0.0
+
+# Documentation
+sphinx>=5.3.0
+sphinx-rtd-theme>=1.2.0
+
+# Units and conversions
+pint>=0.20.0
+
+# File handling and utilities
+pathlib2>=2.3.7
+chardet>=5.1.0
+
+# Date and time utilities
+python-dateutil>=2.8.2
+
+# Regular expressions
+regex>=2022.10.31
+
+# Performance monitoring
+psutil>=5.9.0
+
+# Database support (for audit trails)
+sqlite3>=3.7.0  # Built-in, but listed for completeness
+sqlalchemy>=1.4.46
+
+# Backup and compression
+zipfile>=3.7.0  # Built-in
+shutil>=3.7.0   # Built-in

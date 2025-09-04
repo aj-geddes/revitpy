@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  
+  <Fragment>
+    <!-- Custom User Interface -->
+    <UI Id="RevitPyInstaller">
+      <!-- Reference standard dialogs -->
+      <UIRef Id="WixUI_Common" />
+      
+      <!-- Welcome Dialog -->
+      <Dialog Id="RevitPyWelcomeDlg" Width="370" Height="270" Title="!(loc.WelcomeDlg_Title)">
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="!(loc.WelcomeDlgBitmap)" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.WixUIBack)" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Description" Type="Text" X="135" Y="80" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="RevitPy provides a modern Python framework for Revit development. This installer will automatically detect your Revit installations and configure the add-in." />
+        <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Bigger}Welcome to the RevitPy Setup Wizard" />
+      </Dialog>
+
+      <!-- Revit Detection Dialog -->
+      <Dialog Id="RevitDetectionDlg" Width="370" Height="270" Title="Revit Installation Detection">
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Revit Installations Detected" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="The following Revit installations were detected:" />
+        
+        <!-- Revit Version Checkboxes -->
+        <Control Id="Revit2022Check" Type="CheckBox" X="25" Y="60" Width="320" Height="15" Property="INSTALL_REVIT_2022" CheckBoxValue="1" Text="Autodesk Revit 2022" />
+        <Control Id="Revit2023Check" Type="CheckBox" X="25" Y="80" Width="320" Height="15" Property="INSTALL_REVIT_2023" CheckBoxValue="1" Text="Autodesk Revit 2023" />
+        <Control Id="Revit2024Check" Type="CheckBox" X="25" Y="100" Width="320" Height="15" Property="INSTALL_REVIT_2024" CheckBoxValue="1" Text="Autodesk Revit 2024" />
+        <Control Id="Revit2025Check" Type="CheckBox" X="25" Y="120" Width="320" Height="15" Property="INSTALL_REVIT_2025" CheckBoxValue="1" Text="Autodesk Revit 2025" />
+        
+        <!-- Python Installation Status -->
+        <Control Id="PythonStatusText" Type="Text" X="25" Y="150" Width="320" Height="15" Text="Python Status:" />
+        <Control Id="PythonVersionText" Type="Text" X="25" Y="170" Width="320" Height="15" Text="[PYTHON_STATUS_TEXT]" />
+        <Control Id="InstallPythonCheck" Type="CheckBox" X="25" Y="190" Width="320" Height="15" Property="INSTALL_PYTHON" CheckBoxValue="1" Text="Install Python 3.11 runtime (recommended)" />
+      </Dialog>
+
+      <!-- Installation Progress Dialog -->
+      <Dialog Id="RevitPyProgressDlg" Width="370" Height="270" Title="Installing RevitPy" Modeless="yes">
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Installing RevitPy" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Please wait while RevitPy is being installed..." />
+        <Control Id="ActionText" Type="Text" X="25" Y="60" Width="320" Height="15" Text="[ActionText]" />
+        <Control Id="ProgressBar" Type="ProgressBar" X="25" Y="80" Width="320" Height="15" />
+        <Control Id="StatusText" Type="Text" X="25" Y="105" Width="320" Height="30" Text="[StatusText]" />
+      </Dialog>
+
+      <!-- Installation Complete Dialog -->
+      <Dialog Id="RevitPyFinishedDlg" Width="370" Height="270" Title="RevitPy Installation Complete">
+        <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUIFinish)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="!(loc.WelcomeDlgBitmap)" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.WixUIBack)" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Description" Type="Text" X="135" Y="80" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="RevitPy has been successfully installed. The add-in is now available in your Revit installations." />
+        <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Bigger}RevitPy Installation Complete" />
+        
+        <!-- Launch options -->
+        <Control Id="LaunchCheckBox" Type="CheckBox" X="135" Y="140" Width="220" Height="15" Property="LAUNCH_DOCUMENTATION" CheckBoxValue="1" Text="View RevitPy documentation" />
+        <Control Id="ServiceCheckBox" Type="CheckBox" X="135" Y="160" Width="220" Height="15" Property="START_SERVICE" CheckBoxValue="1" Text="Start RevitPy Host Service" />
+      </Dialog>
+
+      <!-- Define dialog sequence -->
+      <InstallUISequence>
+        <Show Dialog="RevitPyWelcomeDlg" Before="RevitDetectionDlg" />
+        <Show Dialog="RevitDetectionDlg" After="RevitPyWelcomeDlg" />
+        <Show Dialog="LicenseAgreementDlg" After="RevitDetectionDlg" />
+        <Show Dialog="InstallDirDlg" After="LicenseAgreementDlg" />
+        <Show Dialog="VerifyReadyDlg" After="InstallDirDlg" />
+        <Show Dialog="RevitPyProgressDlg" After="ExecuteAction" />
+        <Show Dialog="RevitPyFinishedDlg" After="RevitPyProgressDlg" />
+      </InstallUISequence>
+    </UI>
+
+    <!-- Custom Dialog Events -->
+    <UI>
+      <!-- Welcome Dialog Events -->
+      <Publish Dialog="RevitPyWelcomeDlg" Control="Next" Event="NewDialog" Value="RevitDetectionDlg">1</Publish>
+
+      <!-- Revit Detection Dialog Events -->
+      <Publish Dialog="RevitDetectionDlg" Control="Back" Event="NewDialog" Value="RevitPyWelcomeDlg">1</Publish>
+      <Publish Dialog="RevitDetectionDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
+
+      <!-- Progress Dialog Events -->
+      <Publish Dialog="RevitPyProgressDlg" Control="Cancel" Event="SpawnDialog" Value="CancelDlg">1</Publish>
+
+      <!-- Finish Dialog Events -->
+      <Publish Dialog="RevitPyFinishedDlg" Control="Finish" Event="EndDialog" Value="Return">1</Publish>
+      <Publish Dialog="RevitPyFinishedDlg" Control="Finish" Event="DoAction" Value="LaunchDocumentation" Order="1">LAUNCH_DOCUMENTATION = "1"</Publish>
+      <Publish Dialog="RevitPyFinishedDlg" Control="Finish" Event="DoAction" Value="StartService" Order="2">START_SERVICE = "1"</Publish>
+    </UI>
+
+    <!-- Condition Checks for Dialog Controls -->
+    <UI>
+      <!-- Show/Hide Revit version checkboxes based on detection -->
+      <Publish Dialog="RevitDetectionDlg" Control="Revit2022Check" Property="Disabled" Value="1">NOT REVIT_2022_INSTALLED</Publish>
+      <Publish Dialog="RevitDetectionDlg" Control="Revit2023Check" Property="Disabled" Value="1">NOT REVIT_2023_INSTALLED</Publish>
+      <Publish Dialog="RevitDetectionDlg" Control="Revit2024Check" Property="Disabled" Value="1">NOT REVIT_2024_INSTALLED</Publish>
+      <Publish Dialog="RevitDetectionDlg" Control="Revit2025Check" Property="Disabled" Value="1">NOT REVIT_2025_INSTALLED</Publish>
+
+      <!-- Set default selections for detected versions -->
+      <Publish Dialog="RevitDetectionDlg" Control="Revit2022Check" Property="INSTALL_REVIT_2022" Value="1">REVIT_2022_INSTALLED</Publish>
+      <Publish Dialog="RevitDetectionDlg" Control="Revit2023Check" Property="INSTALL_REVIT_2023" Value="1">REVIT_2023_INSTALLED</Publish>
+      <Publish Dialog="RevitDetectionDlg" Control="Revit2024Check" Property="INSTALL_REVIT_2024" Value="1">REVIT_2024_INSTALLED</Publish>
+      <Publish Dialog="RevitDetectionDlg" Control="Revit2025Check" Property="INSTALL_REVIT_2025" Value="1">REVIT_2025_INSTALLED</Publish>
+    </UI>
+
+    <!-- Additional Custom Actions for UI -->
+    <CustomAction Id="LaunchDocumentation" 
+                  ExeCommand="[#SystemFolder]cmd.exe /c start https://revitpy.readthedocs.io/" 
+                  Directory="SystemFolder" 
+                  Return="asyncNoWait" />
+
+    <CustomAction Id="SetPythonStatusText" 
+                  Property="PYTHON_STATUS_TEXT" 
+                  Value="Python [PYTHON_VERSION] detected" />
+
+    <CustomAction Id="SetPythonNotFoundText" 
+                  Property="PYTHON_STATUS_TEXT" 
+                  Value="Python not found - will install Python 3.11" />
+
+    <!-- Conditional text setting -->
+    <InstallUISequence>
+      <Custom Action="SetPythonStatusText" After="DetectPythonInstallation">PYTHON_INSTALLED</Custom>
+      <Custom Action="SetPythonNotFoundText" After="DetectPythonInstallation">NOT PYTHON_INSTALLED</Custom>
+    </InstallUISequence>
+
+  </Fragment>
+</Wix>

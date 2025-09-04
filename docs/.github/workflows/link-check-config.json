@@ -1,0 +1,48 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^http://localhost"
+    },
+    {
+      "pattern": "^https://localhost"
+    },
+    {
+      "pattern": "^http://127.0.0.1"
+    },
+    {
+      "pattern": "^https://revitpy.dev"
+    },
+    {
+      "pattern": "^mailto:"
+    },
+    {
+      "pattern": "^tel:"
+    },
+    {
+      "pattern": "^ftp:"
+    },
+    {
+      "pattern": "github.com.*#L\\d+"
+    }
+  ],
+  "replacementPatterns": [
+    {
+      "pattern": "^/",
+      "replacement": "https://docs.revitpy.dev/"
+    }
+  ],
+  "httpHeaders": [
+    {
+      "urls": ["https://github.com"],
+      "headers": {
+        "Accept": "text/html",
+        "User-Agent": "Mozilla/5.0 (compatible; link-check)"
+      }
+    }
+  ],
+  "timeout": "20s",
+  "retryOn429": true,
+  "retryCount": 3,
+  "fallbackRetryDelay": "30s",
+  "aliveStatusCodes": [200, 206, 301, 302, 303, 304, 307, 308, 403, 406, 409, 410, 429, 500, 502, 503, 999]
+}

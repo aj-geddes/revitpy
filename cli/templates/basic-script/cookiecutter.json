@@ -1,0 +1,20 @@
+{
+  "project_name": "My RevitPy Script",
+  "project_slug": "{{ cookiecutter.project_name.lower().replace(' ', '-').replace('_', '-') }}",
+  "project_description": "A basic RevitPy script for Revit automation",
+  "author_name": "Your Name",
+  "author_email": "your.email@example.com",
+  "version": "0.1.0",
+  "python_version": "3.11",
+  "license": ["MIT", "Apache-2.0", "BSD-3-Clause", "GPL-3.0", "Proprietary"],
+  "use_pytest": "y",
+  "use_black": "y",
+  "use_mypy": "y",
+  "create_vscode_settings": "y",
+  "revit_versions": {
+    "2022": "y",
+    "2023": "y",
+    "2024": "y",
+    "2025": "y"
+  }
+}

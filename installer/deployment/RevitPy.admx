@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policyDefinitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+  <policyNamespaces>
+    <target prefix="revitpy" namespace="RevitPy.Policies.RevitPy" />
+  </policyNamespaces>
+  
+  <resources minRequiredRevision="1.0" />
+  
+  <categories>
+    <category name="RevitPy" displayName="$(string.RevitPy)">
+      <parentCategory ref="windows:WindowsComponents" />
+    </category>
+    <category name="RevitPy_Installation" displayName="$(string.RevitPy_Installation)">
+      <parentCategory ref="RevitPy" />
+    </category>
+    <category name="RevitPy_Configuration" displayName="$(string.RevitPy_Configuration)">
+      <parentCategory ref="RevitPy" />
+    </category>
+    <category name="RevitPy_Security" displayName="$(string.RevitPy_Security)">
+      <parentCategory ref="RevitPy" />
+    </category>
+    <category name="RevitPy_Updates" displayName="$(string.RevitPy_Updates)">
+      <parentCategory ref="RevitPy" />
+    </category>
+  </categories>
+  
+  <policies>
+    <!-- Installation Policies -->
+    <policy name="AutoInstall" class="Machine" displayName="$(string.AutoInstall)" explainText="$(string.AutoInstall_Help)" key="SOFTWARE\Policies\RevitPy\Installation" valueName="AutoInstall">
+      <parentCategory ref="RevitPy_Installation" />
+      <supportedOn ref="windows:SUPPORTED_WindowsVista" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    
+    <policy name="InstallPath" class="Machine" displayName="$(string.InstallPath)" explainText="$(string.InstallPath_Help)" key="SOFTWARE\Policies\RevitPy\Installation" presentation="$(presentation.InstallPath_Presentation)">
+      <parentCategory ref="RevitPy_Installation" />
+      <supportedOn ref="windows:SUPPORTED_WindowsVista" />
+      <elements>
+        <text id="InstallPath_TextBox" valueName="InstallPath" />
+      </elements>
+    </policy>
+    
+    <policy name="RevitVersions" class="Machine" displayName="$(string.RevitVersions)" explainText="$(string.RevitVersions_Help)" key="SOFTWARE\Policies\RevitPy\Installation" presentation="$(presentation.RevitVersions_Presentation)">
+      <parentCategory ref="RevitPy_Installation" />
+      <supportedOn ref="windows:SUPPORTED_WindowsVista" />
+      <elements>
+        <text id="RevitVersions_TextBox" valueName="RevitVersions" />
+      </elements>
+    </policy>
+    
+    <!-- Configuration Policies -->
+    <policy name="ConfigurationFile" class="Machine" displayName="$(string.ConfigurationFile)" explainText="$(string.ConfigurationFile_Help)" key="SOFTWARE\Policies\RevitPy\Configuration" presentation="$(presentation.ConfigurationFile_Presentation)">
+      <parentCategory ref="RevitPy_Configuration" />
+      <supportedOn ref="windows:SUPPORTED_WindowsVista" />
+      <elements>
+        <text id="ConfigurationFile_TextBox" valueName="ConfigurationFile" />
+      </elements>
+    </policy>
+    
+    <policy name="LogLevel" class="Machine" displayName="$(string.LogLevel)" explainText="$(string.LogLevel_Help)" key="SOFTWARE\Policies\RevitPy\Configuration" presentation="$(presentation.LogLevel_Presentation)">
+      <parentCategory ref="RevitPy_Configuration" />
+      <supportedOn ref="windows:SUPPORTED_WindowsVista" />
+      <elements>
+        <enum id="LogLevel_DropDown" valueName="LogLevel">
+          <item displayName="$(string.LogLevel_Error)">
+            <value>
+              <string>Error</string>
+            </value>
+          </item>
+          <item displayName="$(string.LogLevel_Warning)">
+            <value>
+              <string>Warning</string>
+            </value>
+          </item>
+          <item displayName="$(string.LogLevel_Information)">
+            <value>
+              <string>Information</string>
+            </value>
+          </item>
+          <item displayName="$(string.LogLevel_Debug)">
+            <value>
+              <string>Debug</string>
+            </value>
+          </item>
+        </enum>
+      </elements>
+    </policy>
+    
+    <policy name="EnableTelemetry" class="Machine" displayName="$(string.EnableTelemetry)" explainText="$(string.EnableTelemetry_Help)" key="SOFTWARE\Policies\RevitPy\Configuration" valueName="EnableTelemetry">
+      <parentCategory ref="RevitPy_Configuration" />
+      <supportedOn ref="windows:SUPPORTED_WindowsVista" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    
+    <!-- Security Policies -->
+    <policy name="CodeSigningRequired" class="Machine" displayName="$(string.CodeSigningRequired)" explainText="$(string.CodeSigningRequired_Help)" key="SOFTWARE\Policies\RevitPy\Security" valueName="CodeSigningRequired">
+      <parentCategory ref="RevitPy_Security" />
+      <supportedOn ref="windows:SUPPORTED_WindowsVista" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    
+    <policy name="TrustedPublishers" class="Machine" displayName="$(string.TrustedPublishers)" explainText="$(string.TrustedPublishers_Help)" key="SOFTWARE\Policies\RevitPy\Security" presentation="$(presentation.TrustedPublishers_Presentation)">
+      <parentCategory ref="RevitPy_Security" />
+      <supportedOn ref="windows:SUPPORTED_WindowsVista" />
+      <elements>
+        <list id="TrustedPublishers_List" key="SOFTWARE\Policies\RevitPy\Security\TrustedPublishers" valueName="" />
+      </elements>
+    </policy>
+    
+    <policy name="SandboxMode" class="Machine" displayName="$(string.SandboxMode)" explainText="$(string.SandboxMode_Help)" key="SOFTWARE\Policies\RevitPy\Security" valueName="SandboxMode">
+      <parentCategory ref="RevitPy_Security" />
+      <supportedOn ref="windows:SUPPORTED_WindowsVista" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    
+    <!-- Update Policies -->
+    <policy name="AutoUpdate" class="Machine" displayName="$(string.AutoUpdate)" explainText="$(string.AutoUpdate_Help)" key="SOFTWARE\Policies\RevitPy\Updates" valueName="AutoUpdate">
+      <parentCategory ref="RevitPy_Updates" />
+      <supportedOn ref="windows:SUPPORTED_WindowsVista" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    
+    <policy name="UpdateChannel" class="Machine" displayName="$(string.UpdateChannel)" explainText="$(string.UpdateChannel_Help)" key="SOFTWARE\Policies\RevitPy\Updates" presentation="$(presentation.UpdateChannel_Presentation)">
+      <parentCategory ref="RevitPy_Updates" />
+      <supportedOn ref="windows:SUPPORTED_WindowsVista" />
+      <elements>
+        <enum id="UpdateChannel_DropDown" valueName="UpdateChannel">
+          <item displayName="$(string.UpdateChannel_Stable)">
+            <value>
+              <string>Stable</string>
+            </value>
+          </item>
+          <item displayName="$(string.UpdateChannel_Beta)">
+            <value>
+              <string>Beta</string>
+            </value>
+          </item>
+          <item displayName="$(string.UpdateChannel_Dev)">
+            <value>
+              <string>Development</string>
+            </value>
+          </item>
+        </enum>
+      </elements>
+    </policy>
+    
+    <policy name="UpdateServer" class="Machine" displayName="$(string.UpdateServer)" explainText="$(string.UpdateServer_Help)" key="SOFTWARE\Policies\RevitPy\Updates" presentation="$(presentation.UpdateServer_Presentation)">
+      <parentCategory ref="RevitPy_Updates" />
+      <supportedOn ref="windows:SUPPORTED_WindowsVista" />
+      <elements>
+        <text id="UpdateServer_TextBox" valueName="UpdateServer" />
+      </elements>
+    </policy>
+  </policies>
+</policyDefinitions>

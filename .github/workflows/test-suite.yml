@@ -1,0 +1,534 @@
+name: RevitPy Test Suite
+
+on:
+  push:
+    branches: [main, develop, 'feature/*', 'bugfix/*']
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run nightly tests at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_level:
+        description: 'Test level to run'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+        - 'unit'
+        - 'integration'
+        - 'performance'
+        - 'security'
+        - 'standard'
+        - 'full'
+
+env:
+  PYTHON_VERSION: '3.11'
+  DOTNET_VERSION: '6.0.x'
+  NODE_VERSION: '18'
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      test-level: ${{ steps.determine-tests.outputs.test-level }}
+      matrix-python: ${{ steps.determine-tests.outputs.matrix-python }}
+      matrix-os: ${{ steps.determine-tests.outputs.matrix-os }}
+    steps:
+      - name: Determine test level
+        id: determine-tests
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "test-level=${{ github.event.inputs.test_level }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "test-level=full" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "test-level=standard" >> $GITHUB_OUTPUT
+          else
+            echo "test-level=unit" >> $GITHUB_OUTPUT
+          fi
+          
+          # Set matrix configurations
+          if [[ "$test_level" == "full" ]]; then
+            echo 'matrix-python=["3.11", "3.12"]' >> $GITHUB_OUTPUT
+            echo 'matrix-os=["ubuntu-latest", "windows-latest", "macos-latest"]' >> $GITHUB_OUTPUT
+          else
+            echo 'matrix-python=["3.11"]' >> $GITHUB_OUTPUT
+            echo 'matrix-os=["ubuntu-latest"]' >> $GITHUB_OUTPUT
+          fi
+
+  lint-and-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black isort flake8 mypy bandit safety
+          pip install -e .
+      
+      - name: Format check with Black
+        run: black --check --diff revitpy/ tests/
+      
+      - name: Import sorting with isort
+        run: isort --check-only --diff revitpy/ tests/
+      
+      - name: Lint with flake8
+        run: |
+          flake8 revitpy/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 revitpy/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+      
+      - name: Type checking with mypy
+        run: mypy revitpy/ --ignore-missing-imports
+      
+      - name: Security scan with bandit
+        run: bandit -r revitpy/ -f json -o bandit-report.json
+        continue-on-error: true
+      
+      - name: Dependency security check
+        run: safety check --json --output safety-report.json
+        continue-on-error: true
+      
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+
+  unit-tests:
+    runs-on: ${{ matrix.os }}
+    needs: setup
+    if: contains(fromJson('["unit", "standard", "full"]'), needs.setup.outputs.test-level)
+    strategy:
+      matrix:
+        os: ${{ fromJson(needs.setup.outputs.matrix-os) }}
+        python-version: ${{ fromJson(needs.setup.outputs.matrix-python) }}
+        
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev,test]
+          pip install pytest pytest-cov pytest-asyncio pytest-xdist pytest-benchmark
+      
+      - name: Build C# components
+        run: |
+          dotnet build RevitPy.sln --configuration Release --verbosity normal
+      
+      - name: Run Python unit tests
+        run: |
+          pytest tests/unit/python/ \
+            --cov=revitpy \
+            --cov-report=xml:coverage-python.xml \
+            --cov-report=html:htmlcov-python \
+            --junitxml=junit-python.xml \
+            --durations=10 \
+            -v \
+            -m "unit and not slow"
+      
+      - name: Run C# unit tests
+        run: |
+          dotnet test tests/RevitPy.Tests/ \
+            --configuration Release \
+            --logger trx \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults/ \
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+      
+      - name: Upload Python coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage-python.xml
+          flags: python,unit
+          name: python-unit-${{ matrix.os }}-${{ matrix.python-version }}
+      
+      - name: Upload C# coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./TestResults/*/coverage.opencover.xml
+          flags: csharp,unit
+          name: csharp-unit-${{ matrix.os }}
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: unit-test-results-${{ matrix.os }}-${{ matrix.python-version }}
+          path: |
+            junit-python.xml
+            htmlcov-python/
+            TestResults/
+
+  integration-tests:
+    runs-on: ${{ matrix.os }}
+    needs: [setup, unit-tests]
+    if: contains(fromJson('["integration", "standard", "full"]'), needs.setup.outputs.test-level)
+    strategy:
+      matrix:
+        os: ${{ fromJson(needs.setup.outputs.matrix-os) }}
+        python-version: ${{ fromJson(needs.setup.outputs.matrix-python) }}
+        
+    services:
+      # Test database for package manager tests
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_USER: testuser
+          POSTGRES_DB: revitpy_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    env:
+      TEST_DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/revitpy_test
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev,test]
+          pip install pytest pytest-cov pytest-asyncio pytest-xdist
+      
+      - name: Build C# components
+        run: |
+          dotnet build RevitPy.sln --configuration Release
+      
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ \
+            --cov=revitpy \
+            --cov-append \
+            --cov-report=xml:coverage-integration.xml \
+            --junitxml=junit-integration.xml \
+            --durations=10 \
+            -v \
+            -m "integration and not slow"
+        env:
+          REVITPY_TEST_MODE: integration
+      
+      - name: Upload integration coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage-integration.xml
+          flags: integration
+          name: integration-${{ matrix.os }}-${{ matrix.python-version }}
+      
+      - name: Upload integration test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: integration-test-results-${{ matrix.os }}-${{ matrix.python-version }}
+          path: |
+            junit-integration.xml
+
+  performance-tests:
+    runs-on: ubuntu-latest
+    needs: [setup, unit-tests]
+    if: contains(fromJson('["performance", "full"]'), needs.setup.outputs.test-level)
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev,test]
+          pip install pytest pytest-benchmark psutil
+      
+      - name: Build C# components (Release)
+        run: |
+          dotnet build RevitPy.sln --configuration Release --verbosity minimal
+      
+      - name: Run performance benchmarks
+        run: |
+          pytest tests/performance/ \
+            --benchmark-only \
+            --benchmark-json=benchmark-results.json \
+            --benchmark-min-rounds=5 \
+            --benchmark-warmup=on \
+            --benchmark-disable-gc \
+            -v \
+            -m "performance"
+      
+      - name: Store benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: 'pytest'
+          output-file-path: benchmark-results.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: false
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: true
+          alert-comment-cc-users: '@maintainers'
+      
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-results
+          path: benchmark-results.json
+
+  security-tests:
+    runs-on: ubuntu-latest
+    needs: [setup, unit-tests]
+    if: contains(fromJson('["security", "full"]'), needs.setup.outputs.test-level)
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install security testing tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev,test]
+          pip install pytest bandit safety semgrep
+      
+      - name: Run security tests
+        run: |
+          pytest tests/security/ \
+            --junitxml=junit-security.xml \
+            --durations=10 \
+            -v \
+            -m "security"
+      
+      - name: Run SAST with Semgrep
+        run: |
+          python -m semgrep --config=auto --json --output=semgrep-results.json revitpy/
+        continue-on-error: true
+      
+      - name: Upload security test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-test-results
+          path: |
+            junit-security.xml
+            semgrep-results.json
+
+  compatibility-tests:
+    runs-on: windows-latest
+    needs: [setup, unit-tests]
+    if: contains(fromJson('["full"]'), needs.setup.outputs.test-level)
+    
+    strategy:
+      matrix:
+        revit-version: ['2022', '2023', '2024', '2025']
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev,test]
+          pip install pytest
+      
+      - name: Mock Revit ${{ matrix.revit-version }} environment
+        run: |
+          # Create mock Revit assemblies for version
+          mkdir -p "C:\Program Files\Autodesk\Revit ${{ matrix.revit-version }}"
+          echo "Mock Revit ${{ matrix.revit-version }} for testing" > "C:\Program Files\Autodesk\Revit ${{ matrix.revit-version }}\RevitAPI.dll"
+      
+      - name: Run compatibility tests
+        run: |
+          pytest tests/integration/compatibility/ \
+            --junitxml=junit-compatibility-${{ matrix.revit-version }}.xml \
+            -v \
+            -k "test_revit_${{ matrix.revit-version }}"
+        env:
+          REVIT_VERSION: ${{ matrix.revit-version }}
+          REVIT_PATH: "C:\Program Files\Autodesk\Revit ${{ matrix.revit-version }}"
+      
+      - name: Upload compatibility test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: compatibility-test-results-${{ matrix.revit-version }}
+          path: junit-compatibility-${{ matrix.revit-version }}.xml
+
+  e2e-tests:
+    runs-on: windows-latest
+    needs: [setup, integration-tests]
+    if: contains(fromJson('["full"]'), needs.setup.outputs.test-level)
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev,test]
+          pip install pytest playwright
+          npm install -g @playwright/test
+      
+      - name: Install Playwright browsers
+        run: playwright install
+      
+      - name: Build all components
+        run: |
+          dotnet build RevitPy.sln --configuration Release
+          cd src/RevitPy.DevTools && npm install && npm run build
+      
+      - name: Run E2E tests
+        run: |
+          pytest tests/integration/e2e/ \
+            --junitxml=junit-e2e.xml \
+            --durations=10 \
+            -v \
+            -m "e2e"
+        env:
+          REVITPY_E2E_MODE: true
+      
+      - name: Upload E2E test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: e2e-test-results
+          path: |
+            junit-e2e.xml
+            test-results/
+
+  test-report:
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, unit-tests, integration-tests, performance-tests, security-tests]
+    if: always()
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+      
+      - name: Publish test report
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: RevitPy Test Results
+          path: '**/*junit*.xml'
+          reporter: java-junit
+          fail-on-error: true
+      
+      - name: Generate coverage report
+        run: |
+          echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Coverage reports have been generated and uploaded to Codecov." >> $GITHUB_STEP_SUMMARY
+          echo "View detailed coverage at: https://codecov.io/gh/${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Performance regression check
+        if: contains(needs.performance-tests.result, 'success')
+        run: |
+          if [ -f benchmark-results/benchmark-results.json ]; then
+            echo "## Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
+            echo "Benchmark results available in artifacts." >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Security findings summary
+        if: contains(needs.security-tests.result, 'success')
+        run: |
+          echo "## Security Test Results" >> $GITHUB_STEP_SUMMARY
+          if [ -f security-test-results/junit-security.xml ]; then
+            echo "Security tests completed. Check artifacts for detailed results." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [test-report]
+    if: always() && github.event_name != 'pull_request'
+    
+    steps:
+      - name: Notify on success
+        if: needs.test-report.result == 'success'
+        run: |
+          echo "✅ All tests passed successfully!"
+          echo "Test suite completed for commit ${{ github.sha }}"
+      
+      - name: Notify on failure
+        if: needs.test-report.result == 'failure'
+        run: |
+          echo "❌ Test failures detected!"
+          echo "Check the test report for details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          exit 1

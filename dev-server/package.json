@@ -1,0 +1,82 @@
+{
+  "name": "@revitpy/dev-server",
+  "version": "1.0.0",
+  "description": "High-performance hot-reload development server for RevitPy",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "revitpy-dev-server": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod +x dist/cli.js",
+    "dev": "tsc --watch & node --loader ts-node/esm src/cli.ts",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "lint": "eslint src/**/*.ts",
+    "clean": "rimraf dist",
+    "perf": "clinic doctor -- node dist/cli.js",
+    "benchmark": "node dist/benchmark.js"
+  },
+  "keywords": [
+    "revit",
+    "python",
+    "hot-reload",
+    "development",
+    "websocket",
+    "performance"
+  ],
+  "author": "RevitPy Team",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.14.0",
+    "chokidar": "^3.5.3",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "mime": "^3.0.0",
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "dotenv": "^16.3.1",
+    "fast-glob": "^3.3.2",
+    "esbuild": "^0.19.9",
+    "postcss": "^8.4.32",
+    "autoprefixer": "^10.4.16",
+    "node-fetch": "^3.3.2",
+    "uuid": "^9.0.1",
+    "socket.io": "^4.7.4",
+    "ioredis": "^5.3.2",
+    "pino": "^8.17.2",
+    "pino-pretty": "^10.3.1",
+    "eventemitter3": "^5.0.1",
+    "debounce": "^2.0.0",
+    "semver": "^7.5.4",
+    "lru-cache": "^10.1.0",
+    "compression": "^1.7.4",
+    "serve-static": "^1.15.0",
+    "helmet": "^7.1.0",
+    "rate-limiter-flexible": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@types/ws": "^8.5.10",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/mime": "^3.0.4",
+    "@types/uuid": "^9.0.7",
+    "@types/compression": "^1.7.5",
+    "@types/serve-static": "^1.15.5",
+    "typescript": "^5.3.3",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.17.0",
+    "@typescript-eslint/parser": "^6.17.0",
+    "vitest": "^1.1.0",
+    "rimraf": "^5.0.5",
+    "ts-node": "^10.9.2",
+    "clinic": "^12.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

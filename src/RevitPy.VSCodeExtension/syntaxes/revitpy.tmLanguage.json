@@ -1,0 +1,127 @@
+{
+    "name": "RevitPy",
+    "scopeName": "source.python.revitpy",
+    "fileTypes": [
+        "revitpy.py",
+        "rpy"
+    ],
+    "patterns": [
+        {
+            "include": "source.python"
+        },
+        {
+            "include": "#revitpy-imports"
+        },
+        {
+            "include": "#revit-api-calls"
+        },
+        {
+            "include": "#revitpy-decorators"
+        },
+        {
+            "include": "#revitpy-comments"
+        }
+    ],
+    "repository": {
+        "revitpy-imports": {
+            "patterns": [
+                {
+                    "match": "\\b(from)\\s+(revitpy|Autodesk\\.Revit)\\s*(\\.\\w+)*\\s+(import)\\b",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.import.python"
+                        },
+                        "2": {
+                            "name": "entity.name.namespace.revitpy"
+                        },
+                        "3": {
+                            "name": "entity.name.namespace.revitpy"
+                        },
+                        "4": {
+                            "name": "keyword.control.import.python"
+                        }
+                    }
+                },
+                {
+                    "match": "\\b(import)\\s+(revitpy|Autodesk\\.Revit)\\s*(\\.\\w+)*\\b",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.import.python"
+                        },
+                        "2": {
+                            "name": "entity.name.namespace.revitpy"
+                        },
+                        "3": {
+                            "name": "entity.name.namespace.revitpy"
+                        }
+                    }
+                }
+            ]
+        },
+        "revit-api-calls": {
+            "patterns": [
+                {
+                    "match": "\\b(Transaction|TransactionGroup|SubTransaction|Element|ElementId|Document|Application|Selection|FilteredElementCollector|ElementFilter|ElementCategoryFilter|ElementClassFilter|FamilyInstance|Wall|Floor|Ceiling|Room|Space|View|ViewPlan|View3D|ViewSheet|Parameter|Definition|SharedParameterElement|FamilySymbol|FamilyType|Category|BuiltInCategory|BuiltInParameter|Units|UnitType|UnitSymbol|Transform|XYZ|UV|Plane|Line|Curve|Arc|Circle|Ellipse|HermiteSpline|NurbSpline|PolyLine|CurveLoop|Solid|Face|Edge|GeometryElement|GeometryInstance|GeometryObject|BoundingBoxUV|BoundingBoxXYZ|Reference|ReferenceArray|Options|Material|MaterialsElement|Appearance|Asset|TextNote|Dimension|DimensionSegment|Grid|Level|ReferencePlane|SketchPlane|Workset|WorksetTable|RevisionCloud|Revision|Sheet|Viewport|CurtainGrid|CurtainCell|Mullion|Panel|Opening|FamilyManager|FamilyParameter|ConnectorManager|Connector|MEPCurve|MEPSystem|Duct|Pipe|CableTray|Conduit|FlexDuct|FlexPipe|FittingUtils|RoutingPreferenceManager|MechanicalUtils|PlumbingUtils|ElectricalUtils|StructuralFraming|StructuralColumn|StructuralFoundation|StructuralRebar|StructuralConnectionHandler|AnalyticalModel|LoadCase|LoadCombination|LoadNature)\\b",
+                    "name": "support.class.revit-api"
+                },
+                {
+                    "match": "\\b(doc|uidoc|app|uiapp|transaction|collector|selection|activeView|active_view)\\b",
+                    "name": "variable.other.revitpy.common"
+                }
+            ]
+        },
+        "revitpy-decorators": {
+            "patterns": [
+                {
+                    "match": "(@)(revitpy\\.(command|panel|tool|event_handler|transaction|external_command|external_application))\\b",
+                    "captures": {
+                        "1": {
+                            "name": "punctuation.definition.decorator.python"
+                        },
+                        "2": {
+                            "name": "entity.name.function.decorator.revitpy"
+                        }
+                    }
+                }
+            ]
+        },
+        "revitpy-comments": {
+            "patterns": [
+                {
+                    "match": "(#\\s*)(TODO|FIXME|NOTE|HACK|OPTIMIZE|WARNING)(:?)(.*)",
+                    "captures": {
+                        "1": {
+                            "name": "comment.line.number-sign.python"
+                        },
+                        "2": {
+                            "name": "keyword.other.revitpy.todo"
+                        },
+                        "3": {
+                            "name": "punctuation.separator.revitpy.todo"
+                        },
+                        "4": {
+                            "name": "comment.line.number-sign.python"
+                        }
+                    }
+                },
+                {
+                    "match": "(#\\s*)(RevitPy|REVITPY)(:)(.*)",
+                    "captures": {
+                        "1": {
+                            "name": "comment.line.number-sign.python"
+                        },
+                        "2": {
+                            "name": "entity.name.tag.revitpy"
+                        },
+                        "3": {
+                            "name": "punctuation.separator.revitpy"
+                        },
+                        "4": {
+                            "name": "comment.line.number-sign.python"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

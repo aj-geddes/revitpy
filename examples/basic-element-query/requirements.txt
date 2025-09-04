@@ -1,0 +1,38 @@
+# Basic Element Query Tool Requirements
+# RevitPy core dependencies
+revitpy>=1.0.0
+
+# Data processing and analysis
+pandas>=1.5.0
+numpy>=1.24.0
+
+# Progress tracking
+tqdm>=4.64.0
+
+# Configuration management
+pyyaml>=6.0
+click>=8.1.0
+
+# Logging and monitoring
+structlog>=22.3.0
+colorama>=0.4.6
+
+# Testing dependencies
+pytest>=7.2.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+
+# Development dependencies
+black>=22.12.0
+isort>=5.11.0
+flake8>=6.0.0
+mypy>=1.0.0
+
+# Documentation
+sphinx>=5.3.0
+sphinx-rtd-theme>=1.2.0
+
+# Export capabilities
+openpyxl>=3.0.10
+xlsxwriter>=3.0.8
+lxml>=4.9.2

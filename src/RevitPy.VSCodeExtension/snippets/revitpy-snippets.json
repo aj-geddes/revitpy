@@ -1,0 +1,216 @@
+{
+    "RevitPy Command": {
+        "prefix": "revitpy-command",
+        "body": [
+            "import revitpy",
+            "from Autodesk.Revit.DB import *",
+            "",
+            "@revitpy.command",
+            "def ${1:command_name}():",
+            "    \"\"\"${2:Command description}\"\"\"",
+            "    doc = revitpy.doc",
+            "    uidoc = revitpy.uidoc",
+            "    ",
+            "    with revitpy.transaction(\"${3:Transaction Name}\"):",
+            "        ${4:# Your code here}",
+            "        pass",
+            "",
+            "if __name__ == '__main__':",
+            "    ${1:command_name}()"
+        ],
+        "description": "Create a new RevitPy command"
+    },
+    "RevitPy Panel": {
+        "prefix": "revitpy-panel",
+        "body": [
+            "import revitpy",
+            "from revitpy.ui import Panel, Button, TextBox",
+            "",
+            "@revitpy.panel(title=\"${1:Panel Title}\")",
+            "class ${2:PanelName}(Panel):",
+            "    \"\"\"${3:Panel description}\"\"\"",
+            "    ",
+            "    def __init__(self):",
+            "        super().__init__()",
+            "        self.setup_ui()",
+            "    ",
+            "    def setup_ui(self):",
+            "        # Add UI elements",
+            "        self.add_button(\"${4:Button Text}\", self.on_button_click)",
+            "        ${5:# Add more UI elements}",
+            "    ",
+            "    def on_button_click(self):",
+            "        \"\"\"Handle button click event\"\"\"",
+            "        ${6:# Handle button click}",
+            "        pass"
+        ],
+        "description": "Create a new RevitPy panel"
+    },
+    "RevitPy Transaction": {
+        "prefix": "revitpy-transaction",
+        "body": [
+            "with revitpy.transaction(\"${1:Transaction Name}\"):",
+            "    ${2:# Your code here}",
+            "    pass"
+        ],
+        "description": "Create a RevitPy transaction block"
+    },
+    "RevitPy Selection": {
+        "prefix": "revitpy-selection",
+        "body": [
+            "# Get current selection",
+            "selection = revitpy.selection",
+            "selected_elements = selection.get_element_ids()",
+            "",
+            "if not selected_elements:",
+            "    revitpy.alert(\"Please select at least one element.\")",
+            "    return",
+            "",
+            "for element_id in selected_elements:",
+            "    element = revitpy.doc.GetElement(element_id)",
+            "    ${1:# Process element}",
+            "    pass"
+        ],
+        "description": "Work with selected elements"
+    },
+    "RevitPy Element Collector": {
+        "prefix": "revitpy-collector",
+        "body": [
+            "# Collect elements",
+            "collector = FilteredElementCollector(revitpy.doc)",
+            "${1|.OfClass(Wall),.OfCategory(BuiltInCategory.OST_Walls),.WhereElementIsNotElementType()|}",
+            "",
+            "elements = list(collector)",
+            "revitpy.print(f\"Found {len(elements)} elements\")",
+            "",
+            "for element in elements:",
+            "    ${2:# Process element}",
+            "    pass"
+        ],
+        "description": "Create an element collector"
+    },
+    "RevitPy Parameter": {
+        "prefix": "revitpy-parameter",
+        "body": [
+            "# Get parameter value",
+            "param = element.get_Parameter(${1:BuiltInParameter.ALL_MODEL_MARK})",
+            "if param and param.HasValue:",
+            "    value = param.AsString()  # or AsDouble(), AsInteger(), etc.",
+            "    revitpy.print(f\"Parameter value: {value}\")",
+            "else:",
+            "    revitpy.print(\"Parameter not found or has no value\")"
+        ],
+        "description": "Get element parameter value"
+    },
+    "RevitPy Set Parameter": {
+        "prefix": "revitpy-set-parameter",
+        "body": [
+            "# Set parameter value",
+            "param = element.get_Parameter(${1:BuiltInParameter.ALL_MODEL_MARK})",
+            "if param and not param.IsReadOnly:",
+            "    with revitpy.transaction(\"Set Parameter\"):",
+            "        param.Set(${2:\"New Value\"})  # or SetValueString(), etc.",
+            "        revitpy.print(\"Parameter updated successfully\")",
+            "else:",
+            "    revitpy.print(\"Parameter not found or is read-only\")"
+        ],
+        "description": "Set element parameter value"
+    },
+    "RevitPy Geometry": {
+        "prefix": "revitpy-geometry",
+        "body": [
+            "# Get element geometry",
+            "options = Options()",
+            "options.ComputeReferences = True",
+            "options.IncludeNonVisibleObjects = False",
+            "",
+            "geometry_element = element.get_Geometry(options)",
+            "if geometry_element:",
+            "    for geometry_object in geometry_element:",
+            "        if isinstance(geometry_object, Solid):",
+            "            volume = geometry_object.Volume",
+            "            revitpy.print(f\"Volume: {volume}\")",
+            "        ${1:# Process other geometry types}",
+            "        pass"
+        ],
+        "description": "Access element geometry"
+    },
+    "RevitPy Create Element": {
+        "prefix": "revitpy-create-element",
+        "body": [
+            "# Create new element",
+            "with revitpy.transaction(\"Create ${1:Element}\"):",
+            "    # Define geometry",
+            "    start_point = XYZ(${2:0, 0, 0})",
+            "    end_point = XYZ(${3:10, 0, 0})",
+            "    line = Line.CreateBound(start_point, end_point)",
+            "    ",
+            "    # Create element",
+            "    ${4:# Example: Wall.Create(doc, line, wall_type_id, level_id, height, offset, flip, structural)}",
+            "    element = ${5:# Your creation code here}",
+            "    ",
+            "    revitpy.print(f\"Created element with ID: {element.Id}\")"
+        ],
+        "description": "Create a new Revit element"
+    },
+    "RevitPy View": {
+        "prefix": "revitpy-view",
+        "body": [
+            "# Work with views",
+            "active_view = revitpy.doc.ActiveView",
+            "revitpy.print(f\"Active view: {active_view.Name}\")",
+            "",
+            "# Get all views of specific type",
+            "views = FilteredElementCollector(revitpy.doc) \\",
+            "    .OfClass(${1:ViewPlan}) \\",
+            "    .WhereElementIsNotElementType() \\",
+            "    .ToElements()",
+            "",
+            "for view in views:",
+            "    revitpy.print(f\"View: {view.Name}\")",
+            "    ${2:# Process view}",
+            "    pass"
+        ],
+        "description": "Work with Revit views"
+    },
+    "RevitPy Family": {
+        "prefix": "revitpy-family",
+        "body": [
+            "# Work with families",
+            "family_symbols = FilteredElementCollector(revitpy.doc) \\",
+            "    .OfClass(FamilySymbol) \\",
+            "    .OfCategory(BuiltInCategory.${1:OST_Doors}) \\",
+            "    .ToElements()",
+            "",
+            "if family_symbols:",
+            "    family_symbol = family_symbols[0]",
+            "    ",
+            "    # Activate family symbol if needed",
+            "    if not family_symbol.IsActive:",
+            "        with revitpy.transaction(\"Activate Family\"):",
+            "            family_symbol.Activate()",
+            "    ",
+            "    # Create family instance",
+            "    with revitpy.transaction(\"Create Family Instance\"):",
+            "        location = XYZ(${2:0, 0, 0})",
+            "        instance = revitpy.doc.Create.NewFamilyInstance(",
+            "            location, family_symbol, ${3:Structure.NonStructural})",
+            "        revitpy.print(f\"Created family instance: {instance.Id}\")"
+        ],
+        "description": "Work with Revit families"
+    },
+    "RevitPy Error Handling": {
+        "prefix": "revitpy-try-catch",
+        "body": [
+            "try:",
+            "    ${1:# Your RevitPy code here}",
+            "    pass",
+            "except Exception as e:",
+            "    revitpy.logger.error(f\"Error: {str(e)}\")",
+            "    revitpy.alert(f\"An error occurred: {str(e)}\")",
+            "    ${2:# Handle error}",
+            "    pass"
+        ],
+        "description": "Add error handling to RevitPy code"
+    }
+}

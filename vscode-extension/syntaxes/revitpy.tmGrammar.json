@@ -1,0 +1,195 @@
+{
+  "name": "RevitPy",
+  "scopeName": "source.revitpy",
+  "fileTypes": ["rvtpy"],
+  "patterns": [
+    {
+      "include": "source.python"
+    },
+    {
+      "include": "#revit-api-imports"
+    },
+    {
+      "include": "#revit-api-classes"
+    },
+    {
+      "include": "#revit-api-namespaces"
+    },
+    {
+      "include": "#revit-api-enums"
+    },
+    {
+      "include": "#revit-transactions"
+    },
+    {
+      "include": "#revit-collectors"
+    },
+    {
+      "include": "#revitpy-decorators"
+    }
+  ],
+  "repository": {
+    "revit-api-imports": {
+      "patterns": [
+        {
+          "match": "\\b(from|import)\\s+(Autodesk\\.Revit\\.(DB|UI|ApplicationServices|Creation|Exceptions)(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.import.revitpy"
+            },
+            "2": {
+              "name": "entity.name.namespace.revit-api.revitpy"
+            }
+          }
+        },
+        {
+          "match": "\\b(clr|System|Microsoft)\\b",
+          "name": "entity.name.namespace.dotnet.revitpy"
+        }
+      ]
+    },
+    "revit-api-namespaces": {
+      "patterns": [
+        {
+          "match": "\\b(Autodesk\\.Revit\\.(DB|UI|ApplicationServices|Creation|Exceptions))\\b",
+          "name": "entity.name.namespace.revit-api.revitpy"
+        },
+        {
+          "match": "\\b(DB|UI)\\.",
+          "name": "entity.name.namespace.revit-api.revitpy"
+        }
+      ]
+    },
+    "revit-api-classes": {
+      "patterns": [
+        {
+          "match": "\\b(Transaction|SubTransaction|TransactionGroup|TransactionManager)\\b",
+          "name": "entity.name.class.transaction.revitpy"
+        },
+        {
+          "match": "\\b(FilteredElementCollector|ElementClassFilter|ElementCategoryFilter|FamilyInstanceFilter)\\b",
+          "name": "entity.name.class.collector.revitpy"
+        },
+        {
+          "match": "\\b(Element|FamilyInstance|Wall|Floor|Ceiling|Room|Space|Door|Window)\\b",
+          "name": "entity.name.class.element.revitpy"
+        },
+        {
+          "match": "\\b(Document|Application|UIApplication|UIDocument)\\b",
+          "name": "entity.name.class.application.revitpy"
+        },
+        {
+          "match": "\\b(XYZ|Transform|Curve|Line|Arc|BoundingBoxXYZ|Plane)\\b",
+          "name": "entity.name.class.geometry.revitpy"
+        },
+        {
+          "match": "\\b(Parameter|ParameterSet|ParameterMap|Definition|SharedParameterElement)\\b",
+          "name": "entity.name.class.parameter.revitpy"
+        },
+        {
+          "match": "\\b(Family|FamilySymbol|FamilyManager|FamilyParameter)\\b",
+          "name": "entity.name.class.family.revitpy"
+        },
+        {
+          "match": "\\b(View|ViewPlan|View3D|ViewSection|ViewSheet|Viewport)\\b",
+          "name": "entity.name.class.view.revitpy"
+        },
+        {
+          "match": "\\b(Material|MaterialElement|Appearance|Asset)\\b",
+          "name": "entity.name.class.material.revitpy"
+        },
+        {
+          "match": "\\b(TaskDialog|TaskDialogResult|TaskDialogIcon)\\b",
+          "name": "entity.name.class.ui.revitpy"
+        }
+      ]
+    },
+    "revit-api-enums": {
+      "patterns": [
+        {
+          "match": "\\b(BuiltInCategory|BuiltInParameter|ViewType|TransactionStatus|StorageType|UnitType|DisplayUnitType)\\b",
+          "name": "entity.name.enum.revitpy"
+        },
+        {
+          "match": "\\b(OST_[A-Z_]+)\\b",
+          "name": "constant.other.builtin-category.revitpy"
+        },
+        {
+          "match": "\\b(BUILTIN_[A-Z_]+)\\b",
+          "name": "constant.other.builtin-parameter.revitpy"
+        }
+      ]
+    },
+    "revit-transactions": {
+      "patterns": [
+        {
+          "begin": "\\b(with)\\s+(Transaction)\\s*\\(",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.flow.revitpy"
+            },
+            "2": {
+              "name": "entity.name.class.transaction.revitpy"
+            }
+          },
+          "end": ":",
+          "patterns": [
+            {
+              "include": "source.python"
+            }
+          ]
+        },
+        {
+          "match": "\\.(Start|Commit|RollBack)\\s*\\(",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.transaction.revitpy"
+            }
+          }
+        }
+      ]
+    },
+    "revit-collectors": {
+      "patterns": [
+        {
+          "begin": "(FilteredElementCollector)\\s*\\(",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.class.collector.revitpy"
+            }
+          },
+          "end": "\\)",
+          "patterns": [
+            {
+              "match": "\\b(doc|document)\\b",
+              "name": "variable.parameter.document.revitpy"
+            },
+            {
+              "include": "source.python"
+            }
+          ]
+        },
+        {
+          "match": "\\.(OfClass|OfCategory|WhereElementIsNotElementType|WhereElementIsElementType|ToElements|ToElementIds)\\s*\\(",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.collector.revitpy"
+            }
+          }
+        }
+      ]
+    },
+    "revitpy-decorators": {
+      "patterns": [
+        {
+          "match": "@(revit_script|revit_command|revit_application|revit_updater|revit_event_handler)\\b",
+          "name": "entity.name.function.decorator.revitpy"
+        },
+        {
+          "match": "@(transaction|regeneration|read_only)\\b",
+          "name": "entity.name.function.decorator.transaction.revitpy"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,363 @@
+{
+  "name": "revitpy-extension",
+  "displayName": "RevitPy",
+  "description": "Advanced development environment for RevitPy with IntelliSense, debugging, and project management",
+  "version": "1.0.0-alpha.1",
+  "publisher": "revitpy-team",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Debuggers",
+    "Snippets",
+    "Other"
+  ],
+  "keywords": [
+    "revit",
+    "bim",
+    "python",
+    "autocad",
+    "architecture",
+    "construction"
+  ],
+  "main": "./out/extension.js",
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/revitpy/revitpy"
+  },
+  "bugs": {
+    "url": "https://github.com/revitpy/revitpy/issues"
+  },
+  "homepage": "https://revitpy.dev",
+  "license": "MIT",
+  "contributes": {
+    "languages": [
+      {
+        "id": "revitpy",
+        "aliases": ["RevitPy", "revitpy"],
+        "extensions": [".revitpy.py", ".rpy"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "revitpy",
+        "scopeName": "source.python.revitpy",
+        "path": "./syntaxes/revitpy.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "python",
+        "path": "./snippets/revitpy-snippets.json"
+      },
+      {
+        "language": "revitpy",
+        "path": "./snippets/revitpy-snippets.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "revitpy.createProject",
+        "title": "Create New Project",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.openProject",
+        "title": "Open Project",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.buildProject",
+        "title": "Build Project",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.deployProject",
+        "title": "Deploy Project",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.runScript",
+        "title": "Run Script in Revit",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.debugScript",
+        "title": "Debug Script",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.openRepl",
+        "title": "Open REPL",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.installPackage",
+        "title": "Install Package",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.browsePackages",
+        "title": "Browse Packages",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.openDashboard",
+        "title": "Open Developer Dashboard",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.connectToRevit",
+        "title": "Connect to Revit",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.disconnectFromRevit",
+        "title": "Disconnect from Revit",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.showElementInspector",
+        "title": "Show Element Inspector",
+        "category": "RevitPy"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "revitpy.createProject"
+        },
+        {
+          "command": "revitpy.runScript",
+          "when": "editorLangId == python || editorLangId == revitpy"
+        },
+        {
+          "command": "revitpy.debugScript",
+          "when": "editorLangId == python || editorLangId == revitpy"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "revitpy.runScript",
+          "when": "editorLangId == python || editorLangId == revitpy",
+          "group": "revitpy@1"
+        },
+        {
+          "command": "revitpy.debugScript",
+          "when": "editorLangId == python || editorLangId == revitpy",
+          "group": "revitpy@2"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "revitpy.createProject",
+          "when": "explorerResourceIsFolder",
+          "group": "revitpy@1"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "revitpy.runScript",
+        "key": "f5",
+        "when": "editorLangId == python || editorLangId == revitpy"
+      },
+      {
+        "command": "revitpy.debugScript",
+        "key": "ctrl+f5",
+        "when": "editorLangId == python || editorLangId == revitpy"
+      },
+      {
+        "command": "revitpy.openRepl",
+        "key": "ctrl+shift+r"
+      },
+      {
+        "command": "revitpy.openDashboard",
+        "key": "ctrl+shift+d"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "revitpy-explorer",
+          "title": "RevitPy",
+          "icon": "$(zap)"
+        }
+      ]
+    },
+    "views": {
+      "revitpy-explorer": [
+        {
+          "id": "revitpy.projectExplorer",
+          "name": "Projects",
+          "when": "revitpy:enabled"
+        },
+        {
+          "id": "revitpy.packageExplorer",
+          "name": "Packages",
+          "when": "revitpy:enabled"
+        },
+        {
+          "id": "revitpy.revitConnection",
+          "name": "Revit Connection",
+          "when": "revitpy:enabled"
+        },
+        {
+          "id": "revitpy.elementInspector",
+          "name": "Element Inspector",
+          "when": "revitpy:connected"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "RevitPy",
+      "properties": {
+        "revitpy.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Python interpreter for RevitPy"
+        },
+        "revitpy.revitInstallPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Revit installation directory"
+        },
+        "revitpy.enableIntelliSense": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable IntelliSense for Revit API"
+        },
+        "revitpy.enableLinting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Python linting for RevitPy scripts"
+        },
+        "revitpy.enableFormatting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable code formatting for RevitPy scripts"
+        },
+        "revitpy.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically connect to Revit when available"
+        },
+        "revitpy.debugPort": {
+          "type": "number",
+          "default": 5678,
+          "description": "Port for debugging RevitPy scripts"
+        },
+        "revitpy.packageRegistry": {
+          "type": "string",
+          "default": "https://packages.revitpy.dev",
+          "description": "URL for RevitPy package registry"
+        },
+        "revitpy.telemetry": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable telemetry collection"
+        }
+      }
+    },
+    "debuggers": [
+      {
+        "type": "revitpy",
+        "label": "RevitPy Debugger",
+        "configurationAttributes": {
+          "launch": {
+            "required": ["script"],
+            "properties": {
+              "script": {
+                "type": "string",
+                "description": "Path to the Python script to debug"
+              },
+              "args": {
+                "type": "array",
+                "description": "Command line arguments",
+                "default": []
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Working directory"
+              },
+              "env": {
+                "type": "object",
+                "description": "Environment variables"
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Stop on entry",
+                "default": false
+              }
+            }
+          }
+        },
+        "configurationSnippets": [
+          {
+            "label": "RevitPy: Debug Script",
+            "description": "Debug a RevitPy script",
+            "body": {
+              "type": "revitpy",
+              "request": "launch",
+              "name": "Debug RevitPy Script",
+              "script": "${file}",
+              "stopOnEntry": false
+            }
+          }
+        ]
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "revitpy",
+        "required": ["command"],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The RevitPy command to execute"
+          },
+          "args": {
+            "type": "array",
+            "description": "Arguments for the command"
+          }
+        }
+      }
+    ]
+  },
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:revitpy",
+    "workspaceContains:revitpy.json",
+    "workspaceContains:pyproject.toml",
+    "onCommand:revitpy.createProject"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "18.x",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3",
+    "@vscode/test-electron": "^2.3.8",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "ws": "^8.14.0",
+    "yaml": "^2.3.4",
+    "semver": "^7.5.4"
+  }
+}

@@ -1,0 +1,500 @@
+{
+  "dependencies": {
+    "status": "error",
+    "message": "Failed to run pip-audit: Found 33 known vulnerabilities in 14 packages\n"
+  },
+  "bandit": {
+    "status": "success",
+    "total_issues": 11,
+    "high_severity": 7,
+    "medium_severity": 4,
+    "issues": [
+      {
+        "code": "147     \n148     host = os.getenv(\"HOST\", \"0.0.0.0\")\n149     port = int(os.getenv(\"PORT\", 8000))\n",
+        "col_offset": 29,
+        "end_col_offset": 38,
+        "filename": "revitpy_package_manager/registry/api/main.py",
+        "issue_confidence": "MEDIUM",
+        "issue_cwe": {
+          "id": 605,
+          "link": "https://cwe.mitre.org/data/definitions/605.html"
+        },
+        "issue_severity": "MEDIUM",
+        "issue_text": "Possible binding to all interfaces.",
+        "line_number": 148,
+        "line_range": [
+          148
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b104_hardcoded_bind_all_interfaces.html",
+        "test_id": "B104",
+        "test_name": "hardcoded_bind_all_interfaces"
+      },
+      {
+        "code": "349     sha256_hash = hashlib.sha256(file_content).hexdigest()\n350     md5_hash = hashlib.md5(file_content).hexdigest()\n351     \n",
+        "col_offset": 15,
+        "end_col_offset": 40,
+        "filename": "revitpy_package_manager/registry/api/routers/packages.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 327,
+          "link": "https://cwe.mitre.org/data/definitions/327.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "Use of weak MD5 hash for security. Consider usedforsecurity=False",
+        "line_number": 350,
+        "line_range": [
+          350
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b324_hashlib.html",
+        "test_id": "B324",
+        "test_name": "hashlib"
+      },
+      {
+        "code": "79             try:\n80                 return pickle.loads(value)\n81             except (pickle.PickleError, TypeError):\n",
+        "col_offset": 23,
+        "end_col_offset": 42,
+        "filename": "revitpy_package_manager/registry/services/cache.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 502,
+          "link": "https://cwe.mitre.org/data/definitions/502.html"
+        },
+        "issue_severity": "MEDIUM",
+        "issue_text": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+        "line_number": 80,
+        "line_range": [
+          80
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_calls.html#b301-pickle",
+        "test_id": "B301",
+        "test_name": "blacklist"
+      },
+      {
+        "code": "268                     try:\n269                         result[key] = pickle.loads(value)\n270                     except (pickle.PickleError, TypeError):\n",
+        "col_offset": 38,
+        "end_col_offset": 57,
+        "filename": "revitpy_package_manager/registry/services/cache.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 502,
+          "link": "https://cwe.mitre.org/data/definitions/502.html"
+        },
+        "issue_severity": "MEDIUM",
+        "issue_text": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+        "line_number": 269,
+        "line_range": [
+          269
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_calls.html#b301-pickle",
+        "test_id": "B301",
+        "test_name": "blacklist"
+      },
+      {
+        "code": "32     FORBIDDEN_PATTERNS = [\n33         '..', '~/', '\\\\', '/etc/', '/var/', '/tmp/',\n34         'system32', 'windows', 'program files',\n35         '__pycache__', '.git', '.svn', '.hg'\n36     ]\n37     \n38     @classmethod\n",
+        "col_offset": 44,
+        "end_col_offset": 51,
+        "filename": "revitpy_package_manager/security/config.py",
+        "issue_confidence": "MEDIUM",
+        "issue_cwe": {
+          "id": 377,
+          "link": "https://cwe.mitre.org/data/definitions/377.html"
+        },
+        "issue_severity": "MEDIUM",
+        "issue_text": "Probable insecure usage of temp file/directory.",
+        "line_number": 33,
+        "line_range": [
+          32,
+          33,
+          34,
+          35,
+          36
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b108_hardcoded_tmp_directory.html",
+        "test_id": "B108",
+        "test_name": "hardcoded_tmp_directory"
+      },
+      {
+        "code": "193                 with tarfile.open(archive_path, 'r:gz') as tf:\n194                     tf.extractall(temp_path)\n195             else:\n",
+        "col_offset": 20,
+        "end_col_offset": 44,
+        "filename": "revitpy_package_manager/security/scanner.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 22,
+          "link": "https://cwe.mitre.org/data/definitions/22.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "tarfile.extractall used without any validation. Please check and discard dangerous members.",
+        "line_number": 194,
+        "line_range": [
+          194
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b202_tarfile_unsafe_members.html",
+        "test_id": "B202",
+        "test_name": "tarfile_unsafe_members"
+      },
+      {
+        "code": "278                     with zipfile.ZipFile(package_path, 'r') as zf:\n279                         zf.extractall(temp_path)\n280                 elif package_path.name.endswith('.tar.gz'):\n",
+        "col_offset": 24,
+        "end_col_offset": 48,
+        "filename": "revitpy_package_manager/security/scanner.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 22,
+          "link": "https://cwe.mitre.org/data/definitions/22.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "tarfile.extractall used without any validation. Please check and discard dangerous members.",
+        "line_number": 279,
+        "line_range": [
+          279
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b202_tarfile_unsafe_members.html",
+        "test_id": "B202",
+        "test_name": "tarfile_unsafe_members"
+      },
+      {
+        "code": "282                     with tarfile.open(package_path, 'r:gz') as tf:\n283                         tf.extractall(temp_path)\n284                 \n",
+        "col_offset": 24,
+        "end_col_offset": 48,
+        "filename": "revitpy_package_manager/security/scanner.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 22,
+          "link": "https://cwe.mitre.org/data/definitions/22.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "tarfile.extractall used without any validation. Please check and discard dangerous members.",
+        "line_number": 283,
+        "line_range": [
+          283
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b202_tarfile_unsafe_members.html",
+        "test_id": "B202",
+        "test_name": "tarfile_unsafe_members"
+      },
+      {
+        "code": "404                 sha256_hash = hashlib.sha256(content).hexdigest()\n405                 md5_hash = hashlib.md5(content).hexdigest()\n406                 \n",
+        "col_offset": 27,
+        "end_col_offset": 47,
+        "filename": "revitpy_package_manager/security/scanner.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 327,
+          "link": "https://cwe.mitre.org/data/definitions/327.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "Use of weak MD5 hash for security. Consider usedforsecurity=False",
+        "line_number": 405,
+        "line_range": [
+          405
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b324_hashlib.html",
+        "test_id": "B324",
+        "test_name": "hashlib"
+      },
+      {
+        "code": "468                         with zipfile.ZipFile(package_path, 'r') as zf:\n469                             zf.extractall(temp_path)\n470                     elif package_path.name.endswith('.tar.gz'):\n",
+        "col_offset": 28,
+        "end_col_offset": 52,
+        "filename": "revitpy_package_manager/security/scanner.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 22,
+          "link": "https://cwe.mitre.org/data/definitions/22.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "tarfile.extractall used without any validation. Please check and discard dangerous members.",
+        "line_number": 469,
+        "line_range": [
+          469
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b202_tarfile_unsafe_members.html",
+        "test_id": "B202",
+        "test_name": "tarfile_unsafe_members"
+      },
+      {
+        "code": "472                         with tarfile.open(package_path, 'r:gz') as tf:\n473                             tf.extractall(temp_path)\n474                     \n",
+        "col_offset": 28,
+        "end_col_offset": 52,
+        "filename": "revitpy_package_manager/security/scanner.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 22,
+          "link": "https://cwe.mitre.org/data/definitions/22.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "tarfile.extractall used without any validation. Please check and discard dangerous members.",
+        "line_number": 473,
+        "line_range": [
+          473
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b202_tarfile_unsafe_members.html",
+        "test_id": "B202",
+        "test_name": "tarfile_unsafe_members"
+      }
+    ],
+    "high_issues": [
+      {
+        "code": "349     sha256_hash = hashlib.sha256(file_content).hexdigest()\n350     md5_hash = hashlib.md5(file_content).hexdigest()\n351     \n",
+        "col_offset": 15,
+        "end_col_offset": 40,
+        "filename": "revitpy_package_manager/registry/api/routers/packages.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 327,
+          "link": "https://cwe.mitre.org/data/definitions/327.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "Use of weak MD5 hash for security. Consider usedforsecurity=False",
+        "line_number": 350,
+        "line_range": [
+          350
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b324_hashlib.html",
+        "test_id": "B324",
+        "test_name": "hashlib"
+      },
+      {
+        "code": "193                 with tarfile.open(archive_path, 'r:gz') as tf:\n194                     tf.extractall(temp_path)\n195             else:\n",
+        "col_offset": 20,
+        "end_col_offset": 44,
+        "filename": "revitpy_package_manager/security/scanner.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 22,
+          "link": "https://cwe.mitre.org/data/definitions/22.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "tarfile.extractall used without any validation. Please check and discard dangerous members.",
+        "line_number": 194,
+        "line_range": [
+          194
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b202_tarfile_unsafe_members.html",
+        "test_id": "B202",
+        "test_name": "tarfile_unsafe_members"
+      },
+      {
+        "code": "278                     with zipfile.ZipFile(package_path, 'r') as zf:\n279                         zf.extractall(temp_path)\n280                 elif package_path.name.endswith('.tar.gz'):\n",
+        "col_offset": 24,
+        "end_col_offset": 48,
+        "filename": "revitpy_package_manager/security/scanner.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 22,
+          "link": "https://cwe.mitre.org/data/definitions/22.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "tarfile.extractall used without any validation. Please check and discard dangerous members.",
+        "line_number": 279,
+        "line_range": [
+          279
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b202_tarfile_unsafe_members.html",
+        "test_id": "B202",
+        "test_name": "tarfile_unsafe_members"
+      },
+      {
+        "code": "282                     with tarfile.open(package_path, 'r:gz') as tf:\n283                         tf.extractall(temp_path)\n284                 \n",
+        "col_offset": 24,
+        "end_col_offset": 48,
+        "filename": "revitpy_package_manager/security/scanner.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 22,
+          "link": "https://cwe.mitre.org/data/definitions/22.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "tarfile.extractall used without any validation. Please check and discard dangerous members.",
+        "line_number": 283,
+        "line_range": [
+          283
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b202_tarfile_unsafe_members.html",
+        "test_id": "B202",
+        "test_name": "tarfile_unsafe_members"
+      },
+      {
+        "code": "404                 sha256_hash = hashlib.sha256(content).hexdigest()\n405                 md5_hash = hashlib.md5(content).hexdigest()\n406                 \n",
+        "col_offset": 27,
+        "end_col_offset": 47,
+        "filename": "revitpy_package_manager/security/scanner.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 327,
+          "link": "https://cwe.mitre.org/data/definitions/327.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "Use of weak MD5 hash for security. Consider usedforsecurity=False",
+        "line_number": 405,
+        "line_range": [
+          405
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b324_hashlib.html",
+        "test_id": "B324",
+        "test_name": "hashlib"
+      },
+      {
+        "code": "468                         with zipfile.ZipFile(package_path, 'r') as zf:\n469                             zf.extractall(temp_path)\n470                     elif package_path.name.endswith('.tar.gz'):\n",
+        "col_offset": 28,
+        "end_col_offset": 52,
+        "filename": "revitpy_package_manager/security/scanner.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 22,
+          "link": "https://cwe.mitre.org/data/definitions/22.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "tarfile.extractall used without any validation. Please check and discard dangerous members.",
+        "line_number": 469,
+        "line_range": [
+          469
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b202_tarfile_unsafe_members.html",
+        "test_id": "B202",
+        "test_name": "tarfile_unsafe_members"
+      },
+      {
+        "code": "472                         with tarfile.open(package_path, 'r:gz') as tf:\n473                             tf.extractall(temp_path)\n474                     \n",
+        "col_offset": 28,
+        "end_col_offset": 52,
+        "filename": "revitpy_package_manager/security/scanner.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 22,
+          "link": "https://cwe.mitre.org/data/definitions/22.html"
+        },
+        "issue_severity": "HIGH",
+        "issue_text": "tarfile.extractall used without any validation. Please check and discard dangerous members.",
+        "line_number": 473,
+        "line_range": [
+          473
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b202_tarfile_unsafe_members.html",
+        "test_id": "B202",
+        "test_name": "tarfile_unsafe_members"
+      }
+    ],
+    "medium_issues": [
+      {
+        "code": "147     \n148     host = os.getenv(\"HOST\", \"0.0.0.0\")\n149     port = int(os.getenv(\"PORT\", 8000))\n",
+        "col_offset": 29,
+        "end_col_offset": 38,
+        "filename": "revitpy_package_manager/registry/api/main.py",
+        "issue_confidence": "MEDIUM",
+        "issue_cwe": {
+          "id": 605,
+          "link": "https://cwe.mitre.org/data/definitions/605.html"
+        },
+        "issue_severity": "MEDIUM",
+        "issue_text": "Possible binding to all interfaces.",
+        "line_number": 148,
+        "line_range": [
+          148
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b104_hardcoded_bind_all_interfaces.html",
+        "test_id": "B104",
+        "test_name": "hardcoded_bind_all_interfaces"
+      },
+      {
+        "code": "79             try:\n80                 return pickle.loads(value)\n81             except (pickle.PickleError, TypeError):\n",
+        "col_offset": 23,
+        "end_col_offset": 42,
+        "filename": "revitpy_package_manager/registry/services/cache.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 502,
+          "link": "https://cwe.mitre.org/data/definitions/502.html"
+        },
+        "issue_severity": "MEDIUM",
+        "issue_text": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+        "line_number": 80,
+        "line_range": [
+          80
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_calls.html#b301-pickle",
+        "test_id": "B301",
+        "test_name": "blacklist"
+      },
+      {
+        "code": "268                     try:\n269                         result[key] = pickle.loads(value)\n270                     except (pickle.PickleError, TypeError):\n",
+        "col_offset": 38,
+        "end_col_offset": 57,
+        "filename": "revitpy_package_manager/registry/services/cache.py",
+        "issue_confidence": "HIGH",
+        "issue_cwe": {
+          "id": 502,
+          "link": "https://cwe.mitre.org/data/definitions/502.html"
+        },
+        "issue_severity": "MEDIUM",
+        "issue_text": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+        "line_number": 269,
+        "line_range": [
+          269
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_calls.html#b301-pickle",
+        "test_id": "B301",
+        "test_name": "blacklist"
+      },
+      {
+        "code": "32     FORBIDDEN_PATTERNS = [\n33         '..', '~/', '\\\\', '/etc/', '/var/', '/tmp/',\n34         'system32', 'windows', 'program files',\n35         '__pycache__', '.git', '.svn', '.hg'\n36     ]\n37     \n38     @classmethod\n",
+        "col_offset": 44,
+        "end_col_offset": 51,
+        "filename": "revitpy_package_manager/security/config.py",
+        "issue_confidence": "MEDIUM",
+        "issue_cwe": {
+          "id": 377,
+          "link": "https://cwe.mitre.org/data/definitions/377.html"
+        },
+        "issue_severity": "MEDIUM",
+        "issue_text": "Probable insecure usage of temp file/directory.",
+        "line_number": 33,
+        "line_range": [
+          32,
+          33,
+          34,
+          35,
+          36
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b108_hardcoded_tmp_directory.html",
+        "test_id": "B108",
+        "test_name": "hardcoded_tmp_directory"
+      }
+    ]
+  },
+  "jwt": {
+    "status": "error",
+    "message": "Failed to test JWT security: No module named 'bcrypt'"
+  },
+  "permissions": {
+    "status": "pass",
+    "issues": [],
+    "message": "Found 0 permission issues"
+  },
+  "secrets": {
+    "status": "fail",
+    "secrets_found": 18,
+    "secrets": [
+      "revitpy_package_manager/builder/cli/main.py:        console.print(f\"\u274c Failed to generate keys: {e}\", style=\"red\")",
+      "revitpy_package_manager/builder/cli/main.py:@click.option('--key', '-k', type=click.Path(exists=True, path_type=Path), required=True, help=\"Private key file\")",
+      "revitpy_package_manager/builder/cli/main.py:@click.option('--public-key', '-p', type=click.Path(exists=True, path_type=Path), required=True, help=\"Public key file\")",
+      "revitpy_package_manager/builder/cli/main.py:@click.option('--token', help=\"Authentication token\")",
+      "revitpy_package_manager/installer/cli/main.py:        console.print(f\"\u2705 Set {key} = {value}\", style=\"green\")",
+      "revitpy_package_manager/registry/services/cache.py:        cache_key = f\"search:{hash(query)}\"",
+      "revitpy_package_manager/registry/services/cache.py:        cache_key = f\"search:{hash(query)}\"",
+      "revitpy_package_manager/registry/services/storage.py:            aws_access_key_id=aws_access_key_id or os.getenv('AWS_ACCESS_KEY_ID'),",
+      "revitpy_package_manager/registry/services/storage.py:            aws_secret_access_key=aws_secret_access_key or os.getenv('AWS_SECRET_ACCESS_KEY'),",
+      "revitpy_package_manager/registry/api/routers/auth.py:JWT_SECRET_KEY = os.getenv(\"JWT_SECRET_KEY\")",
+      "revitpy_package_manager/registry/api/routers/auth.py:            detail=f\"Password is too weak: {'; '.join(password_validation['issues'])}\"",
+      "revitpy_package_manager/registry/api/routers/auth.py:    return {\"access_token\": access_token, \"token_type\": \"bearer\"}",
+      "revitpy_package_manager/registry/api/routers/users.py:    token = f\"rpk_{''.join(secrets.choice('abcdefghijklmnopqrstuvwxyz0123456789') for _ in range(32))}\"",
+      "revitpy_package_manager/registry/models/user.py:        return f\"<APIKey(name='{self.name}', prefix='{self.token_prefix}')>\"",
+      "revitpy_package_manager/security/scanner.py:        (re.compile(r'password\\s*=\\s*[\"\\'][^\"\\']+[\"\\']', re.IGNORECASE), \"critical\", \"Hardcoded Password\", \"Hardcoded password found\"),",
+      "revitpy_package_manager/security/scanner.py:        (re.compile(r'api[_-]?key\\s*=\\s*[\"\\'][^\"\\']+[\"\\']', re.IGNORECASE), \"critical\", \"API Key Exposure\", \"Hardcoded API key found\"),",
+      "revitpy_package_manager/security/scanner.py:        (re.compile(r'secret\\s*=\\s*[\"\\'][^\"\\']+[\"\\']', re.IGNORECASE), \"critical\", \"Secret Exposure\", \"Hardcoded secret found\"),",
+      "revitpy_package_manager/security/signing.py:                key_size=self.algorithm_info['key_size'],"
+    ],
+    "message": "Found 18 potential hardcoded secrets"
+  }
+}

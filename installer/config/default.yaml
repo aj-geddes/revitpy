@@ -1,0 +1,110 @@
+# RevitPy Default Configuration
+# This file contains default settings that can be overridden by organization-specific configuration
+
+revitpy:
+  # Core application settings
+  version: "1.0.0"
+  installation_path: "C:\\Program Files\\RevitPy"
+  log_level: "INFO"
+  enable_telemetry: false
+  
+  # Host service configuration
+  host_service:
+    port: 8080
+    websocket_port: 8081
+    enable_ssl: false
+    allowed_origins:
+      - "http://localhost:3000"
+      - "http://localhost:8080"
+    max_connections: 100
+    timeout_seconds: 300
+  
+  # Python runtime configuration
+  python:
+    runtime_path: ""  # Auto-detected
+    packages_path: ""  # Auto-detected
+    enable_virtual_environment: true
+    pip_index_url: "https://pypi.org/simple"
+    default_packages:
+      - "revitpy"
+      - "requests>=2.28.0"
+      - "numpy>=1.24.0"
+      - "pandas>=2.0.0"
+      - "pydantic>=2.0.0"
+    
+  # Revit integration settings
+  revit:
+    supported_versions: ["2022", "2023", "2024", "2025"]
+    default_version: "2024"
+    auto_detect_installations: true
+    add_in_paths:
+      "2022": "%PROGRAMDATA%\\Autodesk\\Revit\\Addins\\2022"
+      "2023": "%PROGRAMDATA%\\Autodesk\\Revit\\Addins\\2023"
+      "2024": "%PROGRAMDATA%\\Autodesk\\Revit\\Addins\\2024"
+      "2025": "%PROGRAMDATA%\\Autodesk\\Revit\\Addins\\2025"
+  
+  # Security and compliance settings
+  security:
+    enable_code_signing: true
+    trusted_publishers:
+      - "RevitPy Team"
+      - "Autodesk, Inc."
+    allow_unsigned_code: false
+    sandbox_mode: true
+    enforce_ssl_for_api: false
+    api_key_required: false
+  
+  # Performance and optimization
+  performance:
+    max_concurrent_operations: 4
+    timeout_seconds: 300
+    enable_caching: true
+    cache_size_mb: 256
+    gc_collection_interval: 300
+    
+  # Logging configuration
+  logging:
+    level: "INFO"
+    file:
+      path: "logs/revitpy.log"
+      max_size_mb: 50
+      max_files: 5
+      flush_interval_seconds: 30
+    console:
+      enabled: true
+      format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  # Development and debugging
+  development:
+    enable_hot_reload: false
+    debug_mode: false
+    profile_performance: false
+    enable_remote_debugging: false
+    remote_debug_port: 5678
+
+# Enterprise deployment overrides
+# These settings can be customized per organization
+enterprise:
+  # Group Policy settings
+  group_policy:
+    enforce_settings: false
+    locked_settings: []
+    
+  # Network and proxy settings
+  network:
+    proxy_url: ""
+    use_system_proxy: true
+    bypass_proxy_for_local: true
+    
+  # License and compliance
+  licensing:
+    license_server_url: ""
+    offline_license_file: ""
+    usage_reporting_url: ""
+    
+  # Update and deployment
+  updates:
+    auto_update: true
+    update_channel: "stable"  # stable, beta, dev
+    update_server_url: "https://updates.revitpy.com"
+    check_interval_hours: 24

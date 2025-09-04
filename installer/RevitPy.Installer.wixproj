@@ -1,0 +1,76 @@
+<Project Sdk="WiX.Sdk/4.0.4">
+
+  <PropertyGroup>
+    <ProductVersion>1.0.0</ProductVersion>
+    <OutputName>RevitPy-$(ProductVersion)</OutputName>
+    <OutputType>Package</OutputType>
+    <Cultures>en-US</Cultures>
+    <Platform>x64</Platform>
+    <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <SuppressValidation>true</SuppressValidation>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DefineConstants>DEBUG;Configuration=Debug</DefineConstants>
+    <Pedantic>false</Pedantic>
+    <SuppressIces>ICE45;ICE38;ICE43;ICE57;ICE61</SuppressIces>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DefineConstants>Configuration=Release</DefineConstants>
+    <Pedantic>true</Pedantic>
+    <SuppressIces>ICE45;ICE38</SuppressIces>
+  </PropertyGroup>
+
+  <!-- WiX Source Files -->
+  <ItemGroup>
+    <Compile Include="src\Product.wxs" />
+    <Compile Include="src\Components.wxs" />
+    <Compile Include="src\CustomUI.wxs" />
+  </ItemGroup>
+
+  <!-- WiX Extensions -->
+  <ItemGroup>
+    <PackageReference Include="WiX.Toolset.Util.wixext" Version="4.0.4" />
+    <PackageReference Include="WiX.Toolset.Firewall.wixext" Version="4.0.4" />
+    <PackageReference Include="WiX.Toolset.UI.wixext" Version="4.0.4" />
+  </ItemGroup>
+
+  <!-- Content Files -->
+  <ItemGroup>
+    <Content Include="assets\**" />
+    <Content Include="config\**" />
+    <Content Include="addins\**" />
+  </ItemGroup>
+
+  <!-- Custom Action Dependencies -->
+  <ItemGroup>
+    <ProjectReference Include="customactions\CustomActions.csproj" />
+  </ItemGroup>
+
+  <!-- Preprocessor Variables -->
+  <ItemGroup>
+    <WixVariable Include="SolutionDir" Value="$(MSBuildProjectDirectory)\" />
+  </ItemGroup>
+
+  <!-- Harvesting .NET Assemblies -->
+  <ItemGroup>
+    <HarvestDirectory Include="..\src\RevitPy.Core\bin\$(Configuration)" />
+    <HarvestDirectory Include="..\src\RevitPy.Runtime\bin\$(Configuration)" />
+    <HarvestDirectory Include="..\src\RevitPy.Bridge\bin\$(Configuration)" />
+    <HarvestDirectory Include="..\src\RevitPy.Host\bin\$(Configuration)" />
+  </ItemGroup>
+
+  <!-- Python Runtime Harvesting (if embedding Python) -->
+  <ItemGroup Condition="'$(EMBED_PYTHON)'=='true'">
+    <HarvestDirectory Include="python\**" />
+  </ItemGroup>
+
+  <!-- Build Dependencies -->
+  <Target Name="BuildDependencies" BeforeTargets="Build">
+    <MSBuild Projects="..\RevitPy.sln" Properties="Configuration=$(Configuration);Platform=Any CPU" />
+    <MSBuild Projects="customactions\CustomActions.csproj" Properties="Configuration=$(Configuration)" />
+  </Target>
+
+</Project>

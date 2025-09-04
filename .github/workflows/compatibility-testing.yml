@@ -1,0 +1,562 @@
+name: Cross-Version Compatibility Testing
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*', 'compatibility/*' ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run nightly compatibility tests at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_scope:
+        description: 'Test scope'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - core
+        - performance
+        - integration
+      revit_versions:
+        description: 'Revit versions to test (comma-separated)'
+        required: false
+        default: '2022,2023,2024,2025'
+        type: string
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Matrix strategy for testing across multiple configurations
+  compatibility-matrix:
+    name: Generate Test Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Generate test matrix
+        id: set-matrix
+        run: |
+          # Define test matrix based on inputs or defaults
+          REVIT_VERSIONS="${{ github.event.inputs.revit_versions || '2022,2023,2024,2025' }}"
+          TEST_SCOPE="${{ github.event.inputs.test_scope || 'all' }}"
+          
+          # Convert comma-separated versions to JSON array
+          VERSIONS_JSON=$(echo "$REVIT_VERSIONS" | sed 's/,/","/g' | sed 's/^/"/' | sed 's/$/"/')
+          
+          # Build matrix based on test scope
+          if [ "$TEST_SCOPE" = "all" ]; then
+            CATEGORIES='["unit", "integration", "performance", "security"]'
+          elif [ "$TEST_SCOPE" = "core" ]; then
+            CATEGORIES='["unit", "integration"]'
+          elif [ "$TEST_SCOPE" = "performance" ]; then
+            CATEGORIES='["performance"]'
+          else
+            CATEGORIES='["integration"]'
+          fi
+          
+          MATRIX=$(cat <<EOF
+          {
+            "os": ["windows-latest"],
+            "revit_version": [$VERSIONS_JSON],
+            "python_version": ["3.9", "3.10", "3.11", "3.12"],
+            "test_category": $CATEGORIES,
+            "include": [
+              {
+                "os": "windows-latest",
+                "revit_version": "2025",
+                "python_version": "3.12",
+                "test_category": "integration",
+                "is_latest": true
+              }
+            ],
+            "exclude": [
+              {
+                "revit_version": "2022",
+                "python_version": "3.12"
+              }
+            ]
+          }
+          EOF
+          )
+          
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "Generated matrix: $MATRIX"
+
+  # Version detection and validation
+  version-detection:
+    name: Version Detection Tests
+    runs-on: windows-latest
+    needs: compatibility-matrix
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.compatibility-matrix.outputs.matrix)}}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python_version }}
+          
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+            
+      - name: Restore dependencies
+        run: dotnet restore RevitPy.sln
+        
+      - name: Build solution
+        run: dotnet build RevitPy.sln --configuration Release --no-restore
+        
+      - name: Mock Revit Installation
+        run: |
+          # Create mock Revit installation for testing
+          $revitPath = "C:\Program Files\Autodesk\Revit ${{ matrix.revit_version }}"
+          New-Item -ItemType Directory -Force -Path $revitPath
+          
+          # Create mock Revit executable
+          $revitExe = Join-Path $revitPath "Revit.exe"
+          Set-Content -Path $revitExe -Value "Mock Revit Executable"
+          
+          # Set version-specific properties
+          $versionInfo = @{
+            ProductVersion = "${{ matrix.revit_version }}.0.0.0"
+            FileVersion = "${{ matrix.revit_version }}.0.0.0"
+            ProductName = "Autodesk Revit ${{ matrix.revit_version }}"
+          }
+          
+          # Create registry entries (requires admin rights in real scenario)
+          echo "Mock registry setup for Revit ${{ matrix.revit_version }}"
+        shell: powershell
+        
+      - name: Run version detection tests
+        run: |
+          dotnet test tests/RevitPy.Tests/ --configuration Release --no-build `
+            --filter "TestCategory=VersionDetection" `
+            --logger "trx;LogFileName=version-detection-${{ matrix.revit_version }}-${{ matrix.python_version }}.trx" `
+            --collect:"XPlat Code Coverage" `
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        shell: powershell
+        
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results-version-detection-${{ matrix.revit_version }}-${{ matrix.python_version }}
+          path: |
+            **/*.trx
+            **/coverage.cobertura.xml
+          retention-days: 30
+
+  # Core API compatibility tests
+  api-compatibility:
+    name: API Compatibility Tests
+    runs-on: windows-latest
+    needs: [compatibility-matrix, version-detection]
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.compatibility-matrix.outputs.matrix)}}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup test environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          python-version: ${{ matrix.python_version }}
+          revit-version: ${{ matrix.revit_version }}
+          
+      - name: Run API compatibility tests
+        run: |
+          dotnet test tests/compatibility/ --configuration Release --no-build `
+            --filter "TestCategory=APICompatibility" `
+            --logger "trx;LogFileName=api-compatibility-${{ matrix.revit_version }}-${{ matrix.python_version }}.trx" `
+            --collect:"XPlat Code Coverage" `
+            --settings tests/compatibility/compatibility.runsettings `
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        shell: powershell
+        env:
+          REVIT_VERSION: ${{ matrix.revit_version }}
+          PYTHON_VERSION: ${{ matrix.python_version }}
+          
+      - name: Generate compatibility report
+        run: |
+          python scripts/generate-compatibility-report.py `
+            --revit-version ${{ matrix.revit_version }} `
+            --python-version ${{ matrix.python_version }} `
+            --test-results "**/*api-compatibility*.trx" `
+            --output-file "api-compatibility-report-${{ matrix.revit_version }}-${{ matrix.python_version }}.json"
+        shell: powershell
+        
+      - name: Upload compatibility report
+        uses: actions/upload-artifact@v3
+        with:
+          name: api-compatibility-report-${{ matrix.revit_version }}-${{ matrix.python_version }}
+          path: api-compatibility-report-*.json
+          retention-days: 30
+
+  # Performance consistency tests
+  performance-tests:
+    name: Performance Consistency
+    runs-on: windows-latest
+    needs: [compatibility-matrix, api-compatibility]
+    if: contains(fromJson(needs.compatibility-matrix.outputs.matrix).test_category, 'performance')
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.compatibility-matrix.outputs.matrix)}}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup test environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          python-version: ${{ matrix.python_version }}
+          revit-version: ${{ matrix.revit_version }}
+          
+      - name: Run performance benchmark
+        run: |
+          dotnet test tests/compatibility/ --configuration Release --no-build `
+            --filter "TestCategory=Performance" `
+            --logger "trx;LogFileName=performance-${{ matrix.revit_version }}-${{ matrix.python_version }}.trx" `
+            --collect:"XPlat Code Coverage" `
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        shell: powershell
+        env:
+          REVIT_VERSION: ${{ matrix.revit_version }}
+          PYTHON_VERSION: ${{ matrix.python_version }}
+          PERFORMANCE_ITERATIONS: 50
+          
+      - name: Analyze performance results
+        run: |
+          python scripts/analyze-performance.py `
+            --test-results "**/*performance*.trx" `
+            --baseline-version 2022 `
+            --current-version ${{ matrix.revit_version }} `
+            --output-file "performance-analysis-${{ matrix.revit_version }}-${{ matrix.python_version }}.json"
+        shell: powershell
+        
+      - name: Upload performance results
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-results-${{ matrix.revit_version }}-${{ matrix.python_version }}
+          path: performance-analysis-*.json
+          retention-days: 90
+
+  # Feature flag tests
+  feature-flag-tests:
+    name: Feature Flag Validation
+    runs-on: windows-latest
+    needs: [compatibility-matrix, api-compatibility]
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.compatibility-matrix.outputs.matrix)}}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup test environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          python-version: ${{ matrix.python_version }}
+          revit-version: ${{ matrix.revit_version }}
+          
+      - name: Run feature flag tests
+        run: |
+          dotnet test tests/compatibility/ --configuration Release --no-build `
+            --filter "TestCategory=FeatureFlags" `
+            --logger "trx;LogFileName=feature-flags-${{ matrix.revit_version }}-${{ matrix.python_version }}.trx" `
+            --collect:"XPlat Code Coverage" `
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        shell: powershell
+        env:
+          REVIT_VERSION: ${{ matrix.revit_version }}
+          PYTHON_VERSION: ${{ matrix.python_version }}
+          
+      - name: Generate feature matrix
+        run: |
+          python scripts/generate-feature-matrix.py `
+            --revit-version ${{ matrix.revit_version }} `
+            --test-results "**/*feature-flags*.trx" `
+            --output-file "feature-matrix-${{ matrix.revit_version }}-${{ matrix.python_version }}.json"
+        shell: powershell
+        
+      - name: Upload feature matrix
+        uses: actions/upload-artifact@v3
+        with:
+          name: feature-matrix-${{ matrix.revit_version }}-${{ matrix.python_version }}
+          path: feature-matrix-*.json
+          retention-days: 30
+
+  # Integration tests
+  integration-tests:
+    name: End-to-End Integration
+    runs-on: windows-latest
+    needs: [compatibility-matrix, feature-flag-tests]
+    if: contains(fromJson(needs.compatibility-matrix.outputs.matrix).test_category, 'integration')
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.compatibility-matrix.outputs.matrix)}}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup test environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          python-version: ${{ matrix.python_version }}
+          revit-version: ${{ matrix.revit_version }}
+          
+      - name: Run integration tests
+        run: |
+          dotnet test tests/compatibility/ --configuration Release --no-build `
+            --filter "TestCategory=Integration" `
+            --logger "trx;LogFileName=integration-${{ matrix.revit_version }}-${{ matrix.python_version }}.trx" `
+            --collect:"XPlat Code Coverage" `
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        shell: powershell
+        env:
+          REVIT_VERSION: ${{ matrix.revit_version }}
+          PYTHON_VERSION: ${{ matrix.python_version }}
+          INTEGRATION_TIMEOUT: 300
+          
+      - name: Upload integration results
+        uses: actions/upload-artifact@v3
+        with:
+          name: integration-results-${{ matrix.revit_version }}-${{ matrix.python_version }}
+          path: |
+            **/*integration*.trx
+            **/coverage.cobertura.xml
+          retention-days: 30
+
+  # Security compatibility tests
+  security-tests:
+    name: Security Compatibility
+    runs-on: windows-latest
+    needs: [compatibility-matrix, api-compatibility]
+    if: contains(fromJson(needs.compatibility-matrix.outputs.matrix).test_category, 'security')
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.compatibility-matrix.outputs.matrix)}}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup test environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          python-version: ${{ matrix.python_version }}
+          revit-version: ${{ matrix.revit_version }}
+          
+      - name: Run security tests
+        run: |
+          dotnet test tests/security/ --configuration Release --no-build `
+            --filter "TestCategory=Compatibility" `
+            --logger "trx;LogFileName=security-${{ matrix.revit_version }}-${{ matrix.python_version }}.trx" `
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        shell: powershell
+        env:
+          REVIT_VERSION: ${{ matrix.revit_version }}
+          
+      - name: Upload security results
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-results-${{ matrix.revit_version }}-${{ matrix.python_version }}
+          path: |
+            **/*security*.trx
+            **/coverage.cobertura.xml
+          retention-days: 30
+
+  # Aggregate results and generate reports
+  aggregate-results:
+    name: Aggregate Test Results
+    runs-on: ubuntu-latest
+    needs: [version-detection, api-compatibility, performance-tests, feature-flag-tests, integration-tests, security-tests]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: test-results/
+          
+      - name: Install report dependencies
+        run: |
+          pip install -r scripts/requirements-reporting.txt
+          
+      - name: Generate comprehensive compatibility report
+        run: |
+          python scripts/generate-comprehensive-report.py \
+            --test-results-path test-results/ \
+            --output-dir reports/ \
+            --format html,json,pdf
+            
+      - name: Generate compatibility matrix
+        run: |
+          python scripts/generate-matrix.py \
+            --test-results-path test-results/ \
+            --output-file reports/compatibility-matrix.json \
+            --include-performance true \
+            --include-features true
+            
+      - name: Create summary dashboard
+        run: |
+          python scripts/create-dashboard.py \
+            --compatibility-matrix reports/compatibility-matrix.json \
+            --test-results test-results/ \
+            --output-file reports/dashboard.html
+            
+      - name: Upload comprehensive reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: compatibility-reports
+          path: reports/
+          retention-days: 90
+          
+      - name: Publish test results to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./reports
+          destination_dir: compatibility-reports/${{ github.run_number }}
+
+  # Quality gates and notifications
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    needs: [aggregate-results]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Download compatibility reports
+        uses: actions/download-artifact@v3
+        with:
+          name: compatibility-reports
+          path: reports/
+          
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Evaluate quality gates
+        id: quality-gates
+        run: |
+          python scripts/evaluate-quality-gates.py \
+            --compatibility-matrix reports/compatibility-matrix.json \
+            --output-file quality-gates-result.json
+          
+          RESULT=$(cat quality-gates-result.json | jq -r '.overall_status')
+          echo "status=$RESULT" >> $GITHUB_OUTPUT
+          
+      - name: Create GitHub issue for failures
+        if: steps.quality-gates.outputs.status == 'FAILED' && github.ref == 'refs/heads/main'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const result = JSON.parse(fs.readFileSync('quality-gates-result.json', 'utf8'));
+            
+            const issueBody = `
+            ## Compatibility Test Failures
+            
+            **Run ID**: ${{ github.run_number }}
+            **Commit**: ${{ github.sha }}
+            **Date**: ${new Date().toISOString()}
+            
+            ### Failed Quality Gates:
+            ${result.failed_gates.map(gate => `- ${gate.name}: ${gate.reason}`).join('\n')}
+            
+            ### Details:
+            ${result.details}
+            
+            ### Action Required:
+            ${result.recommendations.join('\n')}
+            
+            **Report**: [View Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Compatibility Test Failures - Run #${{ github.run_number }}`,
+              body: issueBody,
+              labels: ['compatibility', 'testing', 'bug']
+            });
+            
+      - name: Send Slack notification
+        if: always() && (github.ref == 'refs/heads/main' || github.event_name == 'schedule')
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ steps.quality-gates.outputs.status == 'PASSED' && 'success' || 'failure' }}
+          text: |
+            Compatibility Tests ${{ steps.quality-gates.outputs.status }}
+            
+            Run: ${{ github.run_number }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            
+            View results: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Cleanup
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [quality-gates]
+    if: always()
+    
+    steps:
+      - name: Clean up old artifacts
+        run: |
+          echo "Cleaning up artifacts older than 30 days"
+          # This would typically be handled by GitHub's retention policies
+          # or custom scripts using GitHub API
+          
+      - name: Archive compatibility data
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Archiving compatibility data for historical analysis"
+          # Archive to external storage for trend analysis

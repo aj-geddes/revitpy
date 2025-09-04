@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>RevitPy</Name>
+    <Assembly>RevitPy.Bridge.dll</Assembly>
+    <AddInId>C9B9B9C1-4C4C-4C4C-8888-999999999999</AddInId>
+    <FullClassName>RevitPy.Bridge.RevitPyApplication</FullClassName>
+    <VendorId>REVITPY</VendorId>
+    <VendorDescription>RevitPy Team - Modern Python Framework for Revit</VendorDescription>
+    <Description>
+      RevitPy provides a modern, pythonic interface for Revit development.
+      Features include async/await support, type hints, ORM-style data access,
+      and comprehensive testing capabilities.
+    </Description>
+    <VisibilityMode>NotVisibleWhenNoActiveDocument</VisibilityMode>
+  </AddIn>
+  
+  <!-- External Commands -->
+  <AddIn Type="Command">
+    <Name>RevitPy Console</Name>
+    <Assembly>RevitPy.Bridge.dll</Assembly>
+    <AddInId>D9D9D9D1-5D5D-5D5D-9999-AAAAAAAAAAAA</AddInId>
+    <FullClassName>RevitPy.Bridge.Commands.ConsoleCommand</FullClassName>
+    <Text>Python Console</Text>
+    <Description>Open RevitPy interactive Python console</Description>
+    <VisibilityMode>AlwaysVisible</VisibilityMode>
+    <LargeImage>RevitPy.Bridge.Resources.console_32.png</LargeImage>
+    <SmallImage>RevitPy.Bridge.Resources.console_16.png</SmallImage>
+  </AddIn>
+  
+  <AddIn Type="Command">
+    <Name>RevitPy Script Runner</Name>
+    <Assembly>RevitPy.Bridge.dll</Assembly>
+    <AddInId>E9E9E9E1-6E6E-6E6E-AAAA-BBBBBBBBBBBB</AddInId>
+    <FullClassName>RevitPy.Bridge.Commands.ScriptRunnerCommand</FullClassName>
+    <Text>Run Script</Text>
+    <Description>Execute Python scripts in Revit context</Description>
+    <VisibilityMode>NotVisibleWhenNoActiveDocument</VisibilityMode>
+    <LargeImage>RevitPy.Bridge.Resources.script_32.png</LargeImage>
+    <SmallImage>RevitPy.Bridge.Resources.script_16.png</SmallImage>
+  </AddIn>
+  
+  <AddIn Type="Command">
+    <Name>RevitPy Package Manager</Name>
+    <Assembly>RevitPy.Bridge.dll</Assembly>
+    <AddInId>F9F9F9F1-7F7F-7F7F-BBBB-CCCCCCCCCCCC</AddInId>
+    <FullClassName>RevitPy.Bridge.Commands.PackageManagerCommand</FullClassName>
+    <Text>Package Manager</Text>
+    <Description>Manage RevitPy packages and dependencies</Description>
+    <VisibilityMode>AlwaysVisible</VisibilityMode>
+    <LargeImage>RevitPy.Bridge.Resources.package_32.png</LargeImage>
+    <SmallImage>RevitPy.Bridge.Resources.package_16.png</SmallImage>
+  </AddIn>
+  
+  <AddIn Type="Command">
+    <Name>RevitPy Settings</Name>
+    <Assembly>RevitPy.Bridge.dll</Assembly>
+    <AddInId>A0A0A0A1-8A8A-8A8A-CCCC-DDDDDDDDDDDD</AddInId>
+    <FullClassName>RevitPy.Bridge.Commands.SettingsCommand</FullClassName>
+    <Text>Settings</Text>
+    <Description>Configure RevitPy settings and preferences</Description>
+    <VisibilityMode>AlwaysVisible</VisibilityMode>
+    <LargeImage>RevitPy.Bridge.Resources.settings_32.png</LargeImage>
+    <SmallImage>RevitPy.Bridge.Resources.settings_16.png</SmallImage>
+  </AddIn>
+  
+  <!-- Dockable Panes -->
+  <AddIn Type="DBApplication">
+    <Name>RevitPy Properties Panel</Name>
+    <Assembly>RevitPy.Bridge.dll</Assembly>
+    <AddInId>B0B0B0B1-9B9B-9B9B-DDDD-EEEEEEEEEEEE</AddInId>
+    <FullClassName>RevitPy.Bridge.Panels.PropertiesPanelApplication</FullClassName>
+    <VendorId>REVITPY</VendorId>
+    <VendorDescription>RevitPy Team</VendorDescription>
+    <Description>Dockable properties panel for RevitPy</Description>
+  </AddIn>
+</RevitAddIns>

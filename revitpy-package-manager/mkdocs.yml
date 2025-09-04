@@ -1,0 +1,239 @@
+site_name: RevitPy Package Manager
+site_description: Professional package management system for the RevitPy framework
+site_author: High Velocity Solutions
+site_url: https://docs.revitpy.dev
+
+# Repository
+repo_name: highvelocitysolutions/revitpy
+repo_url: https://github.com/highvelocitysolutions/revitpy
+edit_uri: edit/main/revitpy-package-manager/docs/
+
+# Copyright
+copyright: Copyright &copy; 2024 High Velocity Solutions LLC
+
+# Configuration
+theme:
+  name: material
+  custom_dir: docs/overrides
+  language: en
+  
+  # Colors and appearance
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  
+  # Fonts
+  font:
+    text: Roboto
+    code: Roboto Mono
+  
+  # Icons and logos
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/package-variant
+  
+  # Features
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.code.select
+    - content.tabs.link
+    - content.tooltips
+    - navigation.expand
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.path
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+    - toc.integrate
+
+# Plugins
+plugins:
+  - search:
+      separator: '[\s\u200b\-_,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            docstring_section_style: table
+            heading_level: 1
+            inherited_members: true
+            merge_init_into_class: true
+            separate_signature: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
+            summary: true
+            unwrap_annotated: true
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+  - git-committers:
+      repository: highvelocitysolutions/revitpy
+      branch: main
+  - social:
+      cards_layout_options:
+        background_color: "#0f1419"
+        color: "#ffffff"
+  - tags
+  - glightbox
+  - minify:
+      minify_html: true
+
+# Extensions
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      title: Page contents
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: highvelocitysolutions
+      repo: revitpy
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      auto_append:
+        - includes/mkdocs.md
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Extra
+extra:
+  version:
+    provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/highvelocitysolutions/revitpy
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/revitpy
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/revitpy
+    - icon: fontawesome/brands/linkedin
+      link: https://linkedin.com/company/high-velocity-solutions
+  generator: false
+  analytics:
+    provider: google
+    property: !ENV GOOGLE_ANALYTICS_KEY
+
+# Navigation
+nav:
+  - Home: index.md
+  - Getting Started:
+    - getting-started/index.md
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - First Extension: getting-started/first-extension.md
+    - Development Setup: getting-started/development-setup.md
+  - Tutorials:
+    - tutorials/index.md
+    - Basic Scripting: tutorials/basic-scripting.md
+    - UI Development: tutorials/ui-development.md
+    - Package Management: tutorials/package-management.md
+    - Testing & Debugging: tutorials/testing-debugging.md
+    - Performance Optimization: tutorials/performance-optimization.md
+  - Guides:
+    - guides/index.md
+    - Migration from PyRevit: guides/migration-from-pyrevit.md
+    - Best Practices: guides/best-practices.md
+    - Architecture Overview: guides/architecture-overview.md
+    - Troubleshooting: guides/troubleshooting.md
+  - Reference:
+    - reference/index.md
+    - API Reference:
+      - reference/api/index.md
+      - Registry API: reference/api/registry.md
+      - Installer CLI: reference/api/installer.md
+      - Builder CLI: reference/api/builder.md
+      - Security: reference/api/security.md
+    - CLI Commands: reference/cli-commands.md
+    - Configuration: reference/configuration.md
+    - Extensions: reference/extensions.md
+  - Enterprise:
+    - enterprise/index.md
+    - Deployment: enterprise/deployment.md
+    - Security: enterprise/security.md
+    - Administration: enterprise/administration.md
+    - Compliance: enterprise/compliance.md
+  - Community:
+    - community/index.md
+    - Contributing: community/contributing.md
+    - Code of Conduct: community/code-of-conduct.md
+    - Support: community/support.md
+
+# Validation
+validation:
+  nav:
+    omitted_files: info
+    not_found: warn
+    absolute_links: info
+  links:
+    not_found: ignore
+    absolute_links: ignore
+    unrecognized_links: ignore
+
+# Watch additional directories
+watch:
+  - revitpy_package_manager/

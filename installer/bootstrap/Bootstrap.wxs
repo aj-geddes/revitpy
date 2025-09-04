@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:bal="http://schemas.microsoft.com/wix/BalExtension"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+
+  <Bundle Id="12345678-ABCD-EFGH-IJKL-123456789ABC"
+          Name="RevitPy Setup"
+          Version="1.0.0"
+          Manufacturer="RevitPy Team"
+          UpgradeCode="87654321-DCBA-HGFE-LKJI-CBA987654321"
+          IconSourceFile="assets\RevitPy.ico"
+          AboutUrl="https://github.com/revitpy/revitpy">
+
+    <!-- Bundle UI Theme -->
+    <BootstrapperApplicationRef Id="WixStandardBootstrapperApplication.RtfLicense">
+      <bal:WixStandardBootstrapperApplication 
+        LicenseFile="assets\license.rtf"
+        LogoFile="assets\logo.png"
+        ThemeFile="assets\Theme.xml"
+        LocalizationFile="assets\Theme.wxl"
+        ShowVersion="yes"
+        SuppressOptionsUI="no"
+        SuppressDowngradeFailure="no"
+        SuppressRepair="no" />
+    </BootstrapperApplicationRef>
+
+    <!-- Variables for Installation Control -->
+    <Variable Name="InstallDir" Type="string" Value="[ProgramFiles64Folder]RevitPy" />
+    <Variable Name="LaunchApp" Type="numeric" Value="0" Persisted="yes" />
+    <Variable Name="InstallPython" Type="numeric" Value="1" Persisted="yes" />
+
+    <!-- Chain of Packages -->
+    <Chain>
+      <!-- Visual C++ Redistributable 2019-2022 x64 -->
+      <PackageGroupRef Id="VCRedist2022" />
+
+      <!-- .NET 4.8 Runtime (if not present) -->
+      <PackageGroupRef Id="NetFx48" />
+
+      <!-- Python 3.11 Runtime (conditional) -->
+      <ExePackage Id="Python311"
+                  DisplayName="Python 3.11 Runtime"
+                  Description="Python 3.11 runtime required for RevitPy"
+                  SourceFile="downloads\python-3.11.8-amd64.exe"
+                  DownloadUrl="https://www.python.org/ftp/python/3.11.8/python-3.11.8-amd64.exe"
+                  InstallCommand="/quiet InstallAllUsers=1 PrependPath=0 Include_test=0"
+                  RepairCommand="/quiet InstallAllUsers=1 PrependPath=0 Include_test=0"
+                  UninstallCommand="/uninstall /quiet"
+                  DetectCondition="PythonInstalled AND PythonVersionOK"
+                  InstallCondition="InstallPython AND NOT (PythonInstalled AND PythonVersionOK)"
+                  Permanent="no"
+                  Vital="no"
+                  Compressed="no"
+                  Cache="yes" />
+
+      <!-- Main RevitPy MSI Package -->
+      <MsiPackage Id="RevitPyMain"
+                  DisplayName="RevitPy"
+                  Description="RevitPy - Modern Python Framework for Revit"
+                  SourceFile="bin\$(var.Configuration)\RevitPy-1.0.0.msi"
+                  Vital="yes"
+                  DisplayInternalUI="no"
+                  Compressed="yes"
+                  Cache="yes"
+                  EnableFeatureSelection="yes"
+                  ForcePerMachine="yes">
+        
+        <!-- Pass properties to MSI -->
+        <MsiProperty Name="INSTALLDIR" Value="[InstallDir]" />
+        <MsiProperty Name="INSTALL_PYTHON" Value="[InstallPython]" />
+        <MsiProperty Name="LAUNCH_APP" Value="[LaunchApp]" />
+      </MsiPackage>
+
+    </Chain>
+
+    <!-- Searches for existing installations -->
+    <util:RegistrySearch Id="PythonVersionSearch"
+                         Root="HKLM"
+                         Key="SOFTWARE\Python\PythonCore"
+                         Variable="PythonInstalled"
+                         Result="exists" />
+
+    <util:RegistrySearch Id="PythonVersion311Search"
+                         Root="HKLM"
+                         Key="SOFTWARE\Python\PythonCore\3.11"
+                         Variable="PythonVersionOK"
+                         Result="exists" />
+
+    <util:RegistrySearch Id="PythonVersion312Search"
+                         Root="HKLM"
+                         Key="SOFTWARE\Python\PythonCore\3.12"
+                         Variable="Python312Installed"
+                         Result="exists" />
+
+    <!-- Update PythonVersionOK to true if any supported version is found -->
+    <util:DirectorySearch Id="PythonDirectorySearch"
+                          Path="[ProgramFiles64Folder]Python311"
+                          Variable="Python311Directory"
+                          Result="exists" />
+
+    <!-- Custom Bundle UI Events -->
+    <bal:Condition Message="This application requires Windows 10 version 1903 or later.">
+      <![CDATA[VersionNT >= v10.0.18362]]>
+    </bal:Condition>
+
+  </Bundle>
+
+  <!-- Package Groups for Prerequisites -->
+  <Fragment>
+    <PackageGroup Id="VCRedist2022">
+      <ExePackage Id="VCRedist2022x64"
+                  DisplayName="Visual C++ Redistributable for Visual Studio 2022"
+                  Description="Microsoft Visual C++ 2015-2022 Redistributable (x64)"
+                  SourceFile="downloads\VC_redist.x64.exe"
+                  DownloadUrl="https://aka.ms/vs/17/release/vc_redist.x64.exe"
+                  InstallCommand="/install /quiet /norestart"
+                  RepairCommand="/repair /quiet /norestart"
+                  UninstallCommand="/uninstall /quiet /norestart"
+                  DetectCondition="VCRedist2022x64Installed"
+                  Permanent="yes"
+                  Vital="yes"
+                  Compressed="no"
+                  Cache="yes" />
+    </PackageGroup>
+
+    <PackageGroup Id="NetFx48">
+      <ExePackage Id="NetFx48"
+                  DisplayName="Microsoft .NET Framework 4.8"
+                  Description="Microsoft .NET Framework 4.8 Full"
+                  SourceFile="downloads\ndp48-x86-x64-allos-enu.exe"
+                  DownloadUrl="https://download.microsoft.com/download/6/E/4/6E48E8AB-DC00-419E-9704-06DD46E5F81D/NDP472-KB4054530-x86-x64-AllOS-ENU.exe"
+                  InstallCommand="/quiet /norestart"
+                  RepairCommand="/repair /quiet /norestart"
+                  UninstallCommand="/uninstall /quiet /norestart"
+                  DetectCondition="NETFRAMEWORK48"
+                  Permanent="yes"
+                  Vital="yes"
+                  Compressed="no"
+                  Cache="yes" />
+    </PackageGroup>
+  </Fragment>
+
+  <!-- Searches for Prerequisites -->
+  <Fragment>
+    <!-- Visual C++ Redistributable Detection -->
+    <util:RegistrySearch Id="VCRedist2022x64Search"
+                         Root="HKLM"
+                         Key="SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64"
+                         Value="Version"
+                         Variable="VCRedist2022x64Version" />
+
+    <util:RegistrySearch Id="VCRedist2022x64InstalledSearch"
+                         Root="HKLM"
+                         Key="SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64"
+                         Value="Installed"
+                         Variable="VCRedist2022x64Installed" />
+
+    <!-- .NET Framework Detection -->
+    <util:RegistrySearch Id="NetFx48Search"
+                         Root="HKLM"
+                         Key="SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"
+                         Value="Release"
+                         Variable="NETFRAMEWORK48"
+                         Result="value" />
+  </Fragment>
+
+</Wix>

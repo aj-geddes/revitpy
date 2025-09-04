@@ -1,0 +1,312 @@
+{
+  "RevitPy Basic Script": {
+    "prefix": "revitpy-basic",
+    "body": [
+      "#!/usr/bin/env python3",
+      "\"\"\"",
+      "${1:Script Name} - RevitPy Script",
+      "\"\"\"",
+      "",
+      "import clr",
+      "clr.AddReference('RevitAPI')",
+      "clr.AddReference('RevitAPIUI')",
+      "",
+      "from Autodesk.Revit.DB import *",
+      "from Autodesk.Revit.UI import *",
+      "",
+      "",
+      "def main(doc):",
+      "    \"\"\"Main script function.\"\"\"",
+      "    print(\"Starting ${1:Script Name}...\")",
+      "    ",
+      "    with Transaction(doc, \"${1:Script Name}\") as t:",
+      "        t.Start()",
+      "        ",
+      "        ${2:# Your code here}",
+      "        ",
+      "        t.Commit()",
+      "    ",
+      "    print(\"${1:Script Name} completed!\")",
+      "",
+      "",
+      "# Entry point for Revit",
+      "if __name__ == \"__main__\":",
+      "    try:",
+      "        doc = __revit__.ActiveUIDocument.Document",
+      "        main(doc)",
+      "    except Exception as e:",
+      "        print(f\"Error: {str(e)}\")",
+      "        import traceback",
+      "        traceback.print_exc()"
+    ],
+    "description": "Basic RevitPy script template"
+  },
+
+  "Transaction Block": {
+    "prefix": "transaction",
+    "body": [
+      "with Transaction(doc, \"${1:Transaction Name}\") as t:",
+      "    t.Start()",
+      "    ",
+      "    ${2:# Your code here}",
+      "    ",
+      "    t.Commit()"
+    ],
+    "description": "Revit transaction block"
+  },
+
+  "Sub-Transaction Block": {
+    "prefix": "subtransaction",
+    "body": [
+      "with SubTransaction(doc) as st:",
+      "    st.Start()",
+      "    ",
+      "    ${1:# Your code here}",
+      "    ",
+      "    st.Commit()"
+    ],
+    "description": "Revit sub-transaction block"
+  },
+
+  "Element Collector": {
+    "prefix": "collector",
+    "body": [
+      "collector = FilteredElementCollector(doc)",
+      "${1|elements = collector.OfClass(Wall).ToElements(),elements = collector.OfCategory(BuiltInCategory.OST_Walls).ToElements(),element_ids = collector.OfClass(Wall).ToElementIds(),elements = collector.WhereElementIsNotElementType().ToElements()|}"
+    ],
+    "description": "Filtered element collector"
+  },
+
+  "Element by Category": {
+    "prefix": "collect-category",
+    "body": [
+      "collector = FilteredElementCollector(doc)",
+      "elements = collector.OfCategory(BuiltInCategory.${1|OST_Walls,OST_Doors,OST_Windows,OST_Floors,OST_Ceilings,OST_Rooms,OST_Spaces|}).WhereElementIsNotElementType().ToElements()",
+      "",
+      "print(f\"Found {len(elements)} ${2:elements}\")"
+    ],
+    "description": "Collect elements by category"
+  },
+
+  "Element by Class": {
+    "prefix": "collect-class",
+    "body": [
+      "collector = FilteredElementCollector(doc)",
+      "elements = collector.OfClass(${1|Wall,Floor,Ceiling,Door,Window,Room,Space,FamilyInstance|}).ToElements()",
+      "",
+      "print(f\"Found {len(elements)} ${2:elements}\")"
+    ],
+    "description": "Collect elements by class"
+  },
+
+  "Parameter Access": {
+    "prefix": "parameter",
+    "body": [
+      "param = element.get_Parameter(BuiltInParameter.${1:BUILTIN_PARAM_NAME})",
+      "if param and param.HasValue:",
+      "    ${2|value = param.AsString(),value = param.AsDouble(),value = param.AsInteger(),value = param.AsElementId()|}"
+    ],
+    "description": "Access element parameter"
+  },
+
+  "Parameter Set": {
+    "prefix": "param-set",
+    "body": [
+      "param = element.get_Parameter(BuiltInParameter.${1:BUILTIN_PARAM_NAME})",
+      "if param and not param.IsReadOnly:",
+      "    param.Set(${2:value})"
+    ],
+    "description": "Set element parameter value"
+  },
+
+  "Create XYZ Point": {
+    "prefix": "xyz",
+    "body": [
+      "point = XYZ(${1:x}, ${2:y}, ${3:z})"
+    ],
+    "description": "Create XYZ point"
+  },
+
+  "Create Line": {
+    "prefix": "line",
+    "body": [
+      "start_point = XYZ(${1:x1}, ${2:y1}, ${3:z1})",
+      "end_point = XYZ(${4:x2}, ${5:y2}, ${6:z2})",
+      "line = Line.CreateBound(start_point, end_point)"
+    ],
+    "description": "Create bounded line"
+  },
+
+  "Task Dialog": {
+    "prefix": "dialog",
+    "body": [
+      "TaskDialog.Show(\"${1:Title}\", \"${2:Message}\")"
+    ],
+    "description": "Show task dialog"
+  },
+
+  "Task Dialog with Result": {
+    "prefix": "dialog-result",
+    "body": [
+      "dialog = TaskDialog(\"${1:Title}\")",
+      "dialog.MainInstruction = \"${2:Main Message}\"",
+      "dialog.MainContent = \"${3:Detailed message}\"",
+      "dialog.CommonButtons = TaskDialogCommonButtons.${4|Yes | TaskDialogCommonButtons.No,Ok | TaskDialogCommonButtons.Cancel,Retry | TaskDialogCommonButtons.Cancel|}",
+      "dialog.DefaultButton = TaskDialogResult.${5|Yes,No,Ok,Cancel,Retry|}",
+      "",
+      "result = dialog.Show()",
+      "if result == TaskDialogResult.${6|Yes,No,Ok,Cancel,Retry|}:",
+      "    ${7:# Handle result}"
+    ],
+    "description": "Show task dialog with result handling"
+  },
+
+  "Family Instance Creation": {
+    "prefix": "create-family-instance",
+    "body": [
+      "# Find family symbol",
+      "family_symbol = None",
+      "collector = FilteredElementCollector(doc).OfClass(FamilySymbol)",
+      "for symbol in collector:",
+      "    if symbol.FamilyName == \"${1:Family Name}\" and symbol.Name == \"${2:Symbol Name}\":",
+      "        family_symbol = symbol",
+      "        break",
+      "",
+      "if family_symbol:",
+      "    if not family_symbol.IsActive:",
+      "        family_symbol.Activate()",
+      "        doc.Regenerate()",
+      "    ",
+      "    location = XYZ(${3:x}, ${4:y}, ${5:z})",
+      "    instance = doc.Create.NewFamilyInstance(location, family_symbol, StructuralType.NonStructural)"
+    ],
+    "description": "Create family instance"
+  },
+
+  "Wall Creation": {
+    "prefix": "create-wall",
+    "body": [
+      "# Create wall curve",
+      "start_point = XYZ(${1:x1}, ${2:y1}, ${3:0})",
+      "end_point = XYZ(${4:x2}, ${5:y2}, ${6:0})",
+      "wall_curve = Line.CreateBound(start_point, end_point)",
+      "",
+      "# Get wall type",
+      "wall_type = doc.GetDefaultElementTypeId(ElementTypeGroup.WallType)",
+      "wall_type_element = doc.GetElement(wall_type)",
+      "",
+      "# Create wall",
+      "wall = Wall.Create(doc, wall_curve, wall_type, doc.ActiveView.GenLevel.Id, ${7:height}, ${8:0}, ${9:False}, ${10:False})"
+    ],
+    "description": "Create wall element"
+  },
+
+  "Element Selection": {
+    "prefix": "select-elements",
+    "body": [
+      "try:",
+      "    selection = uidoc.Selection",
+      "    ${1|element_ids = selection.GetElementIds(),references = selection.PickObjects(ObjectType.Element\\, \"Select elements\"),reference = selection.PickObject(ObjectType.Element\\, \"Select element\")|}"
+    ],
+    "description": "Element selection methods"
+  },
+
+  "View Creation": {
+    "prefix": "create-view",
+    "body": [
+      "# Get view family type",
+      "view_family_types = FilteredElementCollector(doc).OfClass(ViewFamilyType)",
+      "view_type = None",
+      "for vft in view_family_types:",
+      "    if vft.ViewFamily == ViewFamily.${1|ThreeDimensional,FloorPlan,CeilingPlan,Elevation,Section|}:",
+      "        view_type = vft",
+      "        break",
+      "",
+      "if view_type:",
+      "    ${2|view = View3D.CreateIsometric(doc\\, view_type.Id),view = ViewPlan.Create(doc\\, view_type.Id\\, level.Id)|}"
+    ],
+    "description": "Create view"
+  },
+
+  "Material Access": {
+    "prefix": "material",
+    "body": [
+      "material_id = element.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM).AsElementId()",
+      "if material_id != ElementId.InvalidElementId:",
+      "    material = doc.GetElement(material_id)",
+      "    print(f\"Material: {material.Name}\")"
+    ],
+    "description": "Access element material"
+  },
+
+  "Bounding Box": {
+    "prefix": "bbox",
+    "body": [
+      "bbox = element.get_BoundingBox(${1:None})",
+      "if bbox:",
+      "    min_point = bbox.Min",
+      "    max_point = bbox.Max",
+      "    ${2:# Use bounding box points}"
+    ],
+    "description": "Get element bounding box"
+  },
+
+  "Element Geometry": {
+    "prefix": "geometry",
+    "body": [
+      "geometry = element.get_Geometry(Options())",
+      "if geometry:",
+      "    for geo_object in geometry:",
+      "        if isinstance(geo_object, ${1|Solid,Face,Edge,Curve|}):",
+      "            ${2:# Process geometry object}"
+    ],
+    "description": "Access element geometry"
+  },
+
+  "Level Access": {
+    "prefix": "levels",
+    "body": [
+      "levels = FilteredElementCollector(doc).OfClass(Level).ToElements()",
+      "for level in levels:",
+      "    print(f\"Level: {level.Name}, Elevation: {level.Elevation}\")"
+    ],
+    "description": "Access project levels"
+  },
+
+  "RevitPy Command Class": {
+    "prefix": "command-class",
+    "body": [
+      "[Transaction(TransactionMode.${1|Manual,Automatic,ReadOnly|})]",
+      "[Regeneration(RegenerationOption.${2|Manual,Automatic|})]",
+      "class ${3:CommandName}(IExternalCommand):",
+      "    \"\"\"${4:Command description}.\"\"\"",
+      "    ",
+      "    def Execute(self, commandData, message, elements):",
+      "        \"\"\"Execute the command.\"\"\"",
+      "        try:",
+      "            ui_doc = commandData.Application.ActiveUIDocument",
+      "            doc = ui_doc.Document",
+      "            ",
+      "            ${5:# Your command code here}",
+      "            ",
+      "            return Result.Succeeded",
+      "            ",
+      "        except Exception as e:",
+      "            message.Value = str(e)",
+      "            return Result.Failed"
+    ],
+    "description": "RevitPy external command class"
+  },
+
+  "Error Handling": {
+    "prefix": "try-catch",
+    "body": [
+      "try:",
+      "    ${1:# Your code here}",
+      "except Exception as e:",
+      "    print(f\"Error: {str(e)}\")",
+      "    ${2|import traceback; traceback.print_exc(),TaskDialog.Show(\"Error\"\\, str(e)),raise|}"
+    ],
+    "description": "Exception handling block"
+  }
+}

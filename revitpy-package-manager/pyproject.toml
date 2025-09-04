@@ -1,0 +1,216 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "revitpy-package-manager"
+version = "0.1.0"
+description = "Complete package management system for RevitPy framework"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "High Velocity Solutions", email = "team@highvelocitysolutions.com"}
+]
+keywords = ["revit", "bim", "python", "package-manager", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Architecture",
+]
+requires-python = ">=3.11"
+
+dependencies = [
+    # Web Framework
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.5.0",
+    
+    # Database
+    "sqlalchemy>=2.0.23",
+    "alembic>=1.13.0",
+    "asyncpg>=0.29.0",  # PostgreSQL async driver
+    
+    # Storage and Caching
+    "boto3>=1.34.0",  # AWS S3
+    "redis>=5.0.0",
+    "aiofiles>=23.2.1",
+    
+    # Security and Cryptography
+    "cryptography>=42.0.2",
+    "authlib>=1.3.1",
+    "bcrypt>=4.1.2",
+    "python-multipart>=0.0.6",
+    
+    # Package Management
+    "packaging>=23.2",
+    "pip-tools>=7.3.0",
+    "wheel>=0.38.1",
+    "virtualenv>=20.25.0",
+    
+    # HTTP and Networking
+    "httpx>=0.25.2",
+    "aiohttp>=3.9.1",
+    "websockets>=12.0",
+    "requests>=2.32.4",
+    "urllib3>=2.5.0",
+    "certifi>=2023.7.22",
+    
+    # CLI and UI
+    "click>=8.1.7",
+    "rich>=13.7.0",
+    "typer>=0.9.0",
+    "questionary>=2.0.1",
+    
+    # Utilities
+    "pyyaml>=6.0.1",
+    "toml>=0.10.2",
+    "python-dateutil>=2.8.2",
+    "email-validator>=2.1.0",
+    "python-slugify>=8.0.1",
+    
+    # Monitoring and Logging
+    "structlog>=23.2.0",
+    "prometheus-client>=0.19.0",
+    "sentry-sdk[fastapi]>=1.39.1",
+    
+    # Testing (dev dependencies)
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.1",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "httpx>=0.25.2",  # for testing FastAPI
+    "factory-boy>=3.3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.11.0",
+    "isort>=5.12.0",
+    "flake8>=6.1.0",
+    "mypy>=1.7.1",
+    "pre-commit>=3.6.0",
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.1",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "factory-boy>=3.3.0",
+]
+
+test = [
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.1",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "factory-boy>=3.3.0",
+    "testcontainers>=3.7.1",
+]
+
+docs = [
+    "mkdocs>=1.5.3",
+    "mkdocs-material>=9.4.8",
+    "mkdocstrings[python]>=0.24.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/highvelocitysolutions/revitpy"
+Documentation = "https://docs.revitpy.dev"
+Repository = "https://github.com/highvelocitysolutions/revitpy"
+"Bug Tracker" = "https://github.com/highvelocitysolutions/revitpy/issues"
+
+[project.scripts]
+revitpy-registry = "revitpy_package_manager.registry.api.main:main"
+revitpy-install = "revitpy_package_manager.installer.cli.main:main"
+revitpy-build = "revitpy_package_manager.builder.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["revitpy_package_manager*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yml", "*.yaml", "*.json", "*.toml", "*.sql"]
+
+# Black code formatting
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# isort import sorting
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["revitpy_package_manager"]
+
+# MyPy type checking
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "boto3.*",
+    "botocore.*",
+    "factory_boy.*",
+    "testcontainers.*",
+]
+ignore_missing_imports = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --strict-markers --cov=revitpy_package_manager"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "e2e: marks tests as end-to-end tests",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["revitpy_package_manager"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 85
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

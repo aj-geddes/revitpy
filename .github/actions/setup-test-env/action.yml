@@ -1,0 +1,319 @@
+name: 'Setup Test Environment'
+description: 'Sets up the test environment for RevitPy compatibility testing'
+
+inputs:
+  dotnet-version:
+    description: '.NET version to setup'
+    required: true
+    default: '8.0.x'
+  python-version:
+    description: 'Python version to setup'
+    required: true
+    default: '3.11'
+  revit-version:
+    description: 'Revit version to mock/setup'
+    required: true
+  cache-key-suffix:
+    description: 'Additional suffix for cache keys'
+    required: false
+    default: ''
+
+outputs:
+  cache-hit:
+    description: 'Whether cache was hit'
+    value: ${{ steps.cache-deps.outputs.cache-hit }}
+  test-env-ready:
+    description: 'Whether test environment is ready'
+    value: ${{ steps.validate-env.outputs.ready }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+        
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python-version }}
+        
+    - name: Cache dependencies
+      id: cache-deps
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.nuget/packages
+          ~/.cache/pip
+          **/node_modules
+        key: ${{ runner.os }}-deps-${{ inputs.dotnet-version }}-${{ inputs.python-version }}-${{ inputs.revit-version }}-${{ hashFiles('**/*.csproj', '**/requirements*.txt', '**/package*.json') }}${{ inputs.cache-key-suffix }}
+        restore-keys: |
+          ${{ runner.os }}-deps-${{ inputs.dotnet-version }}-${{ inputs.python-version }}-${{ inputs.revit-version }}-
+          ${{ runner.os }}-deps-${{ inputs.dotnet-version }}-${{ inputs.python-version }}-
+          ${{ runner.os }}-deps-${{ inputs.dotnet-version }}-
+          ${{ runner.os }}-deps-
+          
+    - name: Install Python dependencies
+      shell: powershell
+      run: |
+        if (Test-Path "requirements.txt") {
+          pip install -r requirements.txt
+        }
+        if (Test-Path "tests/requirements.txt") {
+          pip install -r tests/requirements.txt
+        }
+        pip install pytest pytest-cov pytest-xdist pytest-timeout
+        
+    - name: Restore .NET dependencies
+      shell: powershell
+      run: |
+        dotnet restore RevitPy.sln --verbosity normal
+        
+    - name: Setup mock Revit environment
+      shell: powershell
+      run: |
+        # Create mock Revit installation directory
+        $revitPath = "C:\Program Files\Autodesk\Revit ${{ inputs.revit-version }}"
+        New-Item -ItemType Directory -Force -Path $revitPath | Out-Null
+        
+        # Create mock executable
+        $revitExe = Join-Path $revitPath "Revit.exe"
+        $mockExeContent = @"
+        // Mock Revit executable for testing
+        // Version: ${{ inputs.revit-version }}
+        // Created: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+        "@
+        Set-Content -Path $revitExe -Value $mockExeContent -Encoding UTF8
+        
+        # Create mock DLLs
+        $dllPaths = @(
+          "RevitAPI.dll",
+          "RevitAPIUI.dll",
+          "AdWindows.dll"
+        )
+        
+        foreach ($dll in $dllPaths) {
+          $dllPath = Join-Path $revitPath $dll
+          Set-Content -Path $dllPath -Value "Mock DLL for $dll" -Encoding UTF8
+        }
+        
+        # Set environment variables
+        echo "REVIT_VERSION=${{ inputs.revit-version }}" >> $env:GITHUB_ENV
+        echo "REVIT_PATH=$revitPath" >> $env:GITHUB_ENV
+        echo "REVIT_EXECUTABLE=$revitExe" >> $env:GITHUB_ENV
+        
+        # Create version-specific registry simulation file
+        $registryPath = Join-Path $env:TEMP "revit-registry-${{ inputs.revit-version }}.json"
+        $registryData = @{
+          "Revit${{ inputs.revit-version }}" = @{
+            "InstallationPath" = $revitPath
+            "ProductName" = "Autodesk Revit ${{ inputs.revit-version }}"
+            "Version" = "${{ inputs.revit-version }}.0.0.0"
+            "BuildNumber" = "${{ inputs.revit-version }}0001"
+            "ReleaseDate" = "2024-01-01"
+          }
+        } | ConvertTo-Json -Depth 3
+        
+        Set-Content -Path $registryPath -Value $registryData -Encoding UTF8
+        echo "MOCK_REGISTRY_PATH=$registryPath" >> $env:GITHUB_ENV
+        
+        Write-Host "Mock Revit ${{ inputs.revit-version }} environment created at: $revitPath"
+        
+    - name: Setup compatibility test configuration
+      shell: powershell
+      run: |
+        # Create test configuration file
+        $testConfig = @{
+          "RevitVersion" = "${{ inputs.revit-version }}"
+          "PythonVersion" = "${{ inputs.python-version }}"
+          "DotNetVersion" = "${{ inputs.dotnet-version }}"
+          "MockEnvironment" = $true
+          "TestMode" = "Compatibility"
+          "RevitInstallationPath" = $env:REVIT_PATH
+          "MockRegistryPath" = $env:MOCK_REGISTRY_PATH
+          "TestCategories" = @(
+            "VersionDetection",
+            "APICompatibility", 
+            "FeatureFlags",
+            "Performance",
+            "Integration",
+            "Security"
+          )
+          "PerformanceBaseline" = @{
+            "ElementCreationTime" = 100
+            "ParameterAccessTime" = 10
+            "TransactionTime" = 50
+            "QueryTime" = 200
+          }
+          "FeatureFlags" = @{
+            "EnableExperimentalFeatures" = $true
+            "DisableDeprecatedFeatures" = $false
+            "LogFeatureUsage" = $true
+          }
+        } | ConvertTo-Json -Depth 4
+        
+        $configPath = "tests/compatibility/test-config-${{ inputs.revit-version }}.json"
+        New-Item -ItemType Directory -Force -Path (Split-Path $configPath -Parent) | Out-Null
+        Set-Content -Path $configPath -Value $testConfig -Encoding UTF8
+        
+        echo "TEST_CONFIG_PATH=$configPath" >> $env:GITHUB_ENV
+        
+        Write-Host "Test configuration created at: $configPath"
+        
+    - name: Build solution
+      shell: powershell
+      run: |
+        dotnet build RevitPy.sln --configuration Release --no-restore --verbosity normal
+        
+    - name: Setup test data
+      shell: powershell
+      run: |
+        # Create test data directory
+        $testDataPath = "tests/data/revit-${{ inputs.revit-version }}"
+        New-Item -ItemType Directory -Force -Path $testDataPath | Out-Null
+        
+        # Create mock test files
+        $mockFiles = @(
+          "sample-wall.json",
+          "sample-family.json", 
+          "test-parameters.json",
+          "performance-baseline.json"
+        )
+        
+        foreach ($file in $mockFiles) {
+          $filePath = Join-Path $testDataPath $file
+          $mockData = @{
+            "version" = "${{ inputs.revit-version }}"
+            "type" = [System.IO.Path]::GetFileNameWithoutExtension($file)
+            "created" = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+            "data" = @{}
+          } | ConvertTo-Json -Depth 3
+          
+          Set-Content -Path $filePath -Value $mockData -Encoding UTF8
+        }
+        
+        echo "TEST_DATA_PATH=$testDataPath" >> $env:GITHUB_ENV
+        
+        Write-Host "Test data created at: $testDataPath"
+        
+    - name: Setup logging
+      shell: powershell
+      run: |
+        # Create logs directory
+        $logsPath = "logs/compatibility/${{ inputs.revit-version }}"
+        New-Item -ItemType Directory -Force -Path $logsPath | Out-Null
+        
+        # Setup logging configuration
+        $logConfig = @{
+          "Serilog" = @{
+            "MinimumLevel" = @{
+              "Default" = "Information"
+              "Override" = @{
+                "RevitPy.Compatibility" = "Debug"
+                "System" = "Warning"
+                "Microsoft" = "Warning"
+              }
+            }
+            "WriteTo" = @(
+              @{
+                "Name" = "Console"
+                "Args" = @{
+                  "outputTemplate" = "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"
+                }
+              },
+              @{
+                "Name" = "File"
+                "Args" = @{
+                  "path" = "$logsPath/compatibility-{Date}.log"
+                  "rollingInterval" = "Day"
+                  "retainedFileCountLimit" = 7
+                  "outputTemplate" = "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"
+                }
+              }
+            )
+          }
+        } | ConvertTo-Json -Depth 5
+        
+        $logConfigPath = "tests/compatibility/logging.json"
+        Set-Content -Path $logConfigPath -Value $logConfig -Encoding UTF8
+        
+        echo "LOG_CONFIG_PATH=$logConfigPath" >> $env:GITHUB_ENV
+        echo "LOGS_PATH=$logsPath" >> $env:GITHUB_ENV
+        
+        Write-Host "Logging configuration created at: $logConfigPath"
+        
+    - name: Validate environment
+      id: validate-env
+      shell: powershell
+      run: |
+        $isReady = $true
+        $validationErrors = @()
+        
+        # Check .NET installation
+        try {
+          $dotnetVersion = dotnet --version
+          Write-Host "✓ .NET version: $dotnetVersion"
+        } catch {
+          $validationErrors += "❌ .NET not properly installed"
+          $isReady = $false
+        }
+        
+        # Check Python installation
+        try {
+          $pythonVersion = python --version
+          Write-Host "✓ Python version: $pythonVersion"
+        } catch {
+          $validationErrors += "❌ Python not properly installed"
+          $isReady = $false
+        }
+        
+        # Check mock Revit environment
+        if (Test-Path $env:REVIT_EXECUTABLE) {
+          Write-Host "✓ Mock Revit executable found at: $env:REVIT_EXECUTABLE"
+        } else {
+          $validationErrors += "❌ Mock Revit executable not found"
+          $isReady = $false
+        }
+        
+        # Check test configuration
+        if (Test-Path $env:TEST_CONFIG_PATH) {
+          Write-Host "✓ Test configuration found at: $env:TEST_CONFIG_PATH"
+        } else {
+          $validationErrors += "❌ Test configuration not found"
+          $isReady = $false
+        }
+        
+        # Check build output
+        $buildOutput = "src/RevitPy.Compatibility/bin/Release"
+        if (Test-Path $buildOutput) {
+          Write-Host "✓ Build output found at: $buildOutput"
+        } else {
+          $validationErrors += "❌ Build output not found"
+          $isReady = $false
+        }
+        
+        # Report validation results
+        if ($isReady) {
+          Write-Host "🎉 Test environment validation successful!"
+          echo "ready=true" >> $env:GITHUB_OUTPUT
+        } else {
+          Write-Host "❌ Test environment validation failed:"
+          foreach ($error in $validationErrors) {
+            Write-Host "   $error"
+          }
+          echo "ready=false" >> $env:GITHUB_OUTPUT
+          exit 1
+        }
+        
+        # Output environment summary
+        Write-Host ""
+        Write-Host "Environment Summary:"
+        Write-Host "==================="
+        Write-Host "Revit Version: ${{ inputs.revit-version }}"
+        Write-Host "Python Version: ${{ inputs.python-version }}"
+        Write-Host ".NET Version: ${{ inputs.dotnet-version }}"
+        Write-Host "Mock Registry: $env:MOCK_REGISTRY_PATH"
+        Write-Host "Test Config: $env:TEST_CONFIG_PATH"
+        Write-Host "Test Data: $env:TEST_DATA_PATH"
+        Write-Host "Logs: $env:LOGS_PATH"
