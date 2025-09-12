@@ -494,26 +494,6 @@ def test_performance_benchmarks():
 - **Team Flexibility**: Different team members can use appropriate tools
 - **Maximum Capability**: Best of both worlds - established UI tools + modern analytics
 
-## 🎯 Success Stories
-
-### Architecture Firm: Energy Analysis Breakthrough
-**Challenge**: Manual energy analysis taking 2 weeks per project  
-**Previous Approach**: Export to specialized software costing $75,000/year  
-**RevitPy Solution**: Automated analysis using pandas and NumPy  
-**PyRevit Integration**: Results displayed in familiar PyRevit panel  
-**Results**: Analysis time reduced to 15 minutes, $75K software eliminated
-
-> "RevitPy gave us the data science capabilities we needed without abandoning our existing PyRevit tools. The integration is seamless." - *Senior Architect*
-
-### Engineering Consultancy: ML-Powered Space Planning  
-**Challenge**: Space utilization optimization requiring complex algorithms  
-**Previous Approach**: Manual analysis with basic statistical tools  
-**RevitPy Solution**: TensorFlow model for intelligent space optimization  
-**PyRevit Integration**: Familiar PyRevit interface for model inputs  
-**Results**: 40% improvement in space efficiency, $200K annual savings
-
-> "We kept our PyRevit UI tools and added RevitPy's machine learning capabilities. Perfect combination." - *Technical Lead*
-
 ## 🚀 Next Steps
 
 ### Immediate Actions (5 minutes)
@@ -537,9 +517,7 @@ def test_performance_benchmarks():
 ## 💬 Community & Support
 
 ### Get Help
-- **Discord**: [Join #revitpy-analytics](https://discord.gg/revitpy) 
-- **PyRevit Forum**: Cross-post integration questions
-- **GitHub Issues**: [Technical issues and feature requests](https://github.com/revitpy/revitpy/issues)
+- **GitHub Issues**: [Technical issues and feature requests](https://github.com/aj-geddes/revitpy/issues)
 - **Documentation**: [Complete integration guide](https://docs.revitpy.dev/integration/pyrevit)
 
 ### Share Your Success
