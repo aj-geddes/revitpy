@@ -538,11 +538,11 @@ RevitPy is open source software licensed under the [MIT License](LICENSE). Works
 - **Custom Analytics**: Bespoke data science solutions for your organization
 - **Enterprise Deployment**: Secure deployment alongside existing PyRevit infrastructure
 
-Contact: [enterprise@revitpy.dev](mailto:enterprise@revitpy.dev)
+Contact: [aj_geddes@yahoo.com](mailto:aj_geddes@yahoo.com)
 
 ---
 
-**Made with ❤️ by the RevitPy team**
+**Made with ❤️ by AJ Geddes**
 
 *Extending PyRevit's capabilities with the full Python ecosystem*
 
