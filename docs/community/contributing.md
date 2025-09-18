@@ -9,7 +9,7 @@ Thank you for your interest in contributing to RevitPy! This guide will help you
 New to open source? No problem! Follow these steps:
 
 1. **🍴 Fork the Repository**
-   - Go to [github.com/highvelocitysolutions/revitpy](https://github.com/highvelocitysolutions/revitpy)
+   - Go to [github.com/aj-geddes/revitpy](https://github.com/aj-geddes/revitpy)
    - Click the "Fork" button in the top right
    - Clone your fork locally
 
@@ -24,8 +24,8 @@ New to open source? No problem! Follow these steps:
    ```
 
 3. **🎯 Find Your First Issue**
-   - Look for issues labeled [`good first issue`](https://github.com/highvelocitysolutions/revitpy/labels/good%20first%20issue)
-   - Check the [`help wanted`](https://github.com/highvelocitysolutions/revitpy/labels/help%20wanted) label
+   - Look for issues labeled [`good first issue`](https://github.com/aj-geddes/revitpy/labels/good%20first%20issue)
+   - Check the [`help wanted`](https://github.com/aj-geddes/revitpy/labels/help%20wanted) label
    - Join our [Discord](https://discord.gg/revitpy) and ask in #contributing
 
 4. **🔄 Make Your Contribution**
@@ -104,7 +104,7 @@ git clone https://github.com/YOUR_USERNAME/revitpy.git
 cd revitpy
 
 # Add upstream remote
-git remote add upstream https://github.com/highvelocitysolutions/revitpy.git
+git remote add upstream https://github.com/aj-geddes/revitpy.git
 
 # Create development environment
 python -m venv venv
@@ -740,7 +740,7 @@ We use labels to organize and prioritize issues:
 ### Community Resources
 - **[Discord](https://discord.gg/revitpy)**: Real-time community discussion
 - **[Forum](https://forum.revitpy.dev)**: Long-form discussions and Q&A
-- **[GitHub Discussions](https://github.com/highvelocitysolutions/revitpy/discussions)**: Development discussions
+- **[GitHub Discussions](https://github.com/aj-geddes/revitpy/discussions)**: Development discussions
 
 ### Learning Resources
 - **[Python Guide](https://docs.python.org/3/)**: Official Python documentation
@@ -807,7 +807,7 @@ A: Maintainers are selected from active contributors who demonstrate expertise a
 ### Contact Information
 
 - **💬 Discord**: [#contributing channel](https://discord.gg/revitpy)
-- **📝 GitHub Discussions**: [Development discussions](https://github.com/highvelocitysolutions/revitpy/discussions)
+- **📝 GitHub Discussions**: [Development discussions](https://github.com/aj-geddes/revitpy/discussions)
 - **📧 Email**: [contributors@revitpy.dev](mailto:contributors@revitpy.dev)
 - **📅 Office Hours**: Wednesdays 2PM UTC in Discord voice
 
@@ -815,16 +815,16 @@ A: Maintainers are selected from active contributors who demonstrate expertise a
 
 Thank you for considering contributing to RevitPy! Every contribution, no matter how small, helps make RevitPy better for the entire community. We're excited to see what we'll build together!
 
-**Ready to contribute?** Start by [forking the repository](https://github.com/highvelocitysolutions/revitpy/fork) and joining our [Discord community](https://discord.gg/revitpy)!
+**Ready to contribute?** Start by [forking the repository](https://github.com/aj-geddes/revitpy/fork) and joining our [Discord community](https://discord.gg/revitpy)!
 
 ---
 
 !!! tip "Contributor Quick Links"
 
-    - 🍴 [Fork the Repository](https://github.com/highvelocitysolutions/revitpy/fork)
-    - 🎯 [Good First Issues](https://github.com/highvelocitysolutions/revitpy/labels/good%20first%20issue)
+    - 🍴 [Fork the Repository](https://github.com/aj-geddes/revitpy/fork)
+    - 🎯 [Good First Issues](https://github.com/aj-geddes/revitpy/labels/good%20first%20issue)
     - 💬 [Discord #contributing](https://discord.gg/revitpy)
-    - 📋 [Issue Templates](https://github.com/highvelocitysolutions/revitpy/issues/new/choose)
-    - 📝 [PR Template](https://github.com/highvelocitysolutions/revitpy/compare)
+    - 📋 [Issue Templates](https://github.com/aj-geddes/revitpy/issues/new/choose)
+    - 📝 [PR Template](https://github.com/aj-geddes/revitpy/compare)
 
     **Questions?** Ask in Discord or email [contributors@revitpy.dev](mailto:contributors@revitpy.dev)
