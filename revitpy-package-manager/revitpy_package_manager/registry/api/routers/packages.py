@@ -404,9 +404,11 @@ async def get_package_stats(
     db: AsyncSession = Depends(get_db_session)
 ):
     """Get package download statistics."""
-    
+    from datetime import datetime, timedelta
+    from ...models.download import DownloadStats
+
     normalized_name = normalize_package_name(package_name)
-    
+
     # Get package
     result = await db.execute(
         select(Package).where(
@@ -415,21 +417,99 @@ async def get_package_stats(
         )
     )
     package = result.scalar_one_or_none()
-    
+
     if not package:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Package not found"
         )
-    
-    # TODO: Implement proper statistics aggregation
-    # This is a placeholder implementation
+
+    now = datetime.utcnow()
+    day_ago = now - timedelta(days=1)
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+
+    # Query download statistics for different time periods
+    # Downloads in the last day
+    day_result = await db.execute(
+        select(func.count(DownloadStats.id)).where(
+            and_(
+                DownloadStats.package_id == package.id,
+                DownloadStats.downloaded_at >= day_ago,
+                DownloadStats.download_completed == True
+            )
+        )
+    )
+    downloads_last_day = day_result.scalar() or 0
+
+    # Downloads in the last week
+    week_result = await db.execute(
+        select(func.count(DownloadStats.id)).where(
+            and_(
+                DownloadStats.package_id == package.id,
+                DownloadStats.downloaded_at >= week_ago,
+                DownloadStats.download_completed == True
+            )
+        )
+    )
+    downloads_last_week = week_result.scalar() or 0
+
+    # Downloads in the last month
+    month_result = await db.execute(
+        select(func.count(DownloadStats.id)).where(
+            and_(
+                DownloadStats.package_id == package.id,
+                DownloadStats.downloaded_at >= month_ago,
+                DownloadStats.download_completed == True
+            )
+        )
+    )
+    downloads_last_month = month_result.scalar() or 0
+
+    # Version breakdown - get download counts per version
+    version_result = await db.execute(
+        select(
+            PackageVersion.version,
+            func.count(DownloadStats.id).label('count')
+        ).join(
+            DownloadStats, DownloadStats.version_id == PackageVersion.id
+        ).where(
+            and_(
+                DownloadStats.package_id == package.id,
+                DownloadStats.download_completed == True
+            )
+        ).group_by(PackageVersion.version)
+    )
+
+    version_breakdown = {}
+    for row in version_result:
+        version_breakdown[row.version] = row.count
+
+    # Country breakdown - get download counts per country
+    country_result = await db.execute(
+        select(
+            DownloadStats.country_code,
+            func.count(DownloadStats.id).label('count')
+        ).where(
+            and_(
+                DownloadStats.package_id == package.id,
+                DownloadStats.country_code.isnot(None),
+                DownloadStats.download_completed == True
+            )
+        ).group_by(DownloadStats.country_code).order_by(desc('count')).limit(20)
+    )
+
+    country_breakdown = {}
+    for row in country_result:
+        if row.country_code:
+            country_breakdown[row.country_code] = row.count
+
     return DownloadStatsResponse(
         package_id=package.id,
         total_downloads=package.download_count,
-        downloads_last_day=0,
-        downloads_last_week=0,
-        downloads_last_month=0,
-        version_breakdown={},
-        country_breakdown={},
+        downloads_last_day=downloads_last_day,
+        downloads_last_week=downloads_last_week,
+        downloads_last_month=downloads_last_month,
+        version_breakdown=version_breakdown,
+        country_breakdown=country_breakdown,
     )

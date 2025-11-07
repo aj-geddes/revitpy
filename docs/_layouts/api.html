@@ -1,0 +1,47 @@
+---
+layout: default
+---
+
+<article class="api-doc">
+    <header class="api-header">
+        <h1 class="api-title">{{ page.title }}</h1>
+        {% if page.description %}
+        <p class="api-description">{{ page.description }}</p>
+        {% endif %}
+
+        {% if page.version %}
+        <span class="api-version">Version: {{ page.version }}</span>
+        {% endif %}
+    </header>
+
+    <div class="api-toc">
+        <h3>On This Page</h3>
+        {% toc %}
+    </div>
+
+    <div class="api-content">
+        {{ content }}
+    </div>
+
+    <footer class="api-footer">
+        <div class="api-navigation">
+            {% if page.previous %}
+            <a href="{{ page.previous.url | relative_url }}" class="prev-page">
+                ← {{ page.previous.title }}
+            </a>
+            {% endif %}
+
+            {% if page.next %}
+            <a href="{{ page.next.url | relative_url }}" class="next-page">
+                {{ page.next.title }} →
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="improve-page">
+            <a href="https://github.com/revitpy/revitpy/edit/main/docs/{{ page.path }}" target="_blank">
+                Edit this page on GitHub
+            </a>
+        </div>
+    </footer>
+</article>

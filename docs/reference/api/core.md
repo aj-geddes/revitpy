@@ -1,3 +1,9 @@
+---
+layout: api
+title: Core API
+description: Core API reference documentation
+---
+
 # Core API
 
 The Core API provides the fundamental classes and functions for interacting with Autodesk Revit through RevitPy.

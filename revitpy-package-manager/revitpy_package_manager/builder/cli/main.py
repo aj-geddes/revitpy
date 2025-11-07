@@ -1,6 +1,7 @@
 """CLI for building and publishing RevitPy packages."""
 
 import os
+import subprocess
 import sys
 import tarfile
 from pathlib import Path
@@ -81,9 +82,14 @@ def build(source_dir: Path, output_dir: Optional[Path], build_format: str, clean
             console.print("❌ Failed to build source distribution", style="red")
             sys.exit(1)
     
-    # Build wheel (placeholder - would use proper wheel building)
+    # Build wheel
     if build_format in ('wheel', 'both'):
-        console.print("⚠️  Wheel building not yet implemented", style="yellow")
+        wheel_path = _build_wheel(source_dir, output_dir, package_name, package_version)
+        if wheel_path:
+            console.print(f"✅ Built wheel: {wheel_path.name}", style="green")
+        else:
+            console.print("❌ Failed to build wheel", style="red")
+            sys.exit(1)
     
     console.print(f"🎉 Build completed! Output in {output_dir}", style="blue")
 
@@ -92,7 +98,7 @@ def _build_sdist(source_dir: Path, output_dir: Path, package_name: str, version:
     """Build a source distribution (tar.gz)."""
     filename = f"{package_name}-{version}.tar.gz"
     output_path = output_dir / filename
-    
+
     try:
         with tarfile.open(output_path, 'w:gz') as tar:
             # Add all files except common build/cache directories
@@ -101,7 +107,7 @@ def _build_sdist(source_dir: Path, output_dir: Path, package_name: str, version:
                 'build', 'dist', '*.egg-info', '.tox', '.pytest_cache',
                 '.mypy_cache', '.coverage', 'htmlcov'
             }
-            
+
             for item in source_dir.rglob('*'):
                 if item.is_file():
                     # Check if file should be excluded
@@ -110,15 +116,61 @@ def _build_sdist(source_dir: Path, output_dir: Path, package_name: str, version:
                         if pattern in str(item) or item.name.startswith('.') and item.name not in ('.gitignore',):
                             should_exclude = True
                             break
-                    
+
                     if not should_exclude:
                         arcname = item.relative_to(source_dir)
                         tar.add(item, arcname=arcname)
-        
+
         return output_path
-        
+
     except Exception as e:
         console.print(f"Error building sdist: {e}", style="red")
+        return None
+
+
+def _build_wheel(source_dir: Path, output_dir: Path, package_name: str, version: str) -> Optional[Path]:
+    """Build a wheel distribution using the build package."""
+    try:
+        # Build the wheel
+        result = subprocess.run(
+            [sys.executable, '-m', 'build', '--wheel', '--outdir', str(output_dir), str(source_dir)],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+
+        if result.returncode != 0:
+            console.print(f"Build output: {result.stdout}", style="dim")
+            console.print(f"Build errors: {result.stderr}", style="red")
+            return None
+
+        # Find the generated wheel file
+        wheel_pattern = f"{package_name.replace('-', '_')}-{version}-*.whl"
+        wheel_files = list(output_dir.glob(wheel_pattern))
+
+        if not wheel_files:
+            # Try with the original package name
+            wheel_pattern = f"{package_name}-{version}-*.whl"
+            wheel_files = list(output_dir.glob(wheel_pattern))
+
+        if wheel_files:
+            return wheel_files[0]
+        else:
+            console.print(f"Warning: Could not find generated wheel matching pattern {wheel_pattern}", style="yellow")
+            # Look for any wheel file created after we started
+            all_wheels = sorted(output_dir.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)
+            if all_wheels:
+                return all_wheels[0]
+            return None
+
+    except FileNotFoundError:
+        console.print("Error: 'build' package not found. Install it with: pip install build", style="red")
+        return None
+    except Exception as e:
+        console.print(f"Error building wheel: {e}", style="red")
+        if os.getenv("DEBUG"):
+            import traceback
+            traceback.print_exc()
         return None
 
 
@@ -317,17 +369,155 @@ def publish(package_path: Path, registry_url: str, token: Optional[str], dry_run
     """Publish a package to the registry."""
     if dry_run:
         console.print("🔍 Dry run mode - showing what would be published:", style="yellow")
-    else:
-        console.print(f"📤 Publishing package: {package_path.name}", style="blue")
-    
-    console.print(f"Registry: {registry_url}", style="dim")
-    
-    if dry_run:
-        console.print(f"Would upload: {package_path}", style="yellow")
+        console.print(f"Package: {package_path}", style="dim")
+        console.print(f"Registry: {registry_url}", style="dim")
+        console.print(f"Size: {package_path.stat().st_size / 1024:.1f} KB", style="dim")
         return
-    
-    # TODO: Implement actual upload to registry
-    console.print("⚠️  Publishing not yet implemented", style="yellow")
+
+    console.print(f"📤 Publishing package: {package_path.name}", style="blue")
+    console.print(f"Registry: {registry_url}", style="dim")
+
+    # Validate package path
+    if not package_path.exists():
+        console.print(f"❌ Package file not found: {package_path}", style="red")
+        sys.exit(1)
+
+    # Get authentication token
+    if not token:
+        token = os.getenv('REVITPY_REGISTRY_TOKEN')
+        if not token:
+            console.print("❌ No authentication token provided. Use --token or set REVITPY_REGISTRY_TOKEN", style="red")
+            sys.exit(1)
+
+    # Extract package metadata from filename or archive
+    try:
+        package_info = _extract_package_info(package_path)
+    except Exception as e:
+        console.print(f"❌ Failed to extract package info: {e}", style="red")
+        sys.exit(1)
+
+    # Upload package
+    try:
+        import httpx
+
+        with console.status(f"[cyan]Uploading {package_path.name}..."):
+            with httpx.Client(timeout=300.0) as client:
+                # Read package file
+                with open(package_path, 'rb') as f:
+                    files = {'file': (package_path.name, f, 'application/octet-stream')}
+                    headers = {'Authorization': f'Bearer {token}'}
+
+                    # Upload to registry
+                    response = client.post(
+                        f"{registry_url}/api/packages/{package_info['name']}/versions",
+                        files=files,
+                        data={
+                            'version': package_info['version'],
+                            'summary': package_info.get('summary', ''),
+                            'description': package_info.get('description', ''),
+                            'python_version': package_info.get('python_version', '>=3.11'),
+                        },
+                        headers=headers
+                    )
+
+                    if response.status_code == 201:
+                        console.print(Panel(
+                            f"✅ Package published successfully!\n"
+                            f"Package: {package_info['name']}\n"
+                            f"Version: {package_info['version']}\n"
+                            f"Registry: {registry_url}",
+                            title="Publication Complete",
+                            style="green"
+                        ))
+                    elif response.status_code == 400:
+                        error_detail = response.json().get('detail', 'Unknown error')
+                        console.print(f"❌ Bad request: {error_detail}", style="red")
+                        sys.exit(1)
+                    elif response.status_code == 401:
+                        console.print("❌ Authentication failed. Check your token.", style="red")
+                        sys.exit(1)
+                    elif response.status_code == 403:
+                        console.print("❌ Permission denied. You may not own this package.", style="red")
+                        sys.exit(1)
+                    elif response.status_code == 409:
+                        console.print(f"❌ Version {package_info['version']} already exists", style="red")
+                        sys.exit(1)
+                    else:
+                        console.print(f"❌ Upload failed with status {response.status_code}", style="red")
+                        console.print(f"Response: {response.text}", style="dim")
+                        sys.exit(1)
+
+    except ImportError:
+        console.print("❌ httpx package not found. Install it with: pip install httpx", style="red")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"❌ Failed to publish package: {e}", style="red")
+        if os.getenv("DEBUG"):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+def _extract_package_info(package_path: Path) -> dict:
+    """Extract package name and version from package file."""
+    import re
+    import tempfile
+    import zipfile
+
+    # Try to extract from filename first (format: package-name-version.ext)
+    filename = package_path.stem
+
+    # Try to parse filename
+    match = re.match(r'^(.+?)-(\d+\.\d+(?:\.\d+)?(?:[a-zA-Z0-9\.]*)?)', filename)
+    if match:
+        name, version = match.groups()
+        info = {'name': name, 'version': version}
+    else:
+        # Can't parse filename, try to extract from archive
+        info = {}
+
+    # Try to extract more detailed info from pyproject.toml inside the package
+    try:
+        if package_path.suffix in ('.tar', '.gz') or package_path.name.endswith('.tar.gz'):
+            with tarfile.open(package_path, 'r:*') as tar:
+                for member in tar.getmembers():
+                    if 'pyproject.toml' in member.name:
+                        f = tar.extractfile(member)
+                        if f:
+                            content = f.read().decode('utf-8')
+                            config = toml.loads(content)
+                            project = config.get('project', {})
+                            info.update({
+                                'name': project.get('name', info.get('name', 'unknown')),
+                                'version': project.get('version', info.get('version', '0.0.0')),
+                                'summary': project.get('description', ''),
+                                'description': project.get('readme', ''),
+                                'python_version': project.get('requires-python', '>=3.11'),
+                            })
+                            break
+        elif package_path.suffix == '.whl' or package_path.suffix == '.zip':
+            with zipfile.ZipFile(package_path, 'r') as zf:
+                for name in zf.namelist():
+                    if 'pyproject.toml' in name:
+                        with zf.open(name) as f:
+                            content = f.read().decode('utf-8')
+                            config = toml.loads(content)
+                            project = config.get('project', {})
+                            info.update({
+                                'name': project.get('name', info.get('name', 'unknown')),
+                                'version': project.get('version', info.get('version', '0.0.0')),
+                                'summary': project.get('description', ''),
+                                'description': project.get('readme', ''),
+                                'python_version': project.get('requires-python', '>=3.11'),
+                            })
+                            break
+    except Exception:
+        pass  # If we can't extract, use what we have
+
+    if 'name' not in info or 'version' not in info:
+        raise ValueError("Could not determine package name and version")
+
+    return info
 
 
 def main():
