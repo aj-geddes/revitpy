@@ -5,9 +5,11 @@ Integrates with VS Code and provides fast operations for desktop development.
 
 import asyncio
 import json
+import os
 import sqlite3
 import sys
 import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import click
@@ -224,72 +226,215 @@ class DesktopCLI:
     async def _install_from_cache(self, cache_entry: CacheEntry) -> bool:
         """Install package from cache entry."""
         try:
-            # Extract package to temp directory for installation
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_path = Path(temp_dir)
-                
-                # Copy package file
-                package_file = temp_path / f"{cache_entry.package_name}-{cache_entry.version}.rpyx"
-                
-                with open(cache_entry.file_path, "rb") as src, open(package_file, "wb") as dst:
-                    dst.write(src.read())
-                
-                # TODO: Implement actual package installation logic
-                # This would involve extracting .rpyx file and installing to Revit
-                
-                console.print(f"[green]Successfully installed {cache_entry.package_name} {cache_entry.version}[/green]")
-                return True
-                
+            import zipfile
+            import shutil
+            import platform
+
+            # Determine installation directory based on OS
+            if platform.system() == "Windows":
+                # Windows: %APPDATA%\RevitPy\packages
+                install_base = Path(os.getenv('APPDATA', Path.home() / 'AppData' / 'Roaming')) / 'RevitPy' / 'packages'
+            elif platform.system() == "Darwin":
+                # macOS: ~/Library/Application Support/RevitPy/packages
+                install_base = Path.home() / 'Library' / 'Application Support' / 'RevitPy' / 'packages'
+            else:
+                # Linux: ~/.local/share/RevitPy/packages
+                install_base = Path.home() / '.local' / 'share' / 'RevitPy' / 'packages'
+
+            install_base.mkdir(parents=True, exist_ok=True)
+
+            # Create package installation directory
+            package_dir = install_base / cache_entry.package_name / cache_entry.version
+
+            # Remove existing installation if present
+            if package_dir.exists():
+                shutil.rmtree(package_dir)
+
+            package_dir.mkdir(parents=True, exist_ok=True)
+
+            # Extract package based on file type
+            source_file = Path(cache_entry.file_path)
+
+            if source_file.suffix == '.zip' or source_file.name.endswith('.rpyx'):
+                # Extract ZIP/RPYX file
+                with zipfile.ZipFile(source_file, 'r') as zf:
+                    zf.extractall(package_dir)
+            elif source_file.name.endswith('.tar.gz'):
+                # Extract tar.gz file
+                import tarfile
+                with tarfile.open(source_file, 'r:gz') as tf:
+                    tf.extractall(package_dir)
+            elif source_file.suffix == '.whl':
+                # Extract wheel file
+                with zipfile.ZipFile(source_file, 'r') as zf:
+                    zf.extractall(package_dir)
+            else:
+                # Unknown format, just copy the file
+                shutil.copy2(source_file, package_dir / source_file.name)
+
+            # Create or update package registry file
+            registry_file = install_base / 'installed_packages.json'
+            registry_data = {}
+
+            if registry_file.exists():
+                with open(registry_file, 'r') as f:
+                    registry_data = json.load(f)
+
+            # Add package to registry
+            if cache_entry.package_name not in registry_data:
+                registry_data[cache_entry.package_name] = {}
+
+            registry_data[cache_entry.package_name][cache_entry.version] = {
+                'installed_at': datetime.now().isoformat(),
+                'install_path': str(package_dir),
+                'metadata': cache_entry.metadata
+            }
+
+            # Write updated registry
+            with open(registry_file, 'w') as f:
+                json.dump(registry_data, f, indent=2)
+
+            console.print(f"[green]✅ Successfully installed {cache_entry.package_name} {cache_entry.version}[/green]")
+            console.print(f"[dim]Installation directory: {package_dir}[/dim]")
+            return True
+
         except Exception as e:
             console.print(f"[red]Installation failed: {e}[/red]")
+            if os.getenv("DEBUG"):
+                import traceback
+                traceback.print_exc()
             return False
     
     async def list_installed(self) -> List[Dict]:
-        """List installed packages."""
-        # This would typically read from Revit installation directory
-        # For now, return cached packages as a proxy
-        stats = await self.cache.get_cache_stats()
-        
-        with self.cache._db.connect() as conn:
-            conn.row_factory = sqlite3.Row
-            entries = conn.execute(
-                """SELECT package_name, version, last_accessed, access_count
-                   FROM cache_entries
-                   ORDER BY last_accessed DESC"""
-            ).fetchall()
-            
-            return [dict(entry) for entry in entries]
-    
-    async def uninstall_package(self, package_name: str) -> bool:
-        """Uninstall a package."""
-        normalized_name = self.cache.normalize_name(package_name)
-        
-        # TODO: Implement actual uninstallation logic
-        # For now, just remove from cache
-        
+        """List installed packages from the installation registry."""
+        import platform
+
+        # Determine installation directory based on OS
+        if platform.system() == "Windows":
+            install_base = Path(os.getenv('APPDATA', Path.home() / 'AppData' / 'Roaming')) / 'RevitPy' / 'packages'
+        elif platform.system() == "Darwin":
+            install_base = Path.home() / 'Library' / 'Application Support' / 'RevitPy' / 'packages'
+        else:
+            install_base = Path.home() / '.local' / 'share' / 'RevitPy' / 'packages'
+
+        registry_file = install_base / 'installed_packages.json'
+
+        if not registry_file.exists():
+            return []
+
         try:
-            # Remove from cache
-            with sqlite3.connect(self.cache.db_path) as conn:
-                result = conn.execute(
-                    "SELECT file_path FROM cache_entries WHERE package_name = ?",
-                    (normalized_name,)
-                ).fetchall()
-                
-                for row in result:
-                    file_path = Path(row[0])
-                    if file_path.exists():
-                        file_path.unlink()
-                
-                conn.execute(
-                    "DELETE FROM cache_entries WHERE package_name = ?",
-                    (normalized_name,)
-                )
-            
-            console.print(f"[green]Successfully uninstalled {package_name}[/green]")
+            with open(registry_file, 'r') as f:
+                registry_data = json.load(f)
+
+            packages = []
+            for package_name, versions in registry_data.items():
+                for version, info in versions.items():
+                    packages.append({
+                        'package_name': package_name,
+                        'version': version,
+                        'installed_at': info.get('installed_at', 'Unknown'),
+                        'install_path': info.get('install_path', ''),
+                    })
+
+            # Sort by installation date (most recent first)
+            packages.sort(key=lambda x: x.get('installed_at', ''), reverse=True)
+            return packages
+
+        except Exception as e:
+            console.print(f"[yellow]Warning: Failed to read installation registry: {e}[/yellow]")
+            return []
+    
+    async def uninstall_package(self, package_name: str, version: Optional[str] = None) -> bool:
+        """Uninstall a package (or specific version)."""
+        import platform
+        import shutil
+
+        normalized_name = self.cache.normalize_name(package_name)
+
+        # Determine installation directory based on OS
+        if platform.system() == "Windows":
+            install_base = Path(os.getenv('APPDATA', Path.home() / 'AppData' / 'Roaming')) / 'RevitPy' / 'packages'
+        elif platform.system() == "Darwin":
+            install_base = Path.home() / 'Library' / 'Application Support' / 'RevitPy' / 'packages'
+        else:
+            install_base = Path.home() / '.local' / 'share' / 'RevitPy' / 'packages'
+
+        registry_file = install_base / 'installed_packages.json'
+
+        if not registry_file.exists():
+            console.print(f"[yellow]No installed packages found[/yellow]")
+            return False
+
+        try:
+            # Read installation registry
+            with open(registry_file, 'r') as f:
+                registry_data = json.load(f)
+
+            if normalized_name not in registry_data:
+                console.print(f"[yellow]Package {package_name} is not installed[/yellow]")
+                return False
+
+            versions_to_remove = []
+            if version:
+                # Uninstall specific version
+                if version in registry_data[normalized_name]:
+                    versions_to_remove.append(version)
+                else:
+                    console.print(f"[yellow]Version {version} of {package_name} is not installed[/yellow]")
+                    return False
+            else:
+                # Uninstall all versions
+                versions_to_remove = list(registry_data[normalized_name].keys())
+
+            # Remove package files for each version
+            for ver in versions_to_remove:
+                version_info = registry_data[normalized_name][ver]
+                install_path = Path(version_info['install_path'])
+
+                if install_path.exists():
+                    console.print(f"[cyan]Removing {package_name} {ver} from {install_path}[/cyan]")
+                    shutil.rmtree(install_path)
+                else:
+                    console.print(f"[yellow]Warning: Installation directory not found: {install_path}[/yellow]")
+
+                # Remove from registry
+                del registry_data[normalized_name][ver]
+
+            # If no versions left, remove package entry
+            if not registry_data[normalized_name]:
+                del registry_data[normalized_name]
+
+            # Write updated registry
+            with open(registry_file, 'w') as f:
+                json.dump(registry_data, f, indent=2)
+
+            # Also remove from cache
+            try:
+                with sqlite3.connect(self.cache.db_path) as conn:
+                    if version:
+                        conn.execute(
+                            "DELETE FROM cache_entries WHERE package_name = ? AND version = ?",
+                            (normalized_name, version)
+                        )
+                    else:
+                        conn.execute(
+                            "DELETE FROM cache_entries WHERE package_name = ?",
+                            (normalized_name,)
+                        )
+            except Exception:
+                pass  # Cache removal is optional
+
+            if len(versions_to_remove) == 1:
+                console.print(f"[green]✅ Successfully uninstalled {package_name} {versions_to_remove[0]}[/green]")
+            else:
+                console.print(f"[green]✅ Successfully uninstalled {package_name} (all {len(versions_to_remove)} versions)[/green]")
             return True
-            
+
         except Exception as e:
             console.print(f"[red]Uninstallation failed: {e}[/red]")
+            if os.getenv("DEBUG"):
+                import traceback
+                traceback.print_exc()
             return False
     
     async def sync_registry(self) -> bool:
