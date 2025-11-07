@@ -373,41 +373,143 @@ class PluginManager:
     
     def install_plugin(self, plugin_source: str) -> bool:
         """Install a plugin from source.
-        
+
         Args:
             plugin_source: Plugin source (URL, path, or package name)
-            
+
         Returns:
             True if plugin installed successfully
         """
-        # This would implement plugin installation
-        # For now, just show a placeholder message
-        console.print(f"[yellow]Plugin installation not implemented yet: {plugin_source}[/yellow]")
-        return False
+        import shutil
+        import urllib.request
+        import tempfile
+        import zipfile
+
+        try:
+            # Determine plugin installation directory
+            if not self.config.plugins.plugin_dirs:
+                # Create default plugin directory
+                plugin_install_dir = self.config.data_dir / "plugins"
+                plugin_install_dir.mkdir(parents=True, exist_ok=True)
+                self.config.plugins.plugin_dirs.append(str(plugin_install_dir))
+            else:
+                plugin_install_dir = Path(self.config.plugins.plugin_dirs[0])
+                plugin_install_dir.mkdir(parents=True, exist_ok=True)
+
+            # Handle different source types
+            source_path = Path(plugin_source)
+
+            if source_path.exists():
+                # Install from local path
+                if source_path.is_file():
+                    if source_path.suffix == '.py':
+                        # Single Python file
+                        dest_file = plugin_install_dir / source_path.name
+                        shutil.copy2(source_path, dest_file)
+                        console.print(f"[green]✅ Installed plugin from {source_path}[/green]")
+                        console.print(f"[dim]Location: {dest_file}[/dim]")
+                    elif source_path.suffix == '.zip':
+                        # ZIP archive
+                        with zipfile.ZipFile(source_path, 'r') as zf:
+                            zf.extractall(plugin_install_dir)
+                        console.print(f"[green]✅ Installed plugin from {source_path}[/green]")
+                    else:
+                        console.print(f"[red]Unsupported file type: {source_path.suffix}[/red]")
+                        return False
+                elif source_path.is_dir():
+                    # Directory - copy entire directory
+                    plugin_name = source_path.name
+                    dest_dir = plugin_install_dir / plugin_name
+                    if dest_dir.exists():
+                        shutil.rmtree(dest_dir)
+                    shutil.copytree(source_path, dest_dir)
+                    console.print(f"[green]✅ Installed plugin from {source_path}[/green]")
+                    console.print(f"[dim]Location: {dest_dir}[/dim]")
+
+            elif plugin_source.startswith(('http://', 'https://')):
+                # Download from URL
+                console.print(f"[cyan]Downloading plugin from {plugin_source}...[/cyan]")
+
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_file:
+                    try:
+                        with urllib.request.urlopen(plugin_source, timeout=30) as response:
+                            tmp_file.write(response.read())
+                        tmp_file.flush()
+
+                        # Extract downloaded file
+                        if plugin_source.endswith('.py'):
+                            # Single Python file
+                            filename = plugin_source.split('/')[-1]
+                            dest_file = plugin_install_dir / filename
+                            shutil.copy2(tmp_file.name, dest_file)
+                        else:
+                            # Assume ZIP
+                            with zipfile.ZipFile(tmp_file.name, 'r') as zf:
+                                zf.extractall(plugin_install_dir)
+
+                        console.print(f"[green]✅ Downloaded and installed plugin from {plugin_source}[/green]")
+
+                    finally:
+                        Path(tmp_file.name).unlink(missing_ok=True)
+
+            else:
+                console.print(f"[red]Invalid plugin source: {plugin_source}[/red]")
+                console.print("[yellow]Source must be a local path or HTTP/HTTPS URL[/yellow]")
+                return False
+
+            # Rediscover plugins to pick up the newly installed one
+            self._discover_plugins_in_directory(plugin_install_dir)
+
+            logger.info(f"Installed plugin from: {plugin_source}")
+            return True
+
+        except Exception as e:
+            console.print(f"[red]Failed to install plugin: {e}[/red]")
+            logger.error(f"Plugin installation failed: {e}", exc_info=True)
+            return False
     
     def uninstall_plugin(self, plugin_name: str) -> bool:
         """Uninstall a plugin.
-        
+
         Args:
             plugin_name: Name of plugin to uninstall
-            
+
         Returns:
             True if plugin uninstalled successfully
         """
+        import shutil
+
         if plugin_name not in self.plugins:
             logger.error(f"Plugin {plugin_name} not found")
             return False
-        
+
+        plugin_info = self.plugins[plugin_name]
+
         # Unload plugin first
         self.unload_plugin(plugin_name)
-        
-        # Remove plugin info
+
+        # Remove plugin files
+        if plugin_info.module_path:
+            try:
+                if plugin_info.module_path.is_file():
+                    # Single file plugin
+                    plugin_info.module_path.unlink()
+                    console.print(f"[cyan]Removed plugin file: {plugin_info.module_path}[/cyan]")
+                elif plugin_info.module_path.is_dir():
+                    # Plugin package directory
+                    shutil.rmtree(plugin_info.module_path)
+                    console.print(f"[cyan]Removed plugin directory: {plugin_info.module_path}[/cyan]")
+                else:
+                    console.print(f"[yellow]Warning: Plugin path not found: {plugin_info.module_path}[/yellow]")
+            except Exception as e:
+                console.print(f"[red]Failed to remove plugin files: {e}[/red]")
+                logger.error(f"Failed to remove plugin files for {plugin_name}: {e}")
+                # Continue anyway to remove from registry
+
+        # Remove plugin info from registry
         del self.plugins[plugin_name]
-        
-        # This would also remove plugin files
-        # For now, just show a message
-        console.print(f"[yellow]Plugin file removal not implemented yet: {plugin_name}[/yellow]")
-        
+
+        console.print(f"[green]✅ Uninstalled plugin: {plugin_name}[/green]")
         logger.info(f"Uninstalled plugin: {plugin_name}")
         return True
     
