@@ -1,3 +1,9 @@
+---
+layout: api
+title: Query API Reference
+description: Query API Reference reference documentation
+---
+
 # Query API Reference
 
 The `Query` class provides a high-level interface for querying Revit elements.

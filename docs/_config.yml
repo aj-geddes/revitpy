@@ -1,0 +1,156 @@
+# Jekyll Configuration for RevitPy Documentation
+
+# Site settings
+title: RevitPy Documentation
+description: Modern Python Framework for Revit Development
+baseurl: "" # the subpath of your site, e.g. /blog
+url: "" # the base hostname & protocol for your site
+author: RevitPy Team
+email: support@revitpy.org
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+permalink: pretty
+
+# Kramdown settings
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+  syntax_highlighter_opts:
+    block:
+      line_numbers: false
+
+# Collections
+collections:
+  api:
+    output: true
+    permalink: /api/:path/
+  guides:
+    output: true
+    permalink: /guides/:path/
+  tutorials:
+    output: true
+    permalink: /tutorials/:path/
+  examples:
+    output: true
+    permalink: /examples/:path/
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "page"
+  - scope:
+      path: ""
+      type: "api"
+    values:
+      layout: "api"
+  - scope:
+      path: ""
+      type: "guides"
+    values:
+      layout: "guide"
+  - scope:
+      path: ""
+      type: "tutorials"
+    values:
+      layout: "tutorial"
+
+# Navigation
+navigation:
+  - title: Home
+    url: /
+  - title: Getting Started
+    url: /getting-started/
+  - title: API Reference
+    url: /reference/api/
+    subitems:
+      - title: Core API
+        url: /reference/api/core
+      - title: Element API
+        url: /reference/api/element-api
+      - title: Transaction API
+        url: /reference/api/transaction-api
+      - title: ORM Layer
+        url: /reference/api/orm
+      - title: Query API
+        url: /reference/api/query
+      - title: Async Support
+        url: /reference/api/async
+      - title: Event System
+        url: /reference/api/events
+      - title: Extensions
+        url: /reference/api/extensions
+      - title: Performance
+        url: /reference/api/performance
+      - title: Testing
+        url: /reference/api/testing
+  - title: Guides
+    url: /guides/
+    subitems:
+      - title: Getting Started
+        url: /guides/getting-started
+      - title: Migration from PyRevit
+        url: /guides/pyrevit-migration
+  - title: Tutorials
+    url: /tutorials/
+  - title: Examples
+    url: /examples/
+  - title: Community
+    url: /community/
+  - title: GitHub
+    url: https://github.com/revitpy/revitpy
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-sitemap
+  - jekyll-toc
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+  - .sass-cache
+  - .jekyll-cache
+  - .venv
+  - __pycache__
+
+# Include files
+include:
+  - _pages
+
+# Sass/SCSS
+sass:
+  sass_dir: _sass
+  style: compressed
+
+# Table of Contents
+toc:
+  min_level: 2
+  max_level: 4
+  no_toc_section_class: no_toc_section
+  list_class: toc-list
+  sublist_class: toc-sublist
+  item_class: toc-item
+  item_prefix: toc-
+
+# SEO
+twitter:
+  username: revitpy
+  card: summary
+
+social:
+  name: RevitPy
+  links:
+    - https://github.com/revitpy/revitpy
+    - https://twitter.com/revitpy
+
+# Analytics (optional)
+# google_analytics: UA-XXXXXXXXX-X

@@ -1,0 +1,50 @@
+<footer class="site-footer">
+    <div class="footer-container">
+        <div class="footer-column">
+            <h4>RevitPy</h4>
+            <p>{{ site.description }}</p>
+            <p class="copyright">
+                &copy; {{ 'now' | date: "%Y" }} {{ site.author }}. All rights reserved.
+            </p>
+        </div>
+
+        <div class="footer-column">
+            <h4>Documentation</h4>
+            <ul>
+                <li><a href="{{ '/getting-started/' | relative_url }}">Getting Started</a></li>
+                <li><a href="{{ '/reference/api/' | relative_url }}">API Reference</a></li>
+                <li><a href="{{ '/guides/' | relative_url }}">Guides</a></li>
+                <li><a href="{{ '/tutorials/' | relative_url }}">Tutorials</a></li>
+                <li><a href="{{ '/examples/' | relative_url }}">Examples</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-column">
+            <h4>Community</h4>
+            <ul>
+                <li><a href="https://github.com/revitpy/revitpy" target="_blank">GitHub</a></li>
+                <li><a href="https://github.com/revitpy/revitpy/issues" target="_blank">Issues</a></li>
+                <li><a href="https://github.com/revitpy/revitpy/discussions" target="_blank">Discussions</a></li>
+                <li><a href="{{ '/community/contributing/' | relative_url }}">Contributing</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-column">
+            <h4>Resources</h4>
+            <ul>
+                <li><a href="{{ '/changelog/' | relative_url }}">Changelog</a></li>
+                <li><a href="{{ '/roadmap/' | relative_url }}">Roadmap</a></li>
+                <li><a href="https://pypi.org/project/revitpy/" target="_blank">PyPI</a></li>
+                <li><a href="{{ '/license/' | relative_url }}">License</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="footer-bottom">
+        <p>Built with <a href="https://jekyllrb.com/" target="_blank">Jekyll</a></p>
+        <p>
+            <a href="{{ '/privacy/' | relative_url }}">Privacy Policy</a> •
+            <a href="{{ '/terms/' | relative_url }}">Terms of Service</a>
+        </p>
+    </div>
+</footer>

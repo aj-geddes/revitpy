@@ -1,0 +1,44 @@
+---
+layout: default
+---
+
+<article class="guide">
+    <header class="guide-header">
+        <h1 class="guide-title">{{ page.title }}</h1>
+        {% if page.description %}
+        <p class="guide-description">{{ page.description }}</p>
+        {% endif %}
+
+        {% if page.difficulty %}
+        <span class="difficulty-badge difficulty-{{ page.difficulty | downcase }}">
+            {{ page.difficulty }}
+        </span>
+        {% endif %}
+
+        {% if page.estimated_time %}
+        <span class="estimated-time">
+            ⏱️ {{ page.estimated_time }}
+        </span>
+        {% endif %}
+    </header>
+
+    <div class="guide-toc">
+        <h3>Contents</h3>
+        {% toc %}
+    </div>
+
+    <div class="guide-content">
+        {{ content }}
+    </div>
+
+    <footer class="guide-footer">
+        {% if page.next_guide %}
+        <div class="next-guide">
+            <p>Next guide:</p>
+            <a href="{{ page.next_guide.url | relative_url }}">
+                {{ page.next_guide.title }} →
+            </a>
+        </div>
+        {% endif %}
+    </footer>
+</article>

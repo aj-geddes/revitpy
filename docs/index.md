@@ -1,8 +1,12 @@
+---
+layout: page
+title: RevitPy Documentation
+description: Modern Python Framework for Revit Development
+---
+
 # RevitPy Framework Documentation
 
 Welcome to **RevitPy** - the modern, enterprise-ready Python framework that transforms how you develop, deploy, and manage extensions for Autodesk Revit.
-
-![RevitPy Hero](https://via.placeholder.com/1200x400/2563eb/ffffff?text=RevitPy+Framework){ .hero-image }
 
 ## What is RevitPy?
 
