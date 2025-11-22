@@ -20,7 +20,7 @@ twitter_username: revitpy
 github_username: revitpy
 
 # Build settings
-theme: null
+layouts_dir: _layouts
 markdown: kramdown
 highlighter: rouge
 permalink: pretty
