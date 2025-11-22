@@ -1,0 +1,255 @@
+---
+layout: default
+title: null
+description: RevitPy is an enterprise-grade Python 3.11+ framework for Autodesk Revit development. Build faster with async/await, LINQ-style queries, machine learning integration, and comprehensive type safety.
+---
+
+<!-- Hero Section -->
+<section class="hero">
+  <div class="hero-content">
+    <span class="hero-badge">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+      Python 3.11+ for Revit
+    </span>
+
+    <h1 class="hero-title">Modern Python Framework for Revit Development</h1>
+
+    <p class="hero-subtitle">
+      Build enterprise-grade Revit automation with async/await, LINQ-style ORM queries,
+      machine learning integration, and comprehensive type safety.
+    </p>
+
+    <div class="hero-cta">
+      <a href="{{ '/getting-started/' | relative_url }}" class="btn btn-primary">
+        Get Started
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="5" y1="12" x2="19" y2="12"/>
+          <polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </a>
+      <a href="https://github.com/revitpy/revitpy" class="btn btn-secondary" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+        </svg>
+        View on GitHub
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Features Section -->
+<section class="features">
+  <div class="features-container">
+    <div class="section-header">
+      <h2 class="section-title">Why RevitPy?</h2>
+      <p class="section-subtitle">
+        Everything you need to build modern, maintainable, and high-performance Revit automation.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">&#9889;</div>
+        <h3 class="feature-title">Modern Python</h3>
+        <p class="feature-description">
+          Python 3.11+ with full async/await support, type hints, and access to the entire Python ecosystem including NumPy, Pandas, and TensorFlow.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#128269;</div>
+        <h3 class="feature-title">LINQ-Style ORM</h3>
+        <p class="feature-description">
+          Intuitive query syntax with relationship navigation, intelligent caching, and change tracking for Revit elements.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#9881;</div>
+        <h3 class="feature-title">Type Safety</h3>
+        <p class="feature-description">
+          Complete type annotations for full IntelliSense support, catch errors before runtime, and improve code maintainability.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#128640;</div>
+        <h3 class="feature-title">High Performance</h3>
+        <p class="feature-description">
+          3-4x faster than PyRevit with optimized .NET bridge, intelligent caching, and efficient memory management.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#128187;</div>
+        <h3 class="feature-title">VS Code Integration</h3>
+        <p class="feature-description">
+          Full IDE support with IntelliSense, debugging, hot reload, and project templates for productive development.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#127970;</div>
+        <h3 class="feature-title">Enterprise Ready</h3>
+        <p class="feature-description">
+          MSI installer, secure package management, role-based access, monitoring, and Group Policy support.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Code Examples Section -->
+<section class="code-examples">
+  <div class="code-examples-container">
+    <div class="section-header">
+      <h2 class="section-title">See It in Action</h2>
+      <p class="section-subtitle">
+        Clean, intuitive code that's easy to read, write, and maintain.
+      </p>
+    </div>
+
+    <div class="code-tabs">
+      <button class="code-tab active" data-tab="basic">Basic Query</button>
+      <button class="code-tab" data-tab="orm">ORM Filtering</button>
+      <button class="code-tab" data-tab="async">Async Operations</button>
+      <button class="code-tab" data-tab="events">Event Handling</button>
+    </div>
+
+    <div class="code-panel active" id="basic">
+      <div class="code-block">
+        <pre><code class="language-python"><span class="kn">from</span> <span class="nn">revitpy</span> <span class="kn">import</span> <span class="n">RevitContext</span>
+
+<span class="c"># Query walls with modern ORM syntax</span>
+<span class="k">with</span> <span class="n">RevitContext</span><span class="p">()</span> <span class="k">as</span> <span class="n">context</span><span class="p">:</span>
+    <span class="n">walls</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">elements</span><span class="o">.</span><span class="n">of_category</span><span class="p">(</span><span class="s">'Walls'</span><span class="p">)</span>
+    <span class="n">tall_walls</span> <span class="o">=</span> <span class="n">walls</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="n">w</span><span class="o">.</span><span class="n">Height</span> <span class="o">&gt;</span> <span class="mf">10.0</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">wall</span> <span class="ow">in</span> <span class="n">tall_walls</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s">"Wall: </span><span class="si">{</span><span class="n">wall</span><span class="o">.</span><span class="n">Name</span><span class="si">}</span><span class="s">, Height: </span><span class="si">{</span><span class="n">wall</span><span class="o">.</span><span class="n">Height</span><span class="si">}</span><span class="s">"</span><span class="p">)</span></code></pre>
+        <button class="copy-button" aria-label="Copy code">Copy</button>
+      </div>
+    </div>
+
+    <div class="code-panel" id="orm">
+      <div class="code-block">
+        <pre><code class="language-python"><span class="kn">from</span> <span class="nn">revitpy</span> <span class="kn">import</span> <span class="n">RevitContext</span>
+
+<span class="k">with</span> <span class="n">RevitContext</span><span class="p">()</span> <span class="k">as</span> <span class="n">context</span><span class="p">:</span>
+    <span class="c"># Chain filters with LINQ-style syntax</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">elements</span>
+        <span class="o">.</span><span class="n">of_category</span><span class="p">(</span><span class="s">'Rooms'</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">Area</span> <span class="o">&gt;</span> <span class="mi">500</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="s">'Boundaries.Wall'</span><span class="p">)</span>  <span class="c"># Eager load relationships</span>
+        <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">Area</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">to_list</span><span class="p">())</span>
+
+    <span class="k">for</span> <span class="n">room</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s">"</span><span class="si">{</span><span class="n">room</span><span class="o">.</span><span class="n">Name</span><span class="si">}</span><span class="s">: </span><span class="si">{</span><span class="n">room</span><span class="o">.</span><span class="n">Area</span><span class="si">}</span><span class="s"> sq ft"</span><span class="p">)</span></code></pre>
+        <button class="copy-button" aria-label="Copy code">Copy</button>
+      </div>
+    </div>
+
+    <div class="code-panel" id="async">
+      <div class="code-block">
+        <pre><code class="language-python"><span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">from</span> <span class="nn">revitpy</span> <span class="kn">import</span> <span class="n">AsyncRevitContext</span>
+
+<span class="k">async</span> <span class="k">def</span> <span class="nf">process_elements</span><span class="p">():</span>
+    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncRevitContext</span><span class="p">()</span> <span class="k">as</span> <span class="n">context</span><span class="p">:</span>
+        <span class="c"># Process large datasets asynchronously</span>
+        <span class="n">elements</span> <span class="o">=</span> <span class="k">await</span> <span class="n">context</span><span class="o">.</span><span class="n">elements</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">Category</span> <span class="o">==</span> <span class="s">'Windows'</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">to_list_async</span><span class="p">()</span>
+
+        <span class="c"># Run operations in parallel</span>
+        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">update_element</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span> <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">]</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">tasks</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">results</span>
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">process_elements</span><span class="p">())</span></code></pre>
+        <button class="copy-button" aria-label="Copy code">Copy</button>
+      </div>
+    </div>
+
+    <div class="code-panel" id="events">
+      <div class="code-block">
+        <pre><code class="language-python"><span class="kn">from</span> <span class="nn">revitpy.events</span> <span class="kn">import</span> <span class="n">EventManager</span><span class="p">,</span> <span class="n">event_handler</span><span class="p">,</span> <span class="n">EventType</span>
+
+<span class="nd">@event_handler</span><span class="p">(</span><span class="n">EventType</span><span class="o">.</span><span class="n">ELEMENT_ADDED</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">on_element_added</span><span class="p">(</span><span class="n">event_data</span><span class="p">):</span>
+    <span class="sd">"""Auto-tag new walls with sequential marks"""</span>
+    <span class="n">element</span> <span class="o">=</span> <span class="n">event_data</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s">'element'</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">element</span><span class="o">.</span><span class="n">Category</span> <span class="o">==</span> <span class="s">'Walls'</span><span class="p">:</span>
+        <span class="n">mark</span> <span class="o">=</span> <span class="sa">f</span><span class="s">"W-</span><span class="si">{</span><span class="n">element</span><span class="o">.</span><span class="n">Id</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s">"</span>
+        <span class="n">element</span><span class="o">.</span><span class="n">set_parameter</span><span class="p">(</span><span class="s">'Mark'</span><span class="p">,</span> <span class="n">mark</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s">"Tagged new wall: </span><span class="si">{</span><span class="n">mark</span><span class="si">}</span><span class="s">"</span><span class="p">)</span>
+
+<span class="c"># Register and start listening</span>
+<span class="n">EventManager</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">on_element_added</span><span class="p">)</span></code></pre>
+        <button class="copy-button" aria-label="Copy code">Copy</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Performance Section -->
+<section class="features" style="background-color: var(--color-bg-secondary);">
+  <div class="features-container">
+    <div class="section-header">
+      <h2 class="section-title">Proven Performance</h2>
+      <p class="section-subtitle">
+        Significant improvements over traditional approaches, tested on real-world projects.
+      </p>
+    </div>
+
+    <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+      <div class="feature-card" style="text-align: center;">
+        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-primary);">3.8x</div>
+        <p class="feature-description" style="margin: 0;">Faster element queries</p>
+      </div>
+
+      <div class="feature-card" style="text-align: center;">
+        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-primary);">3.2x</div>
+        <p class="feature-description" style="margin: 0;">Faster bulk updates</p>
+      </div>
+
+      <div class="feature-card" style="text-align: center;">
+        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-primary);">2.8x</div>
+        <p class="feature-description" style="margin: 0;">Less memory usage</p>
+      </div>
+
+      <div class="feature-card" style="text-align: center;">
+        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-primary);">3.0x</div>
+        <p class="feature-description" style="margin: 0;">Faster startup</p>
+      </div>
+    </div>
+
+    <p style="text-align: center; color: var(--color-text-muted); font-size: var(--text-sm); margin-top: var(--space-6);">
+      Benchmarks performed on Revit 2024, Intel i7-12700K, 32GB RAM
+    </p>
+  </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section">
+  <div class="cta-container">
+    <h2 class="cta-title">Ready to Transform Your Revit Development?</h2>
+    <p class="cta-description">
+      Join developers worldwide who are building better Revit automation with modern Python.
+    </p>
+    <div class="hero-cta">
+      <a href="{{ '/getting-started/' | relative_url }}" class="btn btn-primary">
+        Get Started Free
+      </a>
+      <a href="{{ '/examples/' | relative_url }}" class="btn btn-secondary">
+        View Examples
+      </a>
+    </div>
+  </div>
+</section>
