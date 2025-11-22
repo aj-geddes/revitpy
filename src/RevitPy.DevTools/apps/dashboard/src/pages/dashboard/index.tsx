@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { 
-  Activity, 
-  FolderOpen, 
-  Package, 
-  Zap, 
+import {
+  Activity,
+  FolderOpen,
+  Package,
+  Zap,
   TrendingUp,
   AlertCircle,
   CheckCircle,
@@ -14,13 +14,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   BarChart,
   Bar
@@ -29,12 +29,12 @@ import { useRevitPyStore } from '@/stores/revitpy';
 import { useRevitPy } from '@/providers/revitpy-provider';
 
 export default function Dashboard() {
-  const { 
-    runtime, 
-    projects, 
-    installedPackages, 
+  const {
+    runtime,
+    projects,
+    installedPackages,
     performanceMetrics,
-    connectionStatus 
+    connectionStatus
   } = useRevitPyStore();
   const { sendMessage } = useRevitPy();
 
@@ -120,7 +120,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2">
-              <div 
+              <div
                 className={`status-dot ${
                   connectionStatus === 'connected' ? 'status-online' :
                   connectionStatus === 'connecting' ? 'status-warning' :
@@ -172,14 +172,14 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {performanceMetrics ? 
-                `${Math.round(performanceMetrics.memoryUsage / 1024 / 1024)}MB` : 
+              {performanceMetrics ?
+                `${Math.round(performanceMetrics.memoryUsage / 1024 / 1024)}MB` :
                 'N/A'
               }
             </div>
-            <Progress 
-              value={performanceMetrics ? (performanceMetrics.memoryUsage / 1024 / 1024 / 512) * 100 : 0} 
-              className="mt-2" 
+            <Progress
+              value={performanceMetrics ? (performanceMetrics.memoryUsage / 1024 / 1024 / 512) * 100 : 0}
+              className="mt-2"
             />
           </CardContent>
         </Card>
@@ -202,7 +202,7 @@ export default function Dashboard() {
                   <TabsTrigger value="memory">Memory</TabsTrigger>
                   <TabsTrigger value="cpu">CPU</TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="memory" className="space-y-4">
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
@@ -211,10 +211,10 @@ export default function Dashboard() {
                         <XAxis dataKey="time" />
                         <YAxis />
                         <Tooltip />
-                        <Line 
-                          type="monotone" 
-                          dataKey="memory" 
-                          stroke="hsl(var(--primary))" 
+                        <Line
+                          type="monotone"
+                          dataKey="memory"
+                          stroke="hsl(var(--primary))"
                           strokeWidth={2}
                           dot={false}
                         />
@@ -222,7 +222,7 @@ export default function Dashboard() {
                     </ResponsiveContainer>
                   </div>
                 </TabsContent>
-                
+
                 <TabsContent value="cpu" className="space-y-4">
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
@@ -269,7 +269,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
-              
+
               <Button variant="outline" className="w-full mt-4">
                 View All Activity
               </Button>
@@ -292,12 +292,12 @@ export default function Dashboard() {
               <FolderOpen className="h-6 w-6" />
               <span>New Project</span>
             </Button>
-            
+
             <Button variant="outline" className="h-24 flex-col space-y-2">
               <Package className="h-6 w-6" />
               <span>Browse Packages</span>
             </Button>
-            
+
             <Button variant="outline" className="h-24 flex-col space-y-2">
               <Zap className="h-6 w-6" />
               <span>Open REPL</span>
@@ -324,7 +324,7 @@ export default function Dashboard() {
                   <p className="text-sm text-muted-foreground">Healthy</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-3">
                 <Clock className="h-5 w-5 text-blue-500" />
                 <div>
@@ -334,7 +334,7 @@ export default function Dashboard() {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-3">
                 <Activity className="h-5 w-5 text-purple-500" />
                 <div>

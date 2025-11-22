@@ -7,7 +7,7 @@ providing specific error types for different ORM operations.
 
 from __future__ import annotations
 
-from typing import Any, Optional, Dict, List
+from typing import Any
 
 # Import base exception - adjust path as needed
 try:
@@ -15,22 +15,22 @@ try:
 except ImportError:
     # Fallback if api module not available
     class RevitPyException(Exception):
-        def __init__(self, message: str, *, cause: Optional[Exception] = None):
+        def __init__(self, message: str, *, cause: Exception | None = None):
             super().__init__(message)
             self.cause = cause
 
 
 class ORMException(RevitPyException):
     """Base exception for all ORM-related errors."""
-    
+
     def __init__(
         self,
         message: str,
         *,
-        operation: Optional[str] = None,
-        entity_type: Optional[str] = None,
-        entity_id: Optional[Any] = None,
-        cause: Optional[Exception] = None
+        operation: str | None = None,
+        entity_type: str | None = None,
+        entity_id: Any | None = None,
+        cause: Exception | None = None,
     ) -> None:
         super().__init__(message, cause=cause)
         self.operation = operation
@@ -40,21 +40,17 @@ class ORMException(RevitPyException):
 
 class RelationshipError(ORMException):
     """Exception raised when relationship operations fail."""
-    
+
     def __init__(
         self,
         message: str,
         *,
-        relationship_name: Optional[str] = None,
-        source_entity: Optional[Any] = None,
-        target_entity: Optional[Any] = None,
-        cause: Optional[Exception] = None
+        relationship_name: str | None = None,
+        source_entity: Any | None = None,
+        target_entity: Any | None = None,
+        cause: Exception | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            operation="relationship",
-            cause=cause
-        )
+        super().__init__(message, operation="relationship", cause=cause)
         self.relationship_name = relationship_name
         self.source_entity = source_entity
         self.target_entity = target_entity
@@ -62,41 +58,33 @@ class RelationshipError(ORMException):
 
 class CacheError(ORMException):
     """Exception raised when cache operations fail."""
-    
+
     def __init__(
         self,
         message: str,
         *,
-        cache_key: Optional[str] = None,
-        cache_operation: Optional[str] = None,
-        cause: Optional[Exception] = None
+        cache_key: str | None = None,
+        cache_operation: str | None = None,
+        cause: Exception | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            operation="cache",
-            cause=cause
-        )
+        super().__init__(message, operation="cache", cause=cause)
         self.cache_key = cache_key
         self.cache_operation = cache_operation
 
 
 class ChangeTrackingError(ORMException):
     """Exception raised when change tracking operations fail."""
-    
+
     def __init__(
         self,
         message: str,
         *,
-        entity: Optional[Any] = None,
-        property_name: Optional[str] = None,
-        tracking_operation: Optional[str] = None,
-        cause: Optional[Exception] = None
+        entity: Any | None = None,
+        property_name: str | None = None,
+        tracking_operation: str | None = None,
+        cause: Exception | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            operation="change_tracking",
-            cause=cause
-        )
+        super().__init__(message, operation="change_tracking", cause=cause)
         self.entity = entity
         self.property_name = property_name
         self.tracking_operation = tracking_operation
@@ -104,21 +92,17 @@ class ChangeTrackingError(ORMException):
 
 class QueryError(ORMException):
     """Exception raised when query operations fail."""
-    
+
     def __init__(
         self,
         message: str,
         *,
-        query_expression: Optional[str] = None,
-        query_operation: Optional[str] = None,
-        element_count: Optional[int] = None,
-        cause: Optional[Exception] = None
+        query_expression: str | None = None,
+        query_operation: str | None = None,
+        element_count: int | None = None,
+        cause: Exception | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            operation="query",
-            cause=cause
-        )
+        super().__init__(message, operation="query", cause=cause)
         self.query_expression = query_expression
         self.query_operation = query_operation
         self.element_count = element_count
@@ -126,61 +110,49 @@ class QueryError(ORMException):
 
 class LazyLoadingError(ORMException):
     """Exception raised when lazy loading fails."""
-    
+
     def __init__(
         self,
         message: str,
         *,
-        property_name: Optional[str] = None,
-        entity: Optional[Any] = None,
-        cause: Optional[Exception] = None
+        property_name: str | None = None,
+        entity: Any | None = None,
+        cause: Exception | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            operation="lazy_loading",
-            cause=cause
-        )
+        super().__init__(message, operation="lazy_loading", cause=cause)
         self.property_name = property_name
         self.entity = entity
 
 
 class AsyncOperationError(ORMException):
     """Exception raised when async operations fail."""
-    
+
     def __init__(
         self,
         message: str,
         *,
-        async_operation: Optional[str] = None,
-        task_id: Optional[str] = None,
-        cause: Optional[Exception] = None
+        async_operation: str | None = None,
+        task_id: str | None = None,
+        cause: Exception | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            operation="async",
-            cause=cause
-        )
+        super().__init__(message, operation="async", cause=cause)
         self.async_operation = async_operation
         self.task_id = task_id
 
 
 class BatchOperationError(ORMException):
     """Exception raised when batch operations fail."""
-    
+
     def __init__(
         self,
         message: str,
         *,
-        batch_size: Optional[int] = None,
-        failed_operations: Optional[List[Dict[str, Any]]] = None,
-        successful_operations: Optional[int] = None,
-        cause: Optional[Exception] = None
+        batch_size: int | None = None,
+        failed_operations: list[dict[str, Any]] | None = None,
+        successful_operations: int | None = None,
+        cause: Exception | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            operation="batch",
-            cause=cause
-        )
+        super().__init__(message, operation="batch", cause=cause)
         self.batch_size = batch_size
         self.failed_operations = failed_operations or []
         self.successful_operations = successful_operations or 0
@@ -188,61 +160,49 @@ class BatchOperationError(ORMException):
 
 class ValidationError(ORMException):
     """Exception raised when entity validation fails."""
-    
+
     def __init__(
         self,
         message: str,
         *,
-        validation_errors: Optional[Dict[str, List[str]]] = None,
-        entity: Optional[Any] = None,
-        cause: Optional[Exception] = None
+        validation_errors: dict[str, list[str]] | None = None,
+        entity: Any | None = None,
+        cause: Exception | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            operation="validation",
-            cause=cause
-        )
+        super().__init__(message, operation="validation", cause=cause)
         self.validation_errors = validation_errors or {}
         self.entity = entity
 
 
 class ConcurrencyError(ORMException):
     """Exception raised when concurrency conflicts occur."""
-    
+
     def __init__(
         self,
         message: str,
         *,
-        entity: Optional[Any] = None,
-        conflicting_changes: Optional[Dict[str, Any]] = None,
-        cause: Optional[Exception] = None
+        entity: Any | None = None,
+        conflicting_changes: dict[str, Any] | None = None,
+        cause: Exception | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            operation="concurrency",
-            cause=cause
-        )
+        super().__init__(message, operation="concurrency", cause=cause)
         self.entity = entity
         self.conflicting_changes = conflicting_changes or {}
 
 
 class TransactionError(ORMException):
     """Exception raised when transaction operations fail."""
-    
+
     def __init__(
         self,
         message: str,
         *,
-        transaction_id: Optional[str] = None,
-        transaction_state: Optional[str] = None,
-        nested_level: Optional[int] = None,
-        cause: Optional[Exception] = None
+        transaction_id: str | None = None,
+        transaction_state: str | None = None,
+        nested_level: int | None = None,
+        cause: Exception | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            operation="transaction",
-            cause=cause
-        )
+        super().__init__(message, operation="transaction", cause=cause)
         self.transaction_id = transaction_id
         self.transaction_state = transaction_state
         self.nested_level = nested_level

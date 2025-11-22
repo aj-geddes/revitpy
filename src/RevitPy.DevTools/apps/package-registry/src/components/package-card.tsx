@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Download, 
-  Star, 
-  Calendar, 
-  User, 
-  Shield, 
-  Package, 
+import {
+  Download,
+  Star,
+  Calendar,
+  User,
+  Shield,
+  Package,
   ExternalLink,
   Heart,
   BookOpen,
@@ -34,7 +34,7 @@ export function PackageCard({ package: pkg, featured = false, compact = false }:
   const handleInstall = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     setIsInstalling(true);
     try {
       // Mock installation - replace with actual API call
@@ -80,14 +80,14 @@ export function PackageCard({ package: pkg, featured = false, compact = false }:
                   )}>
                     {pkg.name}
                   </h3>
-                  
+
                   {featured && (
                     <Badge variant="secondary" className="shrink-0">
                       <Star className="h-3 w-3 mr-1 fill-current" />
                       Featured
                     </Badge>
                   )}
-                  
+
                   {pkg.verified && (
                     <Tooltip>
                       <TooltipTrigger>
@@ -111,7 +111,7 @@ export function PackageCard({ package: pkg, featured = false, compact = false }:
                     <User className="h-3 w-3" />
                     <span>{pkg.author}</span>
                   </div>
-                  
+
                   <Badge variant="outline" className="text-xs">
                     v{pkg.version}
                   </Badge>
@@ -213,18 +213,18 @@ export function PackageCard({ package: pkg, featured = false, compact = false }:
                     <BookOpen className="h-3 w-3 mr-1" />
                     Docs
                   </Button>
-                  
+
                   <Button variant="ghost" size="sm" className="h-8 px-2">
                     <Code className="h-3 w-3 mr-1" />
                     Source
                   </Button>
-                  
+
                   <Button variant="ghost" size="sm" className="h-8 px-2">
                     <ExternalLink className="h-3 w-3 mr-1" />
                     Demo
                   </Button>
                 </div>
-                
+
                 <div className="text-xs text-green-600 font-medium">
                   Editor's Choice
                 </div>

@@ -36,8 +36,8 @@ public class TransactionManager : ITransactionManager
     public bool HasActiveTransaction => CurrentTransactionStack.Count > 0;
 
     /// <inheritdoc/>
-    public ITransactionInfo? ActiveTransaction => CurrentTransactionStack.Count > 0 
-        ? CurrentTransactionStack.Peek().TransactionInfo 
+    public ITransactionInfo? ActiveTransaction => CurrentTransactionStack.Count > 0
+        ? CurrentTransactionStack.Peek().TransactionInfo
         : null;
 
     /// <inheritdoc/>
@@ -87,7 +87,7 @@ public class TransactionManager : ITransactionManager
 
             UpdateStats(statsAction: s => { s.TotalTransactions++; s.ActiveTransactions++; });
 
-            _logger.LogInformation("Started transaction {TransactionId} '{TransactionName}'", 
+            _logger.LogInformation("Started transaction {TransactionId} '{TransactionName}'",
                 transactionId, name);
 
             return scope;
@@ -111,7 +111,7 @@ public class TransactionManager : ITransactionManager
         {
             var parentTransaction = ActiveTransaction!;
             var transactionId = Guid.NewGuid().ToString();
-            
+
             var transactionInfo = new TransactionInfo
             {
                 Id = transactionId,
@@ -130,7 +130,7 @@ public class TransactionManager : ITransactionManager
 
             UpdateStats(statsAction: s => { s.TotalTransactions++; s.ActiveTransactions++; });
 
-            _logger.LogInformation("Started sub-transaction {TransactionId} '{TransactionName}' under parent {ParentId}", 
+            _logger.LogInformation("Started sub-transaction {TransactionId} '{TransactionName}' under parent {ParentId}",
                 transactionId, name, parentTransaction.Id);
 
             return scope;
@@ -174,7 +174,7 @@ public class TransactionManager : ITransactionManager
         ArgumentNullException.ThrowIfNull(action);
 
         using var transaction = await BeginTransactionAsync(name, document, cancellationToken);
-        
+
         try
         {
             var result = await action();
@@ -200,7 +200,7 @@ public class TransactionManager : ITransactionManager
         ArgumentNullException.ThrowIfNull(action);
 
         using var transaction = await BeginTransactionAsync(name, document, cancellationToken);
-        
+
         try
         {
             await action();
@@ -251,7 +251,7 @@ public class TransactionManager : ITransactionManager
             _failureHandlers.Add(handler);
         }
 
-        _logger.LogInformation("Registered transaction failure handler {HandlerType}", 
+        _logger.LogInformation("Registered transaction failure handler {HandlerType}",
             handler.GetType().Name);
 
         return new FailureHandlerRegistration(() =>
@@ -305,7 +305,7 @@ public class TransactionManager : ITransactionManager
             });
 
             _logger.LogInformation("Completed transaction {TransactionId} '{TransactionName}' - {Status} in {Duration}ms",
-                transactionInfo.Id, transactionInfo.Name, transactionInfo.Status, 
+                transactionInfo.Id, transactionInfo.Name, transactionInfo.Status,
                 transactionInfo.Duration.TotalMilliseconds);
         }
         catch (Exception ex)
@@ -322,7 +322,7 @@ public class TransactionManager : ITransactionManager
 
         UpdateStats(statsAction: s => s.FailedTransactions++);
 
-        _logger.LogError(exception, "Transaction {TransactionId} '{TransactionName}' failed", 
+        _logger.LogError(exception, "Transaction {TransactionId} '{TransactionName}' failed",
             transaction.Id, transaction.Name);
 
         try
@@ -344,7 +344,7 @@ public class TransactionManager : ITransactionManager
         }
         catch (Exception handlerException)
         {
-            _logger.LogError(handlerException, "Error handling transaction failure for {TransactionId}", 
+            _logger.LogError(handlerException, "Error handling transaction failure for {TransactionId}",
                 transaction.Id);
         }
     }
@@ -386,7 +386,7 @@ public class TransactionManager : ITransactionManager
             try
             {
                 var result = await handler.HandleFailureAsync(transaction, exception, cancellationToken);
-                
+
                 switch (result)
                 {
                     case TransactionFailureHandlingResult.Rollback:
@@ -409,7 +409,7 @@ public class TransactionManager : ITransactionManager
             }
             catch (Exception handlerEx)
             {
-                _logger.LogError(handlerEx, "Transaction failure handler {HandlerType} threw exception", 
+                _logger.LogError(handlerEx, "Transaction failure handler {HandlerType} threw exception",
                     handler.GetType().Name);
             }
         }
@@ -420,7 +420,7 @@ public class TransactionManager : ITransactionManager
         lock (_statsLock)
         {
             statsAction(_stats);
-            
+
             if (_stats.ActiveTransactions > _stats.PeakConcurrentTransactions)
             {
                 _stats.PeakConcurrentTransactions = _stats.ActiveTransactions;
@@ -488,7 +488,7 @@ public class TransactionScope : ITransactionScope
         {
             // Perform actual Revit API commit here
             // This would integrate with the actual Revit Transaction API
-            
+
             IsCommitted = true;
             _completed = true;
             await _manager.CompleteTransactionAsync(this, true, cancellationToken);
@@ -513,7 +513,7 @@ public class TransactionScope : ITransactionScope
         {
             // Perform actual Revit API rollback here
             // This would integrate with the actual Revit Transaction API
-            
+
             IsRolledBack = true;
             _completed = true;
             await _manager.CompleteTransactionAsync(this, false, cancellationToken);
@@ -539,7 +539,7 @@ public class TransactionScope : ITransactionScope
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error during auto-rollback in dispose for {TransactionId}", 
+                    _logger.LogError(ex, "Error during auto-rollback in dispose for {TransactionId}",
                         TransactionInfo.Id);
                 }
             }
@@ -592,11 +592,11 @@ public class TransactionGroup : ITransactionGroup
         {
             // Commit all transactions in the group
             // This would integrate with the actual Revit TransactionGroup API
-            
+
             IsCommitted = true;
             _completed = true;
-            
-            _logger.LogInformation("Committed transaction group {GroupId} '{GroupName}' with {TransactionCount} transactions", 
+
+            _logger.LogInformation("Committed transaction group {GroupId} '{GroupName}' with {TransactionCount} transactions",
                 Id, Name, _transactions.Count);
         }
         catch (Exception ex)
@@ -616,10 +616,10 @@ public class TransactionGroup : ITransactionGroup
         {
             // Rollback all transactions in the group
             // This would integrate with the actual Revit TransactionGroup API
-            
+
             _completed = true;
-            
-            _logger.LogInformation("Rolled back transaction group {GroupId} '{GroupName}' with {TransactionCount} transactions", 
+
+            _logger.LogInformation("Rolled back transaction group {GroupId} '{GroupName}' with {TransactionCount} transactions",
                 Id, Name, _transactions.Count);
         }
         catch (Exception ex)

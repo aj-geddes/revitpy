@@ -14,14 +14,14 @@ namespace RevitPy.Compatibility
         /// </summary>
         /// <returns>Revit version information</returns>
         Task<RevitVersionInfo> DetectRevitVersionAsync();
-        
+
         /// <summary>
         /// Gets supported features for a specific Revit version
         /// </summary>
         /// <param name="version">Revit version</param>
         /// <returns>List of supported features</returns>
         IEnumerable<string> GetSupportedFeatures(RevitVersion version);
-        
+
         /// <summary>
         /// Checks if a feature is available in the specified version
         /// </summary>
@@ -29,20 +29,20 @@ namespace RevitPy.Compatibility
         /// <param name="version">Revit version</param>
         /// <returns>True if feature is available</returns>
         bool IsFeatureAvailable(string feature, RevitVersion version);
-        
+
         /// <summary>
         /// Gets the minimum required version for a feature
         /// </summary>
         /// <param name="feature">Feature name</param>
         /// <returns>Minimum Revit version required</returns>
         RevitVersion GetMinimumVersionForFeature(string feature);
-        
+
         /// <summary>
         /// Validates compatibility for current environment
         /// </summary>
         /// <returns>Compatibility validation result</returns>
         Task<CompatibilityResult> ValidateCompatibilityAsync();
-        
+
         /// <summary>
         /// Gets version-specific configuration
         /// </summary>
@@ -50,7 +50,7 @@ namespace RevitPy.Compatibility
         /// <returns>Version-specific configuration</returns>
         VersionConfiguration GetVersionConfiguration(RevitVersion version);
     }
-    
+
     /// <summary>
     /// Revit version information
     /// </summary>
@@ -66,7 +66,7 @@ namespace RevitPy.Compatibility
         public bool IsValidInstallation { get; set; }
         public Dictionary<string, object> AdditionalInfo { get; set; } = new();
     }
-    
+
     /// <summary>
     /// Revit version enumeration
     /// </summary>
@@ -80,7 +80,7 @@ namespace RevitPy.Compatibility
         Revit2026 = 2026,
         Future = 9999
     }
-    
+
     /// <summary>
     /// Compatibility validation result
     /// </summary>
@@ -93,7 +93,7 @@ namespace RevitPy.Compatibility
         public List<string> Recommendations { get; set; } = new();
         public Dictionary<string, bool> FeatureCompatibility { get; set; } = new();
     }
-    
+
     /// <summary>
     /// Compatibility issue
     /// </summary>
@@ -105,7 +105,7 @@ namespace RevitPy.Compatibility
         public string Recommendation { get; set; }
         public string AlternativeImplementation { get; set; }
     }
-    
+
     /// <summary>
     /// Compatibility issue severity
     /// </summary>
@@ -116,7 +116,7 @@ namespace RevitPy.Compatibility
         Error,
         Critical
     }
-    
+
     /// <summary>
     /// Version-specific configuration
     /// </summary>

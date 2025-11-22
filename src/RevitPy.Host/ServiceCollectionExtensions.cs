@@ -190,7 +190,7 @@ public static class RevitPyHostBuilderExtensions
     public static async Task<IServiceProvider> CreateRevitPyHostAsync(object revitApplication)
     {
         var services = new ServiceCollection();
-        
+
         // Add basic logging
         services.AddLogging(builder =>
         {
@@ -229,7 +229,7 @@ public static class RevitPyHostBuilderExtensions
     public static async Task<IServiceProvider> CreateRevitPyDevelopmentHostAsync(object revitApplication)
     {
         var services = new ServiceCollection();
-        
+
         // Add debug logging
         services.AddLogging(builder =>
         {

@@ -44,20 +44,20 @@ try {
         "--no-restore",
         "--verbosity", "minimal"
     )
-    
+
     if ($Platform -eq "x64") {
         $buildArgs += "--arch", "x64"
     }
 
     & dotnet @buildArgs
     if ($LASTEXITCODE -ne 0) { throw "Build failed" }
-    
+
     Write-Host "Build completed successfully" -ForegroundColor Green
 
     # Run tests if requested
     if ($RunTests) {
         Write-Host "Running tests..." -ForegroundColor Yellow
-        
+
         $testArgs = @(
             "test", $SolutionFile,
             "--configuration", $Configuration,
@@ -68,7 +68,7 @@ try {
 
         & dotnet @testArgs
         if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
-        
+
         Write-Host "All tests passed" -ForegroundColor Green
     }
 

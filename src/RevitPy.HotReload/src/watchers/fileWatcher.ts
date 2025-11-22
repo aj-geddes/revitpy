@@ -128,7 +128,7 @@ export class FileWatcher extends EventEmitter {
     }
 
     const normalizedPath = path.normalize(filePath);
-    
+
     // Debounce changes to the same file
     const existingTimeout = this.changeQueue.get(normalizedPath);
     if (existingTimeout) {
@@ -167,52 +167,52 @@ export class FileWatcher extends EventEmitter {
       '**/.git/**',
       '**/.svn/**',
       '**/.hg/**',
-      
+
       // Dependencies
       '**/node_modules/**',
       '**/venv/**',
       '**/.venv/**',
       '**/env/**',
       '**/.env/**',
-      
+
       // Build outputs
       '**/dist/**',
       '**/build/**',
       '**/.next/**',
       '**/.nuxt/**',
-      
+
       // Cache directories
       '**/.cache/**',
       '**/__pycache__/**',
       '**/.pytest_cache/**',
       '**/coverage/**',
-      
+
       // IDE files
       '**/.vscode/**',
       '**/.idea/**',
       '**/*.swp',
       '**/*.swo',
       '**/*~',
-      
+
       // OS files
       '**/Thumbs.db',
       '**/.DS_Store',
-      
+
       // Log files
       '**/*.log',
       '**/logs/**',
-      
+
       // Temporary files
       '**/*.tmp',
       '**/*.temp',
       '**/tmp/**',
-      
+
       // Package files
       '**/*.pyc',
       '**/*.pyo',
       '**/*.pyd',
       '**/*.egg-info/**',
-      
+
       // Config files that shouldn't trigger rebuilds
       '**/package-lock.json',
       '**/yarn.lock',
@@ -221,15 +221,15 @@ export class FileWatcher extends EventEmitter {
 
     // Add user-defined ignore patterns
     const userIgnored = this.config.hotReload?.excludePatterns || [];
-    
+
     return [...defaultIgnored, ...userIgnored];
   }
 
   private shouldIgnoreFile(filePath: string): boolean {
     const normalizedPath = path.normalize(filePath);
-    
+
     // Skip node_modules unless explicitly enabled
-    if (!this.config.hotReload?.includeNodeModules && 
+    if (!this.config.hotReload?.includeNodeModules &&
         normalizedPath.includes('node_modules')) {
       return true;
     }
@@ -273,7 +273,7 @@ export class FileWatcher extends EventEmitter {
   } {
     const watchedPaths = this.getWatchedPaths();
     let watchedFiles = 0;
-    
+
     if (this.watcher) {
       const watched = this.watcher.getWatched();
       watchedFiles = Object.values(watched).reduce((sum, files) => sum + files.length, 0);

@@ -117,7 +117,7 @@ export default function PackageRegistryHome() {
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold tracking-tight">RevitPy Package Registry</h1>
         <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-          Discover, install, and share Python packages for Revit development. 
+          Discover, install, and share Python packages for Revit development.
           Extend your BIM workflows with community-driven tools and libraries.
         </p>
       </div>
@@ -177,8 +177,8 @@ export default function PackageRegistryHome() {
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Filters Sidebar */}
             <div className="lg:w-64 flex-shrink-0">
-              <PackageFilters 
-                filters={filters} 
+              <PackageFilters
+                filters={filters}
                 onFiltersChange={handleFiltersChange}
                 facets={searchResults?.facets}
               />
@@ -196,8 +196,8 @@ export default function PackageRegistryHome() {
               {isError && (
                 <div className="text-center py-12">
                   <p className="text-red-500">Error loading packages: {error?.message}</p>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="mt-4"
                     onClick={() => window.location.reload()}
                   >
@@ -213,8 +213,8 @@ export default function PackageRegistryHome() {
                       {searchResults.total.toLocaleString()} packages found
                       {searchQuery && ` for "${searchQuery}"`}
                     </p>
-                    
-                    <Select 
+
+                    <Select
                       value={`${filters.sortBy}-${filters.sortOrder}`}
                       onValueChange={(value) => {
                         const [sortBy, sortOrder] = value.split('-') as [string, 'asc' | 'desc'];
@@ -281,8 +281,8 @@ export default function PackageRegistryHome() {
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {stats.categories.map((category) => (
-                <Card 
-                  key={category.name} 
+                <Card
+                  key={category.name}
                   className="cursor-pointer hover:shadow-md transition-shadow"
                   onClick={() => {
                     handleFiltersChange({ category: category.name.toLowerCase() });

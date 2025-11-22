@@ -42,7 +42,7 @@ public class TypeConverter : IRevitTypeConverter
         {
             targetType ??= typeof(T);
             var result = ConvertFromPythonInternal(pythonObject, targetType);
-            
+
             RecordConversion(true, stopwatch.Elapsed, pythonObject?.GetType(), targetType, true);
             return (T?)result;
         }
@@ -51,7 +51,7 @@ public class TypeConverter : IRevitTypeConverter
             RecordConversion(false, stopwatch.Elapsed, pythonObject?.GetType(), targetType, true);
             _logger.LogError(ex, "Failed to convert Python object to {TargetType}", targetType?.Name);
             throw new RevitApiException(
-                $"Failed to convert Python object to {targetType?.Name}: {ex.Message}", 
+                $"Failed to convert Python object to {targetType?.Name}: {ex.Message}",
                 ex);
         }
     }
@@ -63,7 +63,7 @@ public class TypeConverter : IRevitTypeConverter
         try
         {
             var result = ConvertToPythonInternal(revitObject, preserveType);
-            
+
             RecordConversion(true, stopwatch.Elapsed, revitObject?.GetType(), result?.GetType(), false);
             return result;
         }
@@ -72,7 +72,7 @@ public class TypeConverter : IRevitTypeConverter
             RecordConversion(false, stopwatch.Elapsed, revitObject?.GetType(), null, false);
             _logger.LogError(ex, "Failed to convert Revit object to Python");
             throw new RevitApiException(
-                $"Failed to convert Revit object to Python: {ex.Message}", 
+                $"Failed to convert Revit object to Python: {ex.Message}",
                 ex);
         }
     }
@@ -173,7 +173,7 @@ public class TypeConverter : IRevitTypeConverter
     {
         ArgumentNullException.ThrowIfNull(converter);
 
-        _customConverters[(typeof(TFrom), typeof(TTo))] = obj => 
+        _customConverters[(typeof(TFrom), typeof(TTo))] = obj =>
         {
             if (obj is TFrom from)
                 return converter(from);
@@ -185,13 +185,13 @@ public class TypeConverter : IRevitTypeConverter
             _stats.CustomConvertersCount++;
         }
 
-        _logger.LogInformation("Registered custom converter from {FromType} to {ToType}", 
+        _logger.LogInformation("Registered custom converter from {FromType} to {ToType}",
             typeof(TFrom).Name, typeof(TTo).Name);
     }
 
     /// <inheritdoc/>
     public void RegisterBidirectionalConverter<TPython, TRevit>(
-        Func<TRevit, TPython> toPython, 
+        Func<TRevit, TPython> toPython,
         Func<TPython, TRevit> toRevit)
     {
         ArgumentNullException.ThrowIfNull(toPython);
@@ -233,17 +233,17 @@ public class TypeConverter : IRevitTypeConverter
         RegisterBuiltInConverter<double, float>(d => (float)d);
         RegisterBuiltInConverter<long, int>(l => (int)l);
         RegisterBuiltInConverter<decimal, double>(d => (double)d);
-        
+
         // String conversions
         RegisterBuiltInConverter<string, object>(s => s);
         RegisterBuiltInConverter<object, string>(o => o?.ToString() ?? string.Empty);
-        
+
         // Boolean conversions
         RegisterBuiltInConverter<bool, string>(b => b.ToString().ToLowerInvariant());
         RegisterBuiltInConverter<string, bool>(s => bool.Parse(s));
-        
+
         // Collection conversions
-        RegisterBuiltInConverter<Array, List<object>>(arr => 
+        RegisterBuiltInConverter<Array, List<object>>(arr =>
         {
             var list = new List<object>();
             for (int i = 0; i < arr.Length; i++)
@@ -252,7 +252,7 @@ public class TypeConverter : IRevitTypeConverter
             }
             return list;
         });
-        
+
         RegisterBuiltInConverter<List<object>, Array>(list => list.ToArray());
 
         _logger.LogInformation("Initialized {Count} built-in type converters", _customConverters.Count);
@@ -384,7 +384,7 @@ public class TypeConverter : IRevitTypeConverter
 
             // Get properties with PythonProperty attributes
             var properties = GetCachedProperties(targetType);
-            var pythonDict = pythonObject as Dictionary<string, object> ?? 
+            var pythonDict = pythonObject as Dictionary<string, object> ??
                            ConvertObjectToDictionary(pythonObject);
 
             foreach (var property in properties)
@@ -436,7 +436,7 @@ public class TypeConverter : IRevitTypeConverter
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to convert property {PropertyName} of {ObjectType}", 
+                _logger.LogWarning(ex, "Failed to convert property {PropertyName} of {ObjectType}",
                     property.Name, sourceType.Name);
             }
         }
@@ -446,7 +446,7 @@ public class TypeConverter : IRevitTypeConverter
 
     private PropertyInfo[] GetCachedProperties(Type type)
     {
-        return _typePropertyCache.GetOrAdd(type, t => 
+        return _typePropertyCache.GetOrAdd(type, t =>
             t.GetProperties(BindingFlags.Public | BindingFlags.Instance));
     }
 
@@ -484,8 +484,8 @@ public class TypeConverter : IRevitTypeConverter
         {
             // Check if there's an implicit conversion operator
             var implicitMethod = targetType.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .FirstOrDefault(m => m.Name == "op_Implicit" && 
-                               m.ReturnType == targetType && 
+                .FirstOrDefault(m => m.Name == "op_Implicit" &&
+                               m.ReturnType == targetType &&
                                m.GetParameters().FirstOrDefault()?.ParameterType == sourceType);
 
             return implicitMethod != null;
@@ -501,7 +501,7 @@ public class TypeConverter : IRevitTypeConverter
         lock (_statsLock)
         {
             _stats.TotalConversions++;
-            
+
             if (success)
             {
                 _stats.SuccessfulConversions++;

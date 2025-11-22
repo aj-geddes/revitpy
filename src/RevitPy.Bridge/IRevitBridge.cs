@@ -48,8 +48,8 @@ public interface IRevitBridge
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Method result</returns>
     Task<T?> InvokeMethodAsync<T>(
-        object target, 
-        string methodName, 
+        object target,
+        string methodName,
         object[]? parameters = null,
         CancellationToken cancellationToken = default);
 
@@ -62,7 +62,7 @@ public interface IRevitBridge
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Property value</returns>
     Task<T?> GetPropertyAsync<T>(
-        object target, 
+        object target,
         string propertyName,
         CancellationToken cancellationToken = default);
 
@@ -75,8 +75,8 @@ public interface IRevitBridge
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Task representing the operation</returns>
     Task SetPropertyAsync(
-        object target, 
-        string propertyName, 
+        object target,
+        string propertyName,
         object? value,
         CancellationToken cancellationToken = default);
 
@@ -89,7 +89,7 @@ public interface IRevitBridge
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>New instance</returns>
     Task<T?> CreateInstanceAsync<T>(
-        string typeName, 
+        string typeName,
         object[]? parameters = null,
         CancellationToken cancellationToken = default);
 
@@ -101,7 +101,7 @@ public interface IRevitBridge
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Event subscription</returns>
     Task<IEventSubscription> RegisterEventHandlerAsync(
-        string eventName, 
+        string eventName,
         Func<object, object[], Task> handler,
         CancellationToken cancellationToken = default);
 

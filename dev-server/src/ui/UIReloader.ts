@@ -11,7 +11,7 @@ import path from 'path';
 import pino from 'pino';
 import esbuild from 'esbuild';
 
-import type { 
+import type {
   DevServerConfig,
   UIComponent,
   ComponentType,
@@ -60,20 +60,20 @@ export class UIReloaderService extends EventEmitter {
   private bundles = new Map<string, AssetBundle>();
   private clients = new Map<string, HotReloadClient>();
   private componentHashes = new Map<string, string>();
-  
+
   // HMR Runtime
   private hmrRuntime: string = '';
   private hmrCounter = 0;
-  
+
   // Performance optimization
   private buildCache = new Map<string, any>();
   private incrementalBuild: esbuild.BuildContext | null = null;
-  
+
   constructor(config: DevServerConfig, logger?: pino.Logger) {
     super();
     this.config = config;
     this.logger = logger || pino({ name: 'UIReloader' });
-    
+
     this.logger.info('UI hot-reload service initialized', {
       webview2: this.config.uiReload.webview2Integration,
       reactRefresh: this.config.uiReload.reactRefresh,
@@ -144,7 +144,7 @@ export class UIReloaderService extends EventEmitter {
   async reloadComponent(componentPath: string): Promise<UIReloadResult> {
     const resolvedPath = path.resolve(componentPath);
     const startTime = performance.now();
-    
+
     this.logger.info('Reloading UI component', { path: resolvedPath });
 
     try {
@@ -164,9 +164,9 @@ export class UIReloaderService extends EventEmitter {
 
       // Determine reload type
       const reloadType = this.determineReloadType(resolvedPath);
-      
+
       let result: UIReloadResult;
-      
+
       switch (reloadType) {
         case 'hot':
           result = await this.performHotReload(resolvedPath, startTime);
@@ -271,7 +271,7 @@ export class UIReloaderService extends EventEmitter {
    */
   async refreshPage(): Promise<void> {
     this.logger.info('Refreshing all UI clients');
-    
+
     const refreshMessage = {
       type: 'hmr:full-reload',
       timestamp: Date.now()
@@ -285,7 +285,7 @@ export class UIReloaderService extends EventEmitter {
    */
   async injectScript(script: string): Promise<void> {
     this.logger.debug('Injecting script into UI clients');
-    
+
     const injectMessage = {
       type: 'hmr:inject-script',
       script,
@@ -329,12 +329,12 @@ export class UIReloaderService extends EventEmitter {
 // RevitPy HMR Runtime
 (function() {
   'use strict';
-  
+
   let socket;
   let modules = new Map();
   let updateQueue = [];
   let isUpdating = false;
-  
+
   // HMR API
   window.__REVITPY_HMR__ = {
     accept: function(deps, callback) {
@@ -356,18 +356,18 @@ export class UIReloaderService extends EventEmitter {
       window.location.reload();
     }
   };
-  
+
   // Connect to HMR WebSocket
   function connect() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = protocol + '//' + window.location.host + '/ws';
-    
+
     socket = new WebSocket(wsUrl);
-    
+
     socket.onopen = function() {
       console.log('[RevitPy HMR] Connected');
     };
-    
+
     socket.onmessage = function(event) {
       try {
         const data = JSON.parse(event.data);
@@ -376,17 +376,17 @@ export class UIReloaderService extends EventEmitter {
         console.error('[RevitPy HMR] Invalid message:', e);
       }
     };
-    
+
     socket.onclose = function() {
       console.log('[RevitPy HMR] Disconnected, retrying in 2s...');
       setTimeout(connect, 2000);
     };
-    
+
     socket.onerror = function(error) {
       console.error('[RevitPy HMR] Error:', error);
     };
   }
-  
+
   function handleMessage(data) {
     switch (data.type) {
       case 'hmr:update':
@@ -403,50 +403,50 @@ export class UIReloaderService extends EventEmitter {
         break;
     }
   }
-  
+
   function queueUpdate(update) {
     updateQueue.push(update);
     if (!isUpdating) {
       processUpdateQueue();
     }
   }
-  
+
   async function processUpdateQueue() {
     isUpdating = true;
-    
+
     while (updateQueue.length > 0) {
       const update = updateQueue.shift();
       await applyUpdate(update);
     }
-    
+
     isUpdating = false;
   }
-  
+
   async function applyUpdate(update) {
     try {
       console.log('[RevitPy HMR] Applying update:', update.path);
-      
+
       if (update.type === 'style') {
         updateCSS(update);
       } else if (update.type === 'component') {
         await updateComponent(update);
       }
-      
+
     } catch (error) {
       console.error('[RevitPy HMR] Update failed:', error);
       window.location.reload();
     }
   }
-  
+
   function updateCSS(update) {
     const existingLink = document.querySelector('link[data-hmr-id="' + update.hmrId + '"]');
-    
+
     if (existingLink) {
       const newLink = document.createElement('link');
       newLink.rel = 'stylesheet';
       newLink.href = 'data:text/css;base64,' + btoa(update.content);
       newLink.setAttribute('data-hmr-id', update.hmrId);
-      
+
       existingLink.parentNode.replaceChild(newLink, existingLink);
     } else {
       // Inject new CSS
@@ -455,20 +455,20 @@ export class UIReloaderService extends EventEmitter {
       style.textContent = update.content;
       document.head.appendChild(style);
     }
-    
+
     console.log('[RevitPy HMR] CSS updated:', update.path);
   }
-  
+
   async function updateComponent(update) {
     // Create module wrapper
     const moduleWrapper = new Function('module', 'exports', 'require', '__REVITPY_HMR__', update.content);
-    
+
     const module = { exports: {}, hot: window.__REVITPY_HMR__ };
     module.hot.id = update.hmrId;
-    
+
     // Execute module
     moduleWrapper(module, module.exports, requireStub, window.__REVITPY_HMR__);
-    
+
     // Check if module accepts HMR
     const existingModule = modules.get(update.hmrId);
     if (existingModule && existingModule.hot) {
@@ -476,7 +476,7 @@ export class UIReloaderService extends EventEmitter {
       if (existingModule.dispose) {
         existingModule.dispose();
       }
-      
+
       // Accept new module
       if (existingModule.callback) {
         existingModule.callback();
@@ -487,18 +487,18 @@ export class UIReloaderService extends EventEmitter {
       window.location.reload();
     }
   }
-  
+
   function requireStub(id) {
     // Simple require stub for HMR
     return window.require ? window.require(id) : {};
   }
-  
+
   function injectScript(script) {
     const scriptEl = document.createElement('script');
     scriptEl.textContent = script;
     document.head.appendChild(scriptEl);
   }
-  
+
   // Start HMR connection
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', connect);
@@ -508,8 +508,8 @@ export class UIReloaderService extends EventEmitter {
 })();
 `;
 
-    this.logger.debug('HMR runtime generated', { 
-      size: this.hmrRuntime.length 
+    this.logger.debug('HMR runtime generated', {
+      size: this.hmrRuntime.length
     });
   }
 
@@ -560,7 +560,7 @@ export class UIReloaderService extends EventEmitter {
       setup(build) {
         build.onLoad({ filter: /\.(jsx?|tsx?)$/ }, async (args) => {
           const contents = await fs.readFile(args.path, 'utf8');
-          
+
           // Inject React Refresh
           const refreshedCode = `
 import { __hmrId } from 'virtual:hmr';
@@ -586,7 +586,7 @@ if (module.hot) {
 window.$RefreshReg$ = prevRefreshReg;
 window.$RefreshSig$ = prevRefreshSig;
 `;
-          
+
           return { contents: refreshedCode, loader: 'tsx' };
         });
       }
@@ -604,16 +604,16 @@ window.$RefreshSig$ = prevRefreshSig;
         build.onLoad({ filter: /\.vue$/ }, async (args) => {
           // Parse Vue SFC and generate HMR code
           const contents = await fs.readFile(args.path, 'utf8');
-          
+
           // Simple Vue SFC parsing (real implementation would use @vue/compiler-sfc)
           const templateMatch = contents.match(/<template[^>]*>([\s\S]*?)<\/template>/);
           const scriptMatch = contents.match(/<script[^>]*>([\s\S]*?)<\/script>/);
           const styleMatch = contents.match(/<style[^>]*>([\s\S]*?)<\/style>/);
-          
+
           const template = templateMatch ? templateMatch[1] : '';
           const script = scriptMatch ? scriptMatch[1] : '';
           const style = styleMatch ? styleMatch[1] : '';
-          
+
           const vueCode = `
 // Vue HMR Code
 const __hmrId = "${path.basename(args.path)}";
@@ -622,14 +622,14 @@ ${script}
 
 if (module.hot) {
   module.hot.accept();
-  
+
   // Vue HMR API integration would go here
   // Real implementation would use vue/runtime-core HMR API
 }
 
 export default component;
 `;
-          
+
           return { contents: vueCode, loader: 'js' };
         });
       }
@@ -642,7 +642,7 @@ export default component;
       setup(build) {
         build.onLoad({ filter: /\.css$/ }, async (args) => {
           const contents = await fs.readFile(args.path, 'utf8');
-          
+
           const cssCode = `
 const css = ${JSON.stringify(contents)};
 const hmrId = "${this.getHMRId(args.path)}";
@@ -661,7 +661,7 @@ if (module.hot) {
   });
 }
 `;
-          
+
           return { contents: cssCode, loader: 'js' };
         });
       }
@@ -700,18 +700,18 @@ if (module.hot) {
   private async findUIFiles(dirPath: string): Promise<string[]> {
     const files: string[] = [];
     const uiExtensions = ['.jsx', '.tsx', '.vue', '.svelte', '.css', '.scss', '.sass', '.less'];
-    
+
     try {
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         const fullPath = path.join(dirPath, entry.name);
-        
+
         if (entry.isDirectory()) {
           if (['node_modules', '.git', 'dist', 'build'].includes(entry.name)) {
             continue;
           }
-          
+
           const subFiles = await this.findUIFiles(fullPath);
           files.push(...subFiles);
         } else if (entry.isFile()) {
@@ -727,7 +727,7 @@ if (module.hot) {
         error: error.message
       });
     }
-    
+
     return files;
   }
 
@@ -758,31 +758,31 @@ if (module.hot) {
 
   private async extractComponentDependencies(content: string, filePath: string): Promise<string[]> {
     const dependencies: string[] = [];
-    
+
     // Extract import statements
     const importRegex = /import\s+.*?from\s+['"]([^'"]+)['"]/g;
     let match;
-    
+
     while ((match = importRegex.exec(content)) !== null) {
       const importPath = match[1];
-      
+
       if (importPath.startsWith('./') || importPath.startsWith('../')) {
         const resolvedPath = path.resolve(path.dirname(filePath), importPath);
         dependencies.push(resolvedPath);
       }
     }
-    
+
     return dependencies;
   }
 
   private async setupWebView2Integration(): Promise<void> {
     this.logger.info('Setting up WebView2 integration...');
-    
+
     // WebView2 integration would involve:
     // 1. Injecting HMR runtime into WebView2 instances
     // 2. Setting up communication channel with C# host
     // 3. Handling WebView2-specific events
-    
+
     this.logger.debug('WebView2 integration setup complete');
   }
 
@@ -795,7 +795,7 @@ if (module.hot) {
 
       const content = await fs.readFile(componentPath, 'utf-8');
       const newHash = createHash('md5').update(content).digest('hex');
-      
+
       return currentHash !== newHash;
     } catch (error) {
       return true; // Assume needs reload on error
@@ -804,17 +804,17 @@ if (module.hot) {
 
   private determineReloadType(componentPath: string): ReloadType {
     const ext = path.extname(componentPath).toLowerCase();
-    
+
     // CSS can always use hot reload
     if (['.css', '.scss', '.sass', '.less'].includes(ext)) {
       return 'hot';
     }
-    
+
     // Components can use hot reload if they accept HMR
     if (['.jsx', '.tsx', '.vue', '.svelte'].includes(ext)) {
       return this.componentAcceptsHMR(componentPath) ? 'hot' : 'full';
     }
-    
+
     // Default to full reload
     return 'full';
   }
@@ -827,7 +827,7 @@ if (module.hot) {
 
   private getComponentType(filePath: string): ComponentType {
     const ext = path.extname(filePath).toLowerCase();
-    
+
     if (['.jsx', '.tsx'].includes(ext)) return 'react';
     if (ext === '.vue') return 'vue';
     if (ext === '.svelte') return 'svelte';
@@ -841,7 +841,7 @@ if (module.hot) {
 
   private async performHotReload(componentPath: string, startTime: number): Promise<UIReloadResult> {
     const buildResult = await this.buildComponentForHMR(componentPath);
-    
+
     if (!buildResult.success) {
       return this.performFullReload(componentPath, startTime);
     }
@@ -856,7 +856,7 @@ if (module.hot) {
     };
 
     await this.sendHMRUpdate(hmrUpdate);
-    
+
     return {
       success: true,
       component: componentPath,
@@ -869,7 +869,7 @@ if (module.hot) {
 
   private async performFullReload(componentPath: string, startTime: number): Promise<UIReloadResult> {
     await this.refreshPage();
-    
+
     return {
       success: true,
       component: componentPath,
@@ -882,7 +882,7 @@ if (module.hot) {
 
   private async performRefresh(componentPath: string, startTime: number): Promise<UIReloadResult> {
     await this.refreshPage();
-    
+
     return {
       success: true,
       component: componentPath,
@@ -905,7 +905,7 @@ if (module.hot) {
       }
 
       const result = await this.incrementalBuild.rebuild();
-      
+
       if (result.errors.length > 0) {
         return {
           success: false,
@@ -934,15 +934,15 @@ if (module.hot) {
 
   private extractDependenciesFromMetafile(metafile?: esbuild.Metafile): string[] {
     if (!metafile) return [];
-    
+
     const dependencies: string[] = [];
-    
+
     for (const [inputPath] of Object.entries(metafile.inputs)) {
       if (path.isAbsolute(inputPath)) {
         dependencies.push(inputPath);
       }
     }
-    
+
     return dependencies;
   }
 
@@ -959,7 +959,7 @@ if (module.hot) {
   private async broadcastToClients(message: any): Promise<void> {
     const clients = Array.from(this.clients.values());
     const promises = clients.map(client => this.sendToClient(client.id, message));
-    
+
     await Promise.allSettled(promises);
   }
 
@@ -982,14 +982,14 @@ if (module.hot) {
 
   private async getAffectedComponents(componentPath: string): Promise<string[]> {
     const affected: string[] = [];
-    
+
     // Find components that depend on this one
     for (const [path, tracker] of this.components) {
       if (tracker.dependencies.includes(componentPath)) {
         affected.push(path);
       }
     }
-    
+
     return affected;
   }
 
@@ -997,9 +997,9 @@ if (module.hot) {
     try {
       const content = await fs.readFile(componentPath, 'utf-8');
       const newHash = createHash('md5').update(content).digest('hex');
-      
+
       this.componentHashes.set(componentPath, newHash);
-      
+
       const tracker = this.components.get(componentPath);
       if (tracker) {
         tracker.hash = newHash;

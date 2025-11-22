@@ -15,15 +15,15 @@ export class RevitPyDebuggerProvider implements vscode.DebugAdapterDescriptorFac
         session: vscode.DebugSession,
         executable: vscode.DebugAdapterExecutable | undefined
     ): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
-        
+
         const debugSession = new RevitPyDebugSession(
             this.connectionManager,
             this.logger,
             session.configuration
         );
-        
+
         this.activeSessions.set(session.id, debugSession);
-        
+
         // Clean up when session ends
         session.onDidTerminateDebugSession(() => {
             this.activeSessions.delete(session.id);
@@ -57,11 +57,11 @@ export class RevitPyDebuggerProvider implements vscode.DebugAdapterDescriptorFac
                 vscode.workspace.getWorkspaceFolder(vscode.Uri.file(scriptPath)),
                 debugConfig
             );
-            
+
             if (success) {
                 this.logger.info(`Started debugging session for ${scriptPath}`);
             }
-            
+
             return success;
         } catch (error) {
             this.logger.error('Failed to start debugging session', error);

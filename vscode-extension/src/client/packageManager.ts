@@ -83,7 +83,7 @@ export class PackageManager implements vscode.Disposable {
             padding: 20px;
             margin: 0;
         }
-        
+
         .header {
             display: flex;
             justify-content: space-between;
@@ -92,13 +92,13 @@ export class PackageManager implements vscode.Disposable {
             padding-bottom: 10px;
             border-bottom: 1px solid var(--vscode-panel-border);
         }
-        
+
         .search-container {
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
         }
-        
+
         #searchInput {
             flex: 1;
             padding: 8px;
@@ -107,7 +107,7 @@ export class PackageManager implements vscode.Disposable {
             border: 1px solid var(--vscode-input-border);
             border-radius: 3px;
         }
-        
+
         .btn {
             padding: 8px 16px;
             background: var(--vscode-button-background);
@@ -117,44 +117,44 @@ export class PackageManager implements vscode.Disposable {
             cursor: pointer;
             font-size: 13px;
         }
-        
+
         .btn:hover {
             background: var(--vscode-button-hoverBackground);
         }
-        
+
         .btn-secondary {
             background: var(--vscode-button-secondaryBackground);
             color: var(--vscode-button-secondaryForeground);
         }
-        
+
         .btn-secondary:hover {
             background: var(--vscode-button-secondaryHoverBackground);
         }
-        
+
         .tabs {
             display: flex;
             margin-bottom: 20px;
             border-bottom: 1px solid var(--vscode-panel-border);
         }
-        
+
         .tab {
             padding: 10px 20px;
             cursor: pointer;
             border-bottom: 2px solid transparent;
             color: var(--vscode-tab-inactiveForeground);
         }
-        
+
         .tab.active {
             color: var(--vscode-tab-activeForeground);
             border-bottom-color: var(--vscode-focusBorder);
         }
-        
+
         .package-list {
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
-        
+
         .package-item {
             background: var(--vscode-panel-background);
             border: 1px solid var(--vscode-panel-border);
@@ -164,50 +164,50 @@ export class PackageManager implements vscode.Disposable {
             justify-content: space-between;
             align-items: flex-start;
         }
-        
+
         .package-info {
             flex: 1;
         }
-        
+
         .package-name {
             font-weight: bold;
             font-size: 16px;
             margin-bottom: 5px;
             color: var(--vscode-symbolIcon-classForeground);
         }
-        
+
         .package-version {
             color: var(--vscode-descriptionForeground);
             font-size: 12px;
             margin-bottom: 5px;
         }
-        
+
         .package-description {
             color: var(--vscode-foreground);
             margin-bottom: 10px;
             line-height: 1.4;
         }
-        
+
         .package-meta {
             font-size: 12px;
             color: var(--vscode-descriptionForeground);
             display: flex;
             gap: 15px;
         }
-        
+
         .package-actions {
             display: flex;
             flex-direction: column;
             gap: 8px;
             min-width: 120px;
         }
-        
+
         .loading {
             text-align: center;
             padding: 40px;
             color: var(--vscode-descriptionForeground);
         }
-        
+
         .error {
             background: var(--vscode-inputValidation-errorBackground);
             border: 1px solid var(--vscode-inputValidation-errorBorder);
@@ -216,7 +216,7 @@ export class PackageManager implements vscode.Disposable {
             border-radius: 3px;
             margin-bottom: 20px;
         }
-        
+
         .tag {
             background: var(--vscode-badge-background);
             color: var(--vscode-badge-foreground);
@@ -225,25 +225,25 @@ export class PackageManager implements vscode.Disposable {
             font-size: 11px;
             margin-right: 5px;
         }
-        
+
         .status-installed {
             color: var(--vscode-testing-iconPassed);
         }
-        
+
         .status-update-available {
             color: var(--vscode-testing-iconQueued);
         }
-        
+
         #tabContent {
             min-height: 400px;
         }
-        
+
         .empty-state {
             text-align: center;
             padding: 60px 20px;
             color: var(--vscode-descriptionForeground);
         }
-        
+
         .empty-state h3 {
             margin-bottom: 10px;
             color: var(--vscode-foreground);
@@ -255,39 +255,39 @@ export class PackageManager implements vscode.Disposable {
         <h1>RevitPy Package Manager</h1>
         <button class="btn" onclick="refreshPackages()">Refresh</button>
     </div>
-    
+
     <div class="search-container">
         <input type="text" id="searchInput" placeholder="Search packages..." onkeyup="handleSearch()">
         <button class="btn btn-secondary" onclick="searchPackages()">Search</button>
     </div>
-    
+
     <div class="tabs">
         <div class="tab active" onclick="showTab('installed')">Installed</div>
         <div class="tab" onclick="showTab('available')">Browse</div>
         <div class="tab" onclick="showTab('updates')">Updates</div>
     </div>
-    
+
     <div id="tabContent">
         <div class="loading">Loading packages...</div>
     </div>
-    
+
     <script>
         const vscode = acquireVsCodeApi();
         let currentTab = 'installed';
         let installedPackages = [];
         let availablePackages = [];
         let packagesWithUpdates = [];
-        
+
         function showTab(tabName) {
             currentTab = tabName;
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
             updateContent();
         }
-        
+
         function updateContent() {
             const content = document.getElementById('tabContent');
-            
+
             switch(currentTab) {
                 case 'installed':
                     renderPackages(installedPackages, 'No packages installed yet.');
@@ -300,10 +300,10 @@ export class PackageManager implements vscode.Disposable {
                     break;
             }
         }
-        
+
         function renderPackages(packages, emptyMessage) {
             const content = document.getElementById('tabContent');
-            
+
             if (packages.length === 0) {
                 content.innerHTML = \`
                     <div class="empty-state">
@@ -313,7 +313,7 @@ export class PackageManager implements vscode.Disposable {
                 \`;
                 return;
             }
-            
+
             const packageList = packages.map(pkg => \`
                 <div class="package-item">
                     <div class="package-info">
@@ -335,24 +335,24 @@ export class PackageManager implements vscode.Disposable {
                     </div>
                 </div>
             \`).join('');
-            
+
             content.innerHTML = \`<div class="package-list">\${packageList}</div>\`;
         }
-        
+
         function renderPackageActions(pkg) {
             if (pkg.isInstalled) {
                 const actions = [\`<button class="btn btn-secondary" onclick="uninstallPackage('\${pkg.name}')">Uninstall</button>\`];
-                
+
                 if (pkg.installedVersion && pkg.installedVersion !== pkg.version) {
                     actions.unshift(\`<button class="btn" onclick="installPackage('\${pkg.name}', '\${pkg.version}')">Update</button>\`);
                 }
-                
+
                 return actions.join('');
             } else {
                 return \`<button class="btn" onclick="installPackage('\${pkg.name}', '\${pkg.version}')">Install</button>\`;
             }
         }
-        
+
         function installPackage(name, version) {
             vscode.postMessage({
                 command: 'installPackage',
@@ -360,14 +360,14 @@ export class PackageManager implements vscode.Disposable {
                 version: version
             });
         }
-        
+
         function uninstallPackage(name) {
             vscode.postMessage({
                 command: 'uninstallPackage',
                 packageName: name
             });
         }
-        
+
         function searchPackages() {
             const query = document.getElementById('searchInput').value;
             vscode.postMessage({
@@ -375,24 +375,24 @@ export class PackageManager implements vscode.Disposable {
                 query: query
             });
         }
-        
+
         function refreshPackages() {
             vscode.postMessage({
                 command: 'refreshPackages'
             });
         }
-        
+
         function handleSearch() {
             const query = document.getElementById('searchInput').value;
             if (query.length >= 3) {
                 searchPackages();
             }
         }
-        
+
         // Handle messages from extension
         window.addEventListener('message', event => {
             const message = event.data;
-            
+
             switch (message.type) {
                 case 'packagesData':
                     installedPackages = message.installed || [];
@@ -440,7 +440,7 @@ export class PackageManager implements vscode.Disposable {
             try {
                 const configPath = path.join(folder.uri.fsPath, 'revitpy.json');
                 const configUri = vscode.Uri.file(configPath);
-                
+
                 const configData = await vscode.workspace.fs.readFile(configUri);
                 const config: RevitPyConfig = JSON.parse(configData.toString());
 
@@ -534,8 +534,8 @@ export class PackageManager implements vscode.Disposable {
             });
 
             // Update available packages list
-            this.availablePackages = this.availablePackages.map(pkg => 
-                pkg.name === packageName 
+            this.availablePackages = this.availablePackages.map(pkg =>
+                pkg.name === packageName
                     ? { ...pkg, isInstalled: true, installedVersion: installVersion }
                     : pkg
             );
@@ -563,8 +563,8 @@ export class PackageManager implements vscode.Disposable {
             this.installedPackages.delete(packageName);
 
             // Update available packages list
-            this.availablePackages = this.availablePackages.map(pkg => 
-                pkg.name === packageName 
+            this.availablePackages = this.availablePackages.map(pkg =>
+                pkg.name === packageName
                     ? { ...pkg, isInstalled: false, installedVersion: undefined }
                     : pkg
             );
@@ -663,7 +663,7 @@ export class PackageManager implements vscode.Disposable {
 
     private sendPackageDataToWebview(): void {
         if (this.webviewPanel) {
-            const packagesWithUpdates = this.availablePackages.filter(pkg => 
+            const packagesWithUpdates = this.availablePackages.filter(pkg =>
                 pkg.isInstalled && pkg.installedVersion && pkg.installedVersion !== pkg.version
             );
 

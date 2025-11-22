@@ -10,12 +10,12 @@ import { performance } from 'perf_hooks';
 import pino from 'pino';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { 
-  Client, 
-  ClientType, 
-  ClientCapability, 
-  WebSocketMessage, 
-  MessageType 
+import type {
+  Client,
+  ClientType,
+  ClientCapability,
+  WebSocketMessage,
+  MessageType
 } from '../types/index.js';
 
 interface MessageHandler {
@@ -67,7 +67,7 @@ export class CommunicationService extends EventEmitter {
     super();
     this.wss = wss;
     this.logger = logger || pino({ name: 'WebSocketManager' });
-    
+
     this.connectionStats = {
       totalConnections: 0,
       activeConnections: 0,
@@ -88,7 +88,7 @@ export class CommunicationService extends EventEmitter {
     this.setupConnectionHandling();
     this.startHeartbeat();
     this.startCleanupTimer();
-    
+
     this.logger.info('WebSocket communication service started');
   }
 
@@ -97,7 +97,7 @@ export class CommunicationService extends EventEmitter {
    */
   async dispose(): Promise<void> {
     this.logger.info('Disposing WebSocket communication service...');
-    
+
     // Stop timers
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
@@ -107,16 +107,16 @@ export class CommunicationService extends EventEmitter {
     }
 
     // Close all connections gracefully
-    const closePromises = Array.from(this.clients.values()).map(client => 
+    const closePromises = Array.from(this.clients.values()).map(client =>
       this.disconnectClient(client.id, 1000, 'Server shutdown')
     );
-    
+
     await Promise.allSettled(closePromises);
-    
+
     this.clients.clear();
     this.subscriptions.clear();
     this.messageQueue = {};
-    
+
     this.logger.info('WebSocket communication service disposed');
   }
 
@@ -126,25 +126,25 @@ export class CommunicationService extends EventEmitter {
   async broadcast(message: WebSocketMessage): Promise<void> {
     const startTime = performance.now();
     const clients = Array.from(this.clients.values());
-    
+
     if (clients.length === 0) {
       this.logger.debug('No clients to broadcast to', { messageType: message.type });
       return;
     }
 
-    this.logger.debug('Broadcasting message', { 
-      type: message.type, 
-      clientCount: clients.length 
+    this.logger.debug('Broadcasting message', {
+      type: message.type,
+      clientCount: clients.length
     });
 
     // Send to all clients in parallel
     const sendPromises = clients.map(client => this.send(client.id, message));
     const results = await Promise.allSettled(sendPromises);
-    
+
     // Count successful sends
     const successCount = results.filter(result => result.status === 'fulfilled').length;
     const failCount = results.length - successCount;
-    
+
     const duration = Math.round(performance.now() - startTime);
     this.connectionStats.messagesSent += successCount;
     this.connectionStats.bytesTransferred += JSON.stringify(message).length * successCount;
@@ -157,9 +157,9 @@ export class CommunicationService extends EventEmitter {
     });
 
     if (failCount > 0) {
-      this.logger.warn('Some broadcast sends failed', { 
-        type: message.type, 
-        failCount 
+      this.logger.warn('Some broadcast sends failed', {
+        type: message.type,
+        failCount
       });
     }
   }
@@ -181,10 +181,10 @@ export class CommunicationService extends EventEmitter {
     try {
       // Add message to client's queue for batching
       await this.queueMessage(clientId, message);
-      
+
       // Update client activity
       client.lastActivity = new Date();
-      
+
     } catch (error) {
       this.logger.error('Error sending message to client', {
         clientId,
@@ -278,7 +278,7 @@ export class CommunicationService extends EventEmitter {
    * Get clients by capability
    */
   getClientsByCapability(capability: ClientCapability): Client[] {
-    return Array.from(this.clients.values()).filter(client => 
+    return Array.from(this.clients.values()).filter(client =>
       client.capabilities.includes(capability)
     );
   }
@@ -341,7 +341,7 @@ export class CommunicationService extends EventEmitter {
     const clientId = uuidv4();
     const clientType = this.determineClientType(request);
     const capabilities = this.determineClientCapabilities(request);
-    
+
     const client: Client = {
       id: clientId,
       type: clientType,
@@ -367,10 +367,10 @@ export class CommunicationService extends EventEmitter {
 
     // Set up client event handlers
     this.setupClientHandlers(client);
-    
+
     // Send welcome message
     this.sendWelcomeMessage(client);
-    
+
     // Emit connection event
     this.emit('client-connected', client);
   }
@@ -400,10 +400,10 @@ export class CommunicationService extends EventEmitter {
 
   private async handleClientMessage(client: Client, data: any): Promise<void> {
     const startTime = performance.now();
-    
+
     try {
       const message: WebSocketMessage = JSON.parse(data.toString());
-      
+
       // Validate message structure
       if (!message.type || typeof message.timestamp !== 'number') {
         throw new Error('Invalid message format');
@@ -428,7 +428,7 @@ export class CommunicationService extends EventEmitter {
           clientId: client.id,
           type: message.type
         });
-        
+
         // Send error response
         await this.send(client.id, {
           id: uuidv4(),
@@ -464,10 +464,10 @@ export class CommunicationService extends EventEmitter {
 
   private handleClientDisconnection(clientId: string, code: number, reason?: string): void {
     this.logger.info('Client disconnected', { clientId, code, reason });
-    
+
     this.cleanupClient(clientId);
     this.connectionStats.activeConnections = Math.max(0, this.connectionStats.activeConnections - 1);
-    
+
     this.emit('client-disconnected', clientId);
   }
 
@@ -480,7 +480,7 @@ export class CommunicationService extends EventEmitter {
   private determineClientType(request: IncomingMessage): ClientType {
     const userAgent = request.headers['user-agent'] || '';
     const origin = request.headers.origin || '';
-    
+
     if (userAgent.includes('Revit')) return 'revit';
     if (userAgent.includes('Code')) return 'vscode';
     if (origin.includes('webview')) return 'webview';
@@ -491,7 +491,7 @@ export class CommunicationService extends EventEmitter {
   private determineClientCapabilities(request: IncomingMessage): ClientCapability[] {
     const capabilities: ClientCapability[] = [];
     const userAgent = request.headers['user-agent'] || '';
-    
+
     if (userAgent.includes('Revit')) {
       capabilities.push('python-execution');
     }
@@ -501,7 +501,7 @@ export class CommunicationService extends EventEmitter {
     if (userAgent.includes('Code')) {
       capabilities.push('file-operations', 'debugging');
     }
-    
+
     return capabilities;
   }
 
@@ -532,7 +532,7 @@ export class CommunicationService extends EventEmitter {
     }
 
     const queue = this.messageQueue[clientId];
-    
+
     // Check queue size limit
     if (queue.messages.length >= this.maxQueueSize) {
       this.logger.warn('Message queue full for client', { clientId });
@@ -540,7 +540,7 @@ export class CommunicationService extends EventEmitter {
     }
 
     queue.messages.push(message);
-    
+
     // Process queue if not already processing
     if (!queue.processing) {
       await this.processMessageQueue(clientId);
@@ -552,12 +552,12 @@ export class CommunicationService extends EventEmitter {
     if (!queue || queue.processing) return;
 
     queue.processing = true;
-    
+
     try {
       while (queue.messages.length > 0) {
         const batch = queue.messages.splice(0, this.batchSize);
         await this.sendMessageBatch(clientId, batch);
-        
+
         // Small delay between batches to prevent overwhelming
         if (queue.messages.length > 0) {
           await new Promise(resolve => setTimeout(resolve, this.batchTimeout));
@@ -604,7 +604,7 @@ export class CommunicationService extends EventEmitter {
 
     for (const [clientId, client] of this.clients) {
       const timeSinceActivity = now.getTime() - client.lastActivity.getTime();
-      
+
       if (timeSinceActivity > this.connectionTimeout) {
         deadClients.push(clientId);
       } else if (client.websocket.readyState === WebSocket.OPEN) {
@@ -649,7 +649,7 @@ export class CommunicationService extends EventEmitter {
 
   private updateLatencyStats(duration: number): void {
     // Simple moving average for latency
-    this.connectionStats.averageLatency = 
+    this.connectionStats.averageLatency =
       (this.connectionStats.averageLatency * 0.9) + (duration * 0.1);
   }
 
@@ -671,7 +671,7 @@ export class CommunicationService extends EventEmitter {
       }
     });
 
-    // Unsubscribe handler  
+    // Unsubscribe handler
     this.registerHandler('unsubscribe' as MessageType, async (client, message) => {
       const { channel } = message.data || {};
       if (channel) {

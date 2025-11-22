@@ -175,7 +175,7 @@ documents.onDidChangeContent(change => {
 async function validateTextDocument(textDocument: TextDocument): Promise<void> {
     const settings = await getDocumentSettings(textDocument.uri);
     const text = textDocument.getText();
-    
+
     const diagnostics: Diagnostic[] = [];
 
     try {
@@ -189,7 +189,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 
     } catch (error) {
         connection.console.error(`Validation error for ${textDocument.uri}: ${error}`);
-        
+
         const diagnostic: Diagnostic = {
             severity: DiagnosticSeverity.Error,
             range: {
@@ -199,7 +199,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
             message: `Analysis error: ${error}`,
             source: 'RevitPy'
         };
-        
+
         diagnostics.push(diagnostic);
     }
 
@@ -222,23 +222,23 @@ connection.onCompletion(
             }
 
             const startTime = Date.now();
-            
+
             // Get completions from RevitAPI provider
             const completions = await revitApiProvider.getCompletions(document, _textDocumentPosition.position);
-            
+
             // Get Python completions
             const pythonCompletions = await pythonAnalyzer.getCompletions(document, _textDocumentPosition.position);
-            
+
             const allCompletions = [...completions, ...pythonCompletions];
-            
+
             const executionTime = Date.now() - startTime;
             connection.console.log(`Completion request completed in ${executionTime}ms`);
-            
+
             // Ensure we meet the <500ms requirement
             if (executionTime > 500) {
                 connection.console.warn(`Completion took ${executionTime}ms, exceeding 500ms target`);
             }
-            
+
             return allCompletions;
         } catch (error) {
             connection.console.error(`Completion error: ${error}`);

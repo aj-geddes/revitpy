@@ -29,20 +29,20 @@ public class RevitApiBridge : IRevitBridge, IDisposable
     private readonly IElementBridge _elementBridge;
     private readonly IGeometryBridge _geometryBridge;
     private readonly IParameterBridge _parameterBridge;
-    
+
     // Python.NET integration
     private readonly SemaphoreSlim _pythonLock;
     private readonly ConcurrentDictionary<string, PyObject> _pythonModuleCache;
     private readonly ConcurrentDictionary<string, object> _revitObjectCache;
-    
+
     // Performance monitoring
     private readonly RevitBridgeStats _stats;
     private readonly object _statsLock = new();
-    
+
     // Memory management
     private readonly Timer _cacheCleanupTimer;
     private readonly CacheSettings _cacheSettings;
-    
+
     private bool _disposed;
 
     public RevitApiBridge(
@@ -63,13 +63,13 @@ public class RevitApiBridge : IRevitBridge, IDisposable
         _pythonLock = new SemaphoreSlim(1, 1);
         _pythonModuleCache = new ConcurrentDictionary<string, PyObject>();
         _revitObjectCache = new ConcurrentDictionary<string, object>();
-        
+
         _stats = new RevitBridgeStats { LastReset = DateTime.UtcNow };
         _cacheSettings = new CacheSettings();
-        
+
         // Setup cache cleanup timer (every 5 minutes)
         _cacheCleanupTimer = new Timer(CleanupCaches, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
-        
+
         InitializePythonEnvironment();
         _logger.LogInformation("RevitApiBridge initialized successfully");
     }
@@ -80,22 +80,22 @@ public class RevitApiBridge : IRevitBridge, IDisposable
     /// Executes Python code with full Revit API context
     /// </summary>
     public async Task<object?> ExecutePythonCodeAsync(
-        string code, 
+        string code,
         Dictionary<string, object?>? variables = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(code);
-        
+
         var stopwatch = Stopwatch.StartNew();
         await _pythonLock.WaitAsync(cancellationToken);
-        
+
         try
         {
             using (Py.GIL())
             {
                 // Create Python scope with Revit context
                 using var scope = Py.CreateScope();
-                
+
                 // Inject variables
                 if (variables != null)
                 {
@@ -105,17 +105,17 @@ public class RevitApiBridge : IRevitBridge, IDisposable
                         scope.Set(kvp.Key, pythonValue?.ToPython());
                     }
                 }
-                
+
                 // Inject Revit API bridges
                 scope.Set("revit_elements", _elementBridge.ToPython());
                 scope.Set("revit_geometry", _geometryBridge.ToPython());
                 scope.Set("revit_parameters", _parameterBridge.ToPython());
                 scope.Set("revit_transactions", _transactionManager.ToPython());
-                
+
                 // Execute code
                 var result = scope.Eval(code);
                 var convertedResult = _typeConverter.ConvertFromPython<object>(result?.AsManagedObject(typeof(object)));
-                
+
                 RecordPythonExecution(true, stopwatch.Elapsed, code.Length);
                 return convertedResult;
             }
@@ -136,27 +136,27 @@ public class RevitApiBridge : IRevitBridge, IDisposable
     /// Imports and caches a Python module for efficient reuse
     /// </summary>
     public async Task<PyObject> ImportPythonModuleAsync(
-        string moduleName, 
+        string moduleName,
         bool forceReload = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(moduleName);
-        
+
         var cacheKey = $"module:{moduleName}";
-        
+
         if (!forceReload && _pythonModuleCache.TryGetValue(cacheKey, out var cachedModule))
         {
             return cachedModule;
         }
-        
+
         await _pythonLock.WaitAsync(cancellationToken);
-        
+
         try
         {
             using (Py.GIL())
             {
                 var module = Py.Import(moduleName);
-                
+
                 // Cache the module for reuse
                 if (_pythonModuleCache.TryAdd(cacheKey, module))
                 {
@@ -168,7 +168,7 @@ public class RevitApiBridge : IRevitBridge, IDisposable
                     _pythonModuleCache[cacheKey] = module;
                     _logger.LogInformation("Reloaded Python module: {ModuleName}", moduleName);
                 }
-                
+
                 return module;
             }
         }
@@ -195,29 +195,29 @@ public class RevitApiBridge : IRevitBridge, IDisposable
         ArgumentException.ThrowIfNullOrEmpty(moduleName);
         ArgumentException.ThrowIfNullOrEmpty(functionName);
         ArgumentNullException.ThrowIfNull(args);
-        
+
         var stopwatch = Stopwatch.StartNew();
-        
+
         try
         {
             var module = await ImportPythonModuleAsync(moduleName, false, cancellationToken);
-            
+
             await _pythonLock.WaitAsync(cancellationToken);
             try
             {
                 using (Py.GIL())
                 {
                     var function = module.GetAttr(functionName);
-                    
+
                     // Convert arguments to Python
                     var pythonArgs = args.Select(arg => _typeConverter.ConvertToPython(arg)?.ToPython()).ToArray();
-                    
+
                     // Call function
                     var result = function.Invoke(pythonArgs);
-                    
+
                     // Convert result back to .NET
                     var convertedResult = _typeConverter.ConvertFromPython<T>(result?.AsManagedObject(typeof(T)));
-                    
+
                     RecordFunctionCall(true, stopwatch.Elapsed, moduleName, functionName);
                     return convertedResult;
                 }
@@ -280,16 +280,16 @@ public class RevitApiBridge : IRevitBridge, IDisposable
     public FilteredElementCollector CreateFilteredElementCollector(Document document, ElementFilter? filter = null)
     {
         ArgumentNullException.ThrowIfNull(document);
-        
+
         try
         {
             var collector = new FilteredElementCollector(document);
-            
+
             if (filter != null)
             {
                 collector = collector.WherePasses(filter);
             }
-            
+
             return collector;
         }
         catch (Exception ex)
@@ -312,13 +312,13 @@ public class RevitApiBridge : IRevitBridge, IDisposable
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(elementIds);
         ArgumentNullException.ThrowIfNull(operation);
-        
+
         var ids = elementIds.ToList();
         var results = new Dictionary<ElementId, bool>();
-        
+
         if (ids.Count == 0)
             return results;
-        
+
         return await _transactionManager.ExecuteInTransactionAsync(
             operationName,
             async () =>
@@ -359,7 +359,7 @@ public class RevitApiBridge : IRevitBridge, IDisposable
                         semaphore.Release();
                     }
                 });
-                
+
                 await Task.WhenAll(tasks);
                 return results;
             },
@@ -375,7 +375,7 @@ public class RevitApiBridge : IRevitBridge, IDisposable
         {
             var revitAssembly = Assembly.LoadFrom("RevitAPIUI.dll");
             var uiApplicationType = revitAssembly.GetType("Autodesk.Revit.UI.UIApplication");
-            
+
             // This is a simplified approach - in practice, you'd have the UIApplication injected
             return null; // Placeholder
         }
@@ -415,7 +415,7 @@ public class RevitApiBridge : IRevitBridge, IDisposable
             var parameterStats = _parameterBridge.GetStats();
             var transactionStats = _transactionManager.Stats;
             var conversionStats = _typeConverter.GetStats();
-            
+
             return new RevitBridgeStats
             {
                 TotalOperations = _stats.TotalOperations,
@@ -424,14 +424,14 @@ public class RevitApiBridge : IRevitBridge, IDisposable
                 SuccessfulOperations = _stats.SuccessfulOperations,
                 FailedOperations = _stats.FailedOperations,
                 AverageOperationTime = _stats.AverageOperationTime,
-                
+
                 // Aggregate sub-component stats
                 ElementOperations = elementStats.TotalOperations,
                 GeometryOperations = geometryStats.TotalOperations,
                 ParameterOperations = parameterStats.TotalOperations,
                 TransactionOperations = transactionStats.TotalTransactions,
                 TypeConversions = conversionStats.TotalConversions,
-                
+
                 CacheSize = _revitObjectCache.Count + _pythonModuleCache.Count,
                 MemoryUsageMB = GC.GetTotalMemory(false) / (1024 * 1024),
                 LastReset = _stats.LastReset
@@ -448,7 +448,7 @@ public class RevitApiBridge : IRevitBridge, IDisposable
         {
             _stats.Reset();
         }
-        
+
         _logger.LogInformation("Bridge performance statistics reset");
     }
 
@@ -462,9 +462,9 @@ public class RevitApiBridge : IRevitBridge, IDisposable
     public async Task OptimizeMemoryAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Starting memory optimization");
-        
+
         var stopwatch = Stopwatch.StartNew();
-        
+
         // Clear caches
         await _pythonLock.WaitAsync(cancellationToken);
         try
@@ -475,14 +475,14 @@ public class RevitApiBridge : IRevitBridge, IDisposable
         {
             _pythonLock.Release();
         }
-        
+
         // Force garbage collection
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
-        
+
         var memoryAfter = GC.GetTotalMemory(false);
-        
+
         _logger.LogInformation(
             "Memory optimization completed in {Duration}ms. Memory usage: {MemoryMB}MB",
             stopwatch.ElapsedMilliseconds,
@@ -495,13 +495,13 @@ public class RevitApiBridge : IRevitBridge, IDisposable
         {
             var removedObjects = 0;
             var removedModules = 0;
-            
+
             // Clean object cache (remove items older than cache TTL)
             var objectsToRemove = _revitObjectCache
                 .Where(kvp => ShouldRemoveFromCache(kvp.Key))
                 .Select(kvp => kvp.Key)
                 .ToList();
-            
+
             foreach (var key in objectsToRemove)
             {
                 if (_revitObjectCache.TryRemove(key, out _))
@@ -509,12 +509,12 @@ public class RevitApiBridge : IRevitBridge, IDisposable
                     removedObjects++;
                 }
             }
-            
+
             // Clean Python module cache if it exceeds size limit
             if (_pythonModuleCache.Count > _cacheSettings.MaxModuleCacheSize)
             {
                 var modulesToRemove = _pythonModuleCache.Keys.Take(_pythonModuleCache.Count - _cacheSettings.MaxModuleCacheSize);
-                
+
                 foreach (var key in modulesToRemove)
                 {
                     if (_pythonModuleCache.TryRemove(key, out var module))
@@ -528,7 +528,7 @@ public class RevitApiBridge : IRevitBridge, IDisposable
                     }
                 }
             }
-            
+
             if (removedObjects > 0 || removedModules > 0)
             {
                 _logger.LogDebug(
@@ -576,12 +576,12 @@ public class RevitApiBridge : IRevitBridge, IDisposable
         {
             _stats.TotalOperations++;
             _stats.PythonExecutions++;
-            
+
             if (success)
                 _stats.SuccessfulOperations++;
             else
                 _stats.FailedOperations++;
-            
+
             UpdateAverageTime(duration);
         }
     }
@@ -592,12 +592,12 @@ public class RevitApiBridge : IRevitBridge, IDisposable
         {
             _stats.TotalOperations++;
             _stats.FunctionCalls++;
-            
+
             if (success)
                 _stats.SuccessfulOperations++;
             else
                 _stats.FailedOperations++;
-            
+
             UpdateAverageTime(duration);
         }
     }
@@ -625,7 +625,7 @@ public class RevitApiBridge : IRevitBridge, IDisposable
             try
             {
                 _cacheCleanupTimer?.Dispose();
-                
+
                 // Cleanup Python resources
                 foreach (var module in _pythonModuleCache.Values)
                 {
@@ -636,14 +636,14 @@ public class RevitApiBridge : IRevitBridge, IDisposable
                     catch { /* Ignore disposal errors */ }
                 }
                 _pythonModuleCache.Clear();
-                
+
                 _pythonLock?.Dispose();
-                
+
                 if (PythonEngine.IsInitialized)
                 {
                     PythonEngine.Shutdown();
                 }
-                
+
                 _logger.LogInformation("RevitApiBridge disposed successfully");
             }
             catch (Exception ex)
@@ -681,20 +681,20 @@ public class RevitBridgeStats
     public long SuccessfulOperations { get; set; }
     public long FailedOperations { get; set; }
     public TimeSpan AverageOperationTime { get; set; }
-    
+
     // Sub-component operation counts
     public long ElementOperations { get; set; }
     public long GeometryOperations { get; set; }
     public long ParameterOperations { get; set; }
     public long TransactionOperations { get; set; }
     public long TypeConversions { get; set; }
-    
+
     public int CacheSize { get; set; }
     public long MemoryUsageMB { get; set; }
     public DateTime LastReset { get; set; }
-    
+
     public double SuccessRatio => TotalOperations > 0 ? (double)SuccessfulOperations / TotalOperations : 0.0;
-    
+
     public void Reset()
     {
         TotalOperations = 0;
@@ -720,7 +720,7 @@ public interface IRevitBridge
     Task<object?> ExecutePythonCodeAsync(string code, Dictionary<string, object?>? variables = null, CancellationToken cancellationToken = default);
     Task<PyObject> ImportPythonModuleAsync(string moduleName, bool forceReload = false, CancellationToken cancellationToken = default);
     Task<T?> CallPythonFunctionAsync<T>(string moduleName, string functionName, object?[] args, CancellationToken cancellationToken = default);
-    
+
 #if REVIT2024
     Document? GetActiveDocument();
     IEnumerable<Document> GetOpenDocuments();
@@ -732,7 +732,7 @@ public interface IRevitBridge
         string operationName = "Batch Operation",
         CancellationToken cancellationToken = default);
 #endif
-    
+
     RevitBridgeStats GetStats();
     void ResetStats();
     Task OptimizeMemoryAsync(CancellationToken cancellationToken = default);

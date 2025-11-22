@@ -10,13 +10,13 @@ export function Layout() {
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
-      <Sidebar 
-        collapsed={sidebarCollapsed} 
+      <Sidebar
+        collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
-      
+
       {/* Main content */}
-      <div 
+      <div
         className={cn(
           'flex flex-col flex-1 transition-all duration-300',
           sidebarCollapsed ? 'ml-16' : 'ml-64'
@@ -24,7 +24,7 @@ export function Layout() {
       >
         {/* Header */}
         <Header />
-        
+
         {/* Page content */}
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-7xl mx-auto">

@@ -14,35 +14,35 @@ services:
     environment:
       # Use SQLite for simplicity
       DATABASE_URL: sqlite:///data/registry.db
-      
+
       # File-based storage
       STORAGE_TYPE: file
       STORAGE_PATH: /data/packages
-      
+
       # Optional Redis for caching (can be disabled)
       REDIS_URL: redis://redis:6379/0
-      
+
       # Simple configuration
       ENVIRONMENT: production
       LOG_LEVEL: INFO
-      
+
       # Security
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-this}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-admin-token-change-this}
-      
+
     volumes:
       - registry_data:/data
       - ./logs:/app/logs
-    
+
     depends_on:
       - redis
-    
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/stats"]
       interval: 30s
       timeout: 10s
       retries: 3
-    
+
     restart: unless-stopped
 
   # Optional Redis for caching (can be removed for ultra-minimal setup)

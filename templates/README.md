@@ -216,7 +216,7 @@ class BasicScript:
     def __init__(self, config_file=None):
         self.config = load_config(config_file)
         self.logger = setup_logging()
-        
+
     def run(self):
         # Your logic here
         pass
@@ -229,7 +229,7 @@ class RevitAddin:
     def __init__(self):
         self.ribbon_panel = self.create_ribbon_panel()
         self.ui_manager = UIManager()
-        
+
     def create_ribbon_panel(self):
         # Ribbon integration code
         pass
@@ -242,7 +242,7 @@ class APIClient:
     def __init__(self, config):
         self.session = self.create_authenticated_session()
         self.rate_limiter = RateLimiter()
-        
+
     async def sync_data(self, data):
         # Data synchronization logic
         pass
@@ -281,18 +281,18 @@ custom:
 def run(self) -> Dict[str, Any]:
     """Replace this method with your business logic."""
     results = {'success': False, 'data': {}}
-    
+
     try:
         # YOUR CUSTOM LOGIC HERE
         # Example: Query Revit elements, process data, etc.
-        
+
         results['success'] = True
         results['data'] = {'processed': 100}
-        
+
     except Exception as e:
         self.logger.error(f"Operation failed: {e}")
         results['error'] = str(e)
-    
+
     return results
 ```
 
@@ -315,10 +315,10 @@ from sqlalchemy import create_engine
 def load_custom_config(self):
     """Load project-specific configuration."""
     custom_config = self.config.get('custom', {})
-    
+
     self.feature_flags = custom_config.get('feature_flags', {})
     self.database_url = custom_config.get('database', {}).get('connection_string')
-    
+
     # Validate configuration
     if not self.database_url:
         raise ValueError("Database connection string required")
@@ -333,15 +333,15 @@ import pytest
 from unittest.mock import Mock, patch
 
 class TestCustomLogic:
-    
+
     def test_custom_operation(self):
         """Test your custom business logic."""
         # Arrange
         mock_data = create_test_data()
-        
+
         # Act
         result = your_custom_function(mock_data)
-        
+
         # Assert
         assert result['success'] is True
         assert 'data' in result

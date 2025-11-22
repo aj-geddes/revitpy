@@ -80,24 +80,24 @@ export class ConfigValidator {
       host: config.host || 'localhost',
       port: config.port || 3000,
       websocketPort: config.websocketPort || 3001,
-      
+
       // Paths
       projectRoot: config.projectRoot || process.cwd(),
       watchPaths: config.watchPaths || ['src'],
       buildOutputPath: config.buildOutputPath || 'dist',
-      
+
       // Performance
       debounceMs: config.debounceMs || 300,
       maxReloadTime: config.maxReloadTime || 5000,
       parallelProcesses: config.parallelProcesses || 4,
-      
+
       // Features
       hotReload: this.normalizeHotReloadConfig(config.hotReload),
       moduleReloader: this.normalizeModuleReloaderConfig(config.moduleReloader),
       uiReload: this.normalizeUIReloadConfig(config.uiReload),
       errorRecovery: this.normalizeErrorRecoveryConfig(config.errorRecovery),
       performance: this.normalizePerformanceConfig(config.performance),
-      
+
       // Integrations
       revit: this.normalizeRevitConfig(config.revit),
       vscode: this.normalizeVSCodeConfig(config.vscode),
@@ -124,10 +124,10 @@ export class ConfigValidator {
 
     // Check watch paths
     for (const watchPath of config.watchPaths) {
-      const fullPath = path.isAbsolute(watchPath) 
-        ? watchPath 
+      const fullPath = path.isAbsolute(watchPath)
+        ? watchPath
         : path.join(config.projectRoot, watchPath);
-        
+
       try {
         const watchStats = await fs.stat(fullPath);
         if (!watchStats.isDirectory()) {
@@ -142,7 +142,7 @@ export class ConfigValidator {
     const buildPath = path.isAbsolute(config.buildOutputPath)
       ? config.buildOutputPath
       : path.join(config.projectRoot, config.buildOutputPath);
-      
+
     try {
       await fs.mkdir(buildPath, { recursive: true });
     } catch {

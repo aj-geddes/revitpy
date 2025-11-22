@@ -30,88 +30,88 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
-        
-        <Route 
-          path="/dashboard" 
+
+        <Route
+          path="/dashboard"
           element={
             <LazyPage>
               <Dashboard />
             </LazyPage>
-          } 
+          }
         />
-        
-        <Route 
-          path="/projects" 
+
+        <Route
+          path="/projects"
           element={
             <LazyPage>
               <Projects />
             </LazyPage>
-          } 
+          }
         />
-        
-        <Route 
-          path="/projects/:id" 
+
+        <Route
+          path="/projects/:id"
           element={
             <LazyPage>
               <ProjectDetails />
             </LazyPage>
-          } 
+          }
         />
-        
-        <Route 
-          path="/packages" 
+
+        <Route
+          path="/packages"
           element={
             <LazyPage>
               <Packages />
             </LazyPage>
-          } 
+          }
         />
-        
-        <Route 
-          path="/packages/:id" 
+
+        <Route
+          path="/packages/:id"
           element={
             <LazyPage>
               <PackageDetails />
             </LazyPage>
-          } 
+          }
         />
-        
-        <Route 
-          path="/repl" 
+
+        <Route
+          path="/repl"
           element={
             <LazyPage>
               <REPL />
             </LazyPage>
-          } 
+          }
         />
-        
-        <Route 
-          path="/monitoring" 
+
+        <Route
+          path="/monitoring"
           element={
             <LazyPage>
               <Monitoring />
             </LazyPage>
-          } 
+          }
         />
-        
-        <Route 
-          path="/settings" 
+
+        <Route
+          path="/settings"
           element={
             <LazyPage>
               <Settings />
             </LazyPage>
-          } 
+          }
         />
-        
-        <Route 
-          path="/help" 
+
+        <Route
+          path="/help"
           element={
             <LazyPage>
               <Help />
             </LazyPage>
-          } 
+          }
         />
-        
+
         {/* Fallback route */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>

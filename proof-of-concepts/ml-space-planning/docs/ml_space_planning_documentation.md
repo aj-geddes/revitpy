@@ -63,13 +63,13 @@ class SpaceOptimizer:
 ```python
 async def predict_space_occupancy(self, space_data):
     """Predict future space occupancy using deep learning (IMPOSSIBLE in PyRevit)"""
-    
+
     # Prepare neural network input
     features = self._prepare_ml_features(space_data)
-    
+
     # TensorFlow prediction
     predictions = self.occupancy_model.predict(features)
-    
+
     return {
         'predicted_occupancy': predictions,
         'confidence_intervals': self._calculate_confidence(predictions),
@@ -81,11 +81,11 @@ async def predict_space_occupancy(self, space_data):
 ```python
 def optimize_space_layout(self, spaces, constraints, objectives):
     """Optimize space layout using SciPy algorithms (IMPOSSIBLE in PyRevit)"""
-    
+
     # Define objective function
     def objective_function(layout_vector):
         return self._calculate_multi_objective_score(layout_vector, objectives)
-    
+
     # Run optimization with constraints
     result = minimize(
         objective_function,
@@ -94,7 +94,7 @@ def optimize_space_layout(self, spaces, constraints, objectives):
         constraints=constraints,
         options={'maxiter': 1000}
     )
-    
+
     return self._format_optimization_results(result)
 ```
 
@@ -102,18 +102,18 @@ def optimize_space_layout(self, spaces, constraints, objectives):
 ```python
 def cluster_similar_spaces(self, space_database):
     """Cluster spaces using machine learning (IMPOSSIBLE in PyRevit)"""
-    
+
     # Feature extraction
     features = self._extract_space_features(space_database)
-    
+
     # K-means clustering
     kmeans = KMeans(n_clusters=8, random_state=42)
     clusters = kmeans.fit_predict(features)
-    
+
     # Classification with Random Forest
     classifier = RandomForestClassifier(n_estimators=100)
     space_types = classifier.fit_predict(features)
-    
+
     return {
         'space_clusters': clusters,
         'predicted_types': space_types,

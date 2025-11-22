@@ -10,7 +10,7 @@ if (typeof window !== 'undefined' && !window.revitpy) {
     receiveMessage: (message: any) => {
       window.dispatchEvent(new CustomEvent('revitpy:message', { detail: message }));
     },
-    
+
     // Send message to host
     sendMessage: (message: any) => {
       if (window.chrome?.webview) {
@@ -19,10 +19,10 @@ if (typeof window !== 'undefined' && !window.revitpy) {
         console.warn('RevitPy WebView bridge not available');
       }
     },
-    
+
     // Development mode flag
     dev: import.meta.env.DEV,
-    
+
     // Hot reload support
     hotReload: import.meta.env.DEV,
   };

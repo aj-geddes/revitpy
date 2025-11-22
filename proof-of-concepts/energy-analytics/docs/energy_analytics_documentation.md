@@ -206,7 +206,7 @@ from pathlib import Path
 def export_for_energy_analysis():
     # Collect Revit elements
     spaces = get_spaces_from_revit()
-    
+
     # Export to RevitPy format
     exchange_data = {
         'request_id': 'energy_001',
@@ -214,7 +214,7 @@ def export_for_energy_analysis():
         'element_ids': [space.Id.IntegerValue for space in spaces],
         'parameters': {'analysis_detail': 'comprehensive'}
     }
-    
+
     # Write to exchange directory
     with open('pyrevit_exchange/energy_request.json', 'w') as f:
         json.dump(exchange_data, f)
@@ -223,7 +223,7 @@ def export_for_energy_analysis():
 def import_energy_results():
     with open('pyrevit_exchange/energy_response.json', 'r') as f:
         results = json.load(f)
-    
+
     # Display in Revit UI
     show_energy_results(results)
 ```

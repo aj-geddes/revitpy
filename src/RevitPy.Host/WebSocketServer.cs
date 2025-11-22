@@ -17,7 +17,7 @@ public class WebSocketServer : IWebSocketServer, IDisposable
     private readonly ILogger<WebSocketServer> _logger;
     private readonly RevitPyOptions _options;
     private readonly ConcurrentDictionary<string, WebSocketConnection> _connections = new();
-    
+
     private HttpListener? _httpListener;
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _serverTask;
@@ -96,7 +96,7 @@ public class WebSocketServer : IWebSocketServer, IDisposable
         if (!IsRunning || string.IsNullOrWhiteSpace(message))
             return;
 
-        var tasks = _connections.Values.Select(conn => 
+        var tasks = _connections.Values.Select(conn =>
             conn.SendAsync(message, cancellationToken));
 
         try
@@ -167,11 +167,11 @@ public class WebSocketServer : IWebSocketServer, IDisposable
         {
             var webSocketContext = await context.AcceptWebSocketAsync(null);
             var clientId = Guid.NewGuid().ToString("N")[..8];
-            
+
             connection = new WebSocketConnection(clientId, webSocketContext.WebSocket, _logger);
             _connections.TryAdd(clientId, connection);
 
-            _logger.LogInformation("WebSocket client {ClientId} connected from {RemoteEndpoint}", 
+            _logger.LogInformation("WebSocket client {ClientId} connected from {RemoteEndpoint}",
                 clientId, context.Request.RemoteEndPoint);
 
             // Send welcome message
@@ -247,11 +247,11 @@ public class WebSocketServer : IWebSocketServer, IDisposable
         try
         {
             var messageObj = JsonSerializer.Deserialize<JsonElement>(message);
-            
+
             if (messageObj.TryGetProperty("type", out var typeElement))
             {
                 var messageType = typeElement.GetString();
-                
+
                 switch (messageType)
                 {
                     case "ping":
@@ -261,7 +261,7 @@ public class WebSocketServer : IWebSocketServer, IDisposable
                             timestamp = DateTime.UtcNow
                         }), cancellationToken);
                         break;
-                        
+
                     case "subscribe":
                         // Handle subscription to events
                         if (messageObj.TryGetProperty("events", out var eventsElement))
@@ -269,7 +269,7 @@ public class WebSocketServer : IWebSocketServer, IDisposable
                             // Implementation for event subscriptions
                         }
                         break;
-                        
+
                     case "execute":
                         // Handle Python code execution request
                         if (messageObj.TryGetProperty("code", out var codeElement))
@@ -285,9 +285,9 @@ public class WebSocketServer : IWebSocketServer, IDisposable
                             }), cancellationToken);
                         }
                         break;
-                        
+
                     default:
-                        _logger.LogWarning("Unknown message type from client {ClientId}: {MessageType}", 
+                        _logger.LogWarning("Unknown message type from client {ClientId}: {MessageType}",
                             connection.Id, messageType);
                         break;
                 }
@@ -349,9 +349,9 @@ internal class WebSocketConnection
         {
             var buffer = Encoding.UTF8.GetBytes(message);
             await WebSocket.SendAsync(
-                new ArraySegment<byte>(buffer), 
-                WebSocketMessageType.Text, 
-                true, 
+                new ArraySegment<byte>(buffer),
+                WebSocketMessageType.Text,
+                true,
                 cancellationToken);
         }
         catch (Exception ex)

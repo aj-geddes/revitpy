@@ -16,7 +16,7 @@ Example Usage:
     import revitpy_bridge
     elements = get_selected_walls()
     results = revitpy_bridge.execute_analysis(elements, "energy_performance")
-    
+
     # RevitPy side
     from revitpy.integrations import pyrevit_bridge
     @pyrevit_bridge.analysis_handler("energy_performance")
@@ -24,12 +24,12 @@ Example Usage:
         return {"efficiency": 0.85, "recommendations": [...]}
 """
 
+from .communication.file_exchange import FileExchangeHandler
+from .communication.pipe_server import NamedPipeServer
+from .communication.websocket_server import WebSocketBridgeServer
 from .core.bridge_manager import BridgeManager
 from .core.config import BridgeConfig
 from .serialization.element_serializer import RevitElementSerializer
-from .communication.pipe_server import NamedPipeServer
-from .communication.websocket_server import WebSocketBridgeServer
-from .communication.file_exchange import FileExchangeHandler
 
 __version__ = "1.0.0"
 __author__ = "RevitPy Development Team"
@@ -37,17 +37,18 @@ __author__ = "RevitPy Development Team"
 # Export main bridge components
 __all__ = [
     "BridgeManager",
-    "BridgeConfig", 
+    "BridgeConfig",
     "RevitElementSerializer",
     "NamedPipeServer",
     "WebSocketBridgeServer",
     "FileExchangeHandler",
     "create_bridge",
-    "get_bridge_instance"
+    "get_bridge_instance",
 ]
 
 # Global bridge instance
 _bridge_instance = None
+
 
 def create_bridge(config=None):
     """Create a new bridge instance with optional configuration."""
@@ -56,6 +57,7 @@ def create_bridge(config=None):
         config = BridgeConfig()
     _bridge_instance = BridgeManager(config)
     return _bridge_instance
+
 
 def get_bridge_instance():
     """Get the current bridge instance, creating one if needed."""

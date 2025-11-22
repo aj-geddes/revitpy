@@ -137,8 +137,8 @@ public class WebViewHost : IWebViewHost, IDisposable
             var json = JsonSerializer.Serialize(message);
             var script = $"window.revitpy?.receiveMessage({json});";
             await _webView!.ExecuteScriptAsync(script);
-            
-            _logger.LogDebug("Sent message to WebView: {MessageType} {MessageId}", 
+
+            _logger.LogDebug("Sent message to WebView: {MessageType} {MessageId}",
                 message.Type, message.Id);
         }
         catch (Exception ex)
@@ -281,9 +281,9 @@ public class WebViewHost : IWebViewHost, IDisposable
 
         return new PerformanceMetrics
         {
-            MemoryUsage = data.ContainsKey("memory") ? 
+            MemoryUsage = data.ContainsKey("memory") ?
                 ((JsonElement)data["memory"]).GetProperty("used").GetInt64() : 0,
-            JsHeapSize = data.ContainsKey("memory") ? 
+            JsHeapSize = data.ContainsKey("memory") ?
                 ((JsonElement)data["memory"]).GetProperty("total").GetInt64() : 0
         };
     }
@@ -293,7 +293,7 @@ public class WebViewHost : IWebViewHost, IDisposable
         if (!IsReady) throw new InvalidOperationException("WebView is not ready");
 
         using var stream = await _webView!.CoreWebView2.CapturePreviewAsync(
-            format == "png" ? CoreWebView2CapturePreviewImageFormat.Png : 
+            format == "png" ? CoreWebView2CapturePreviewImageFormat.Png :
             CoreWebView2CapturePreviewImageFormat.Jpeg);
 
         using var memoryStream = new MemoryStream();
@@ -327,7 +327,7 @@ public class WebViewHost : IWebViewHost, IDisposable
             StartPosition = FormStartPosition.CenterScreen,
             ShowInTaskbar = _configuration.Type != PanelType.Dockable,
             TopMost = _configuration.Type == PanelType.Modal,
-            FormBorderStyle = _configuration.Resizable ? 
+            FormBorderStyle = _configuration.Resizable ?
                 FormBorderStyle.Sizable : FormBorderStyle.FixedDialog,
             ControlBox = _configuration.Closable,
             MinimizeBox = _configuration.Type != PanelType.Modal,
@@ -337,7 +337,7 @@ public class WebViewHost : IWebViewHost, IDisposable
         if (_configuration.Size.MinWidth.HasValue)
         {
             form.MinimumSize = new System.Drawing.Size(
-                _configuration.Size.MinWidth.Value, 
+                _configuration.Size.MinWidth.Value,
                 _configuration.Size.MinHeight ?? form.MinimumSize.Height);
         }
 
@@ -349,7 +349,7 @@ public class WebViewHost : IWebViewHost, IDisposable
     private CoreWebView2EnvironmentOptions CreateWebViewOptions()
     {
         var options = CoreWebView2Environment.CreateCoreWebView2EnvironmentOptions();
-        
+
         if (!string.IsNullOrEmpty(_configuration!.WebView2.UserAgent))
         {
             options.AdditionalBrowserArguments = $"--user-agent=\"{_configuration.WebView2.UserAgent}\"";
@@ -357,7 +357,7 @@ public class WebViewHost : IWebViewHost, IDisposable
 
         if (_configuration.WebView2.AdditionalBrowserArguments.Count > 0)
         {
-            options.AdditionalBrowserArguments += " " + 
+            options.AdditionalBrowserArguments += " " +
                 string.Join(" ", _configuration.WebView2.AdditionalBrowserArguments);
         }
 
@@ -367,7 +367,7 @@ public class WebViewHost : IWebViewHost, IDisposable
     private void ConfigureWebViewSettings()
     {
         var settings = _webView!.CoreWebView2.Settings;
-        
+
         settings.AreDevToolsEnabled = _configuration!.WebView2.DevToolsEnabled;
         settings.IsScriptDebuggingEnabled = _configuration.WebView2.ScriptDebuggingEnabled;
         settings.AreDefaultContextMenusEnabled = _configuration.WebView2.ContextMenuEnabled;
@@ -375,7 +375,7 @@ public class WebViewHost : IWebViewHost, IDisposable
         settings.UserAgent = _configuration.WebView2.UserAgent ?? settings.UserAgent;
 
         // Set default background color
-        _webView.CoreWebView2.Profile.DefaultBackgroundColor = 
+        _webView.CoreWebView2.Profile.DefaultBackgroundColor =
             System.Drawing.ColorTranslator.FromHtml(_configuration.WebView2.BackgroundColor);
     }
 
@@ -393,7 +393,7 @@ public class WebViewHost : IWebViewHost, IDisposable
             {
                 var messageJson = e.TryGetWebMessageAsString();
                 var message = JsonSerializer.Deserialize<WebViewMessage>(messageJson);
-                
+
                 if (message != null)
                 {
                     MessageReceived?.Invoke(this, message);
@@ -415,7 +415,7 @@ public class WebViewHost : IWebViewHost, IDisposable
                 Line = (int)e.LineNumber,
                 Column = (int)e.ColumnNumber
             };
-            
+
             ScriptException?.Invoke(this, exception);
         };
     }
@@ -424,7 +424,7 @@ public class WebViewHost : IWebViewHost, IDisposable
     {
         foreach (var scheme in _schemeHandlers.Keys)
         {
-            _webView!.CoreWebView2.AddWebResourceRequestedFilter($"{scheme}://*", 
+            _webView!.CoreWebView2.AddWebResourceRequestedFilter($"{scheme}://*",
                 CoreWebView2WebResourceContext.All);
         }
 
@@ -432,7 +432,7 @@ public class WebViewHost : IWebViewHost, IDisposable
         {
             var uri = e.Request.Uri;
             var scheme = new Uri(uri).Scheme;
-            
+
             if (_schemeHandlers.TryGetValue(scheme, out var handler))
             {
                 try

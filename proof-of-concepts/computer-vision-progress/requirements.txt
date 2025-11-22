@@ -1,4 +1,4 @@
-# Construction Progress Monitoring POC Requirements  
+# Construction Progress Monitoring POC Requirements
 # These libraries are IMPOSSIBLE to use in PyRevit due to IronPython 2.7 limitations
 
 # Computer vision core

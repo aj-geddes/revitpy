@@ -43,7 +43,7 @@ var host = Host.CreateDefaultBuilder()
     {
         // For production environments
         services.AddRevitPyBridgeHighPerformance();
-        
+
         // Or for development
         // services.AddRevitPyBridgeDevelopment();
     })
@@ -182,7 +182,7 @@ try
 {
     // Perform Revit API operations
     var wall = Wall.Create(document, curve, levelId, false);
-    
+
     await transaction.CommitAsync();
 }
 catch (Exception)
@@ -299,7 +299,7 @@ if (!healthStatus.IsHealthy)
     {
         Console.WriteLine($"Health Issue: {issue}");
     }
-    
+
     foreach (var action in healthStatus.RecommendedActions)
     {
         Console.WriteLine($"Recommended: {action}");
@@ -357,10 +357,10 @@ public async Task ExecutePythonCode_WithSimpleExpression_ShouldReturnResult()
     // Arrange
     var bridge = CreateTestBridge();
     var code = "2 + 2";
-    
+
     // Act
     var result = await bridge.ExecutePythonCodeAsync(code);
-    
+
     // Assert
     Assert.Equal(4, result);
 }
@@ -376,7 +376,7 @@ public async Task TypeConversion_Performance_ShouldMeetTargets()
     var converter = CreateTestConverter();
     var testObject = new XYZ(1, 2, 3);
     const int iterations = 10000;
-    
+
     // Act
     var stopwatch = Stopwatch.StartNew();
     for (int i = 0; i < iterations; i++)
@@ -384,7 +384,7 @@ public async Task TypeConversion_Performance_ShouldMeetTargets()
         var result = converter.ConvertToPython(testObject);
     }
     stopwatch.Stop();
-    
+
     // Assert
     var averageTime = stopwatch.ElapsedMilliseconds / (double)iterations;
     Assert.True(averageTime < 1.0, $"Average time {averageTime}ms exceeds 1ms target");
@@ -400,17 +400,17 @@ public async Task FullWorkflow_CreateAndModifyWall_ShouldSucceed()
     // Arrange
     var bridge = CreateIntegrationTestBridge();
     var document = GetTestDocument();
-    
+
     // Act
     var result = await bridge.ExecutePythonCodeAsync(@"
         # Create a wall
         curve = Line.CreateBound(XYZ(0, 0, 0), XYZ(10, 0, 0))
         wall = Wall.Create(doc, curve, level_id, False)
-        
+
         # Set parameters
         height_param = wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM)
         height_param.Set(3000.0)  # 3 meters
-        
+
         # Return wall ID
         wall.Id.IntegerValue
     ", new Dictionary<string, object?>
@@ -418,10 +418,10 @@ public async Task FullWorkflow_CreateAndModifyWall_ShouldSucceed()
         ["doc"] = document,
         ["level_id"] = GetFirstLevelId(document)
     });
-    
+
     // Assert
     Assert.True((long)result > 0);
-    
+
     // Verify wall was created
     var wallId = new ElementId((long)result);
     var createdWall = document.GetElement(wallId);
@@ -461,18 +461,18 @@ public static class RevitBridgeExtensions
             walls = FilteredElementCollector(doc).OfClass(Wall).ToElements()
             [wall.Id.IntegerValue for wall in walls]
         ", new Dictionary<string, object?> { ["doc"] = document });
-        
+
         var elementBridge = GetElementBridge(bridge);
         var wallIds = (IEnumerable<long>)result;
         var walls = new List<Wall>();
-        
+
         foreach (var id in wallIds)
         {
             var wall = await elementBridge.GetElementByIdAsync(document, new ElementId(id));
             if (wall is Wall w)
                 walls.Add(w);
         }
-        
+
         return walls;
     }
 }
@@ -496,14 +496,14 @@ var results = await transactionManager.ExecuteInTransactionAsync(
     async () =>
     {
         var createdElements = new List<Element>();
-        
+
         foreach (var data in elementData)
         {
             var element = await elementBridge.CreateElementAsync(
                 document, data.Type, ConvertParameters(data.Parameters));
             createdElements.Add(element);
         }
-        
+
         return createdElements;
     });
 ```

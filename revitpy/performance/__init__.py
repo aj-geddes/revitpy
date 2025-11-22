@@ -20,62 +20,57 @@ Key Components:
 - MetricsCollector: Performance metrics collection and analysis
 """
 
-from .optimizer import PerformanceOptimizer, OptimizationConfig
-from .benchmarks import BenchmarkSuite, BenchmarkRunner
-from .memory import MemoryManager, MemoryLeakDetector
-from .latency import LatencyTracker, LatencyBenchmark
-from .cache import IntelligentCacheManager, CacheConfiguration
+from .benchmarks import BenchmarkRunner, BenchmarkSuite
+from .cache import CacheConfiguration, IntelligentCacheManager
+from .latency import LatencyBenchmark, LatencyTracker
+from .memory import MemoryLeakDetector, MemoryManager
 from .metrics import MetricsCollector, PerformanceMetrics
-from .monitoring import PerformanceMonitor, AlertingSystem
-from .profiler import RevitPyProfiler, ProfileReport
+from .monitoring import AlertingSystem, PerformanceMonitor
+from .optimizer import OptimizationConfig, PerformanceOptimizer
+from .profiler import ProfileReport, RevitPyProfiler
 
 __all__ = [
     # Core optimization
-    'PerformanceOptimizer',
-    'OptimizationConfig',
-    
+    "PerformanceOptimizer",
+    "OptimizationConfig",
     # Benchmarking
-    'BenchmarkSuite', 
-    'BenchmarkRunner',
-    
+    "BenchmarkSuite",
+    "BenchmarkRunner",
     # Memory management
-    'MemoryManager',
-    'MemoryLeakDetector',
-    
+    "MemoryManager",
+    "MemoryLeakDetector",
     # Latency tracking
-    'LatencyTracker',
-    'LatencyBenchmark',
-    
+    "LatencyTracker",
+    "LatencyBenchmark",
     # Caching
-    'IntelligentCacheManager',
-    'CacheConfiguration',
-    
+    "IntelligentCacheManager",
+    "CacheConfiguration",
     # Metrics and monitoring
-    'MetricsCollector',
-    'PerformanceMetrics',
-    'PerformanceMonitor',
-    'AlertingSystem',
-    
+    "MetricsCollector",
+    "PerformanceMetrics",
+    "PerformanceMonitor",
+    "AlertingSystem",
     # Profiling
-    'RevitPyProfiler',
-    'ProfileReport'
+    "RevitPyProfiler",
+    "ProfileReport",
 ]
 
 # Performance targets as specified in requirements
 PERFORMANCE_TARGETS = {
-    'startup_time_ms': 1000,  # Python framework initialization
-    'api_latency_simple_ms': 1,
-    'api_latency_complex_ms': 100,
-    'memory_idle_mb': 50,
-    'memory_peak_mb': 500,
-    'max_elements': 10000,
-    'max_concurrent_sessions': 100,
-    'cache_hit_ratio_min': 0.85,
-    'throughput_ops_per_sec': 10000
+    "startup_time_ms": 1000,  # Python framework initialization
+    "api_latency_simple_ms": 1,
+    "api_latency_complex_ms": 100,
+    "memory_idle_mb": 50,
+    "memory_peak_mb": 500,
+    "max_elements": 10000,
+    "max_concurrent_sessions": 100,
+    "cache_hit_ratio_min": 0.85,
+    "throughput_ops_per_sec": 10000,
 }
 
 # Global performance optimizer instance
 _global_optimizer = None
+
 
 def get_global_optimizer() -> PerformanceOptimizer:
     """Get or create the global performance optimizer instance."""
@@ -84,11 +79,15 @@ def get_global_optimizer() -> PerformanceOptimizer:
         _global_optimizer = PerformanceOptimizer()
     return _global_optimizer
 
-def initialize_performance_framework(config: OptimizationConfig = None) -> PerformanceOptimizer:
+
+def initialize_performance_framework(
+    config: OptimizationConfig = None,
+) -> PerformanceOptimizer:
     """Initialize the RevitPy performance framework with optional configuration."""
     global _global_optimizer
     _global_optimizer = PerformanceOptimizer(config)
     return _global_optimizer
+
 
 def cleanup_performance_framework():
     """Cleanup the performance framework and release resources."""

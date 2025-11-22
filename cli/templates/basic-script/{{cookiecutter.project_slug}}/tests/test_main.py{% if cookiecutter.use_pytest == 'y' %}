@@ -8,25 +8,25 @@ from {{ cookiecutter.project_slug.replace('-', '_') }} import main
 
 class TestMain:
     """Test cases for main module."""
-    
+
     @patch('{{ cookiecutter.project_slug.replace('-', '_') }}.main.revitpy')
     def test_count_walls(self, mock_revitpy):
         """Test wall counting functionality."""
         # Mock Revit document and elements
         mock_doc = Mock()
         mock_revitpy.doc = mock_doc
-        
+
         # Mock FilteredElementCollector
         mock_collector = Mock()
         mock_collector.OfCategory.return_value = mock_collector
         mock_collector.WhereElementIsNotElementType.return_value = mock_collector
         mock_collector.ToElements.return_value = [Mock(), Mock(), Mock()]  # 3 walls
-        
+
         with patch('{{ cookiecutter.project_slug.replace('-', '_') }}.main.FilteredElementCollector', return_value=mock_collector):
             result = main.count_walls()
-            
+
         assert result == 3
-    
+
     @patch('{{ cookiecutter.project_slug.replace('-', '_') }}.main.revitpy')
     @patch('{{ cookiecutter.project_slug.replace('-', '_') }}.main.TaskDialog')
     def test_run_success(self, mock_task_dialog, mock_revitpy):
@@ -34,40 +34,40 @@ class TestMain:
         # Mock document
         mock_doc = Mock()
         mock_revitpy.doc = mock_doc
-        
+
         # Mock transaction context manager
         mock_transaction = Mock()
         mock_transaction.__enter__ = Mock(return_value=mock_transaction)
         mock_transaction.__exit__ = Mock(return_value=None)
         mock_revitpy.transaction.return_value = mock_transaction
-        
+
         # Mock count_walls
         with patch('{{ cookiecutter.project_slug.replace('-', '_') }}.main.count_walls', return_value=5):
             main.run()
-        
+
         # Verify TaskDialog was called with success message
         mock_task_dialog.show.assert_called_once()
         args, kwargs = mock_task_dialog.show.call_args
         assert "5 walls" in args[1]
-    
+
     @patch('{{ cookiecutter.project_slug.replace('-', '_') }}.main.revitpy')
     @patch('{{ cookiecutter.project_slug.replace('-', '_') }}.main.TaskDialog')
     def test_run_no_document(self, mock_task_dialog, mock_revitpy):
         """Test handling of no active document."""
         # Mock no document
         mock_revitpy.doc = None
-        
+
         # Mock transaction context manager
         mock_transaction = Mock()
         mock_transaction.__enter__ = Mock(return_value=mock_transaction)
         mock_transaction.__exit__ = Mock(return_value=None)
         mock_revitpy.transaction.return_value = mock_transaction
-        
+
         main.run()
-        
+
         # Verify error message was shown
         mock_task_dialog.show.assert_called_once_with("Error", "No active Revit document found.")
-    
+
     @patch('{{ cookiecutter.project_slug.replace('-', '_') }}.main.revitpy')
     def test_get_selected_elements(self, mock_revitpy):
         """Test getting selected elements."""
@@ -78,15 +78,15 @@ class TestMain:
         mock_selection.GetElementIds.return_value = mock_element_ids
         mock_uidoc.Selection = mock_selection
         mock_revitpy.uidoc = mock_uidoc
-        
+
         # Mock document GetElement
         mock_doc = Mock()
         mock_elements = [Mock(), Mock()]
         mock_doc.GetElement.side_effect = mock_elements
         mock_revitpy.doc = mock_doc
-        
+
         result = main.get_selected_elements()
-        
+
         assert len(result) == 2
         assert result == mock_elements
 

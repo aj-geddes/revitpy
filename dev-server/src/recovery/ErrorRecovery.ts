@@ -6,10 +6,10 @@
 import { EventEmitter } from 'events';
 import pino from 'pino';
 
-import type { 
-  DevServerConfig, 
-  RecoveryAction, 
-  ErrorContext 
+import type {
+  DevServerConfig,
+  RecoveryAction,
+  ErrorContext
 } from '../types/index.js';
 
 export class ErrorRecoveryService extends EventEmitter {
@@ -50,7 +50,7 @@ export class ErrorRecoveryService extends EventEmitter {
   private async attemptRecovery(context: ErrorContext): Promise<void> {
     // Simple recovery logic - would be more sophisticated in real implementation
     this.logger.info('Attempting error recovery', { operation: context.operation });
-    
+
     // Mark as resolved for now
     context.resolved = true;
     this.emit('error-recovered', {

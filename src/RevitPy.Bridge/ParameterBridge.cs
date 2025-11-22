@@ -109,7 +109,7 @@ public class ParameterBridge : IParameterBridge
         try
         {
             var cacheKey = GenerateValueCacheKey(element, parameterName);
-            
+
             // Check cache first
             if (_parameterValueCache.TryGetValue(cacheKey, out var cachedValue))
             {
@@ -126,10 +126,10 @@ public class ParameterBridge : IParameterBridge
             }
 
             var value = await ExtractParameterValue(parameter, cancellationToken);
-            
+
             // Cache the value (with expiration for performance)
             _parameterValueCache[cacheKey] = value;
-            
+
             RecordParameterRead(parameterName, stopwatch.Elapsed);
             return _typeConverter.ConvertToPython(value);
         }
@@ -143,8 +143,8 @@ public class ParameterBridge : IParameterBridge
 
     /// <inheritdoc/>
     public async Task<Dictionary<string, object?>> GetParameterValuesAsync(
-        object element, 
-        IEnumerable<string> parameterNames, 
+        object element,
+        IEnumerable<string> parameterNames,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(element);
@@ -201,9 +201,9 @@ public class ParameterBridge : IParameterBridge
 
     /// <inheritdoc/>
     public async Task<bool> SetParameterValueAsync(
-        object element, 
-        string parameterName, 
-        object? value, 
+        object element,
+        string parameterName,
+        object? value,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(element);
@@ -236,13 +236,13 @@ public class ParameterBridge : IParameterBridge
 
                     // Set the parameter value
                     var success = await SetParameterValueInternal(parameter, convertedValue, cancellationToken);
-                    
+
                     if (success)
                     {
                         // Invalidate cache for this parameter
                         var cacheKey = GenerateValueCacheKey(element, parameterName);
                         _parameterValueCache.TryRemove(cacheKey, out _);
-                        
+
                         RecordParameterWrite(parameterName, stopwatch.Elapsed);
                     }
 
@@ -261,8 +261,8 @@ public class ParameterBridge : IParameterBridge
 
     /// <inheritdoc/>
     public async Task<Dictionary<string, bool>> SetParameterValuesAsync(
-        object element, 
-        Dictionary<string, object?> parameters, 
+        object element,
+        Dictionary<string, object?> parameters,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(element);
@@ -326,15 +326,15 @@ public class ParameterBridge : IParameterBridge
                 {
                     var name = await GetParameterName(parameter, cancellationToken);
                     var value = await ExtractParameterValue(parameter, cancellationToken);
-                    
+
                     if (!string.IsNullOrEmpty(name))
                     {
                         result[name] = _typeConverter.ConvertToPython(value);
-                        
+
                         // Cache parameter info and value
                         var infoCacheKey = GenerateInfoCacheKey(element, name);
                         var valueCacheKey = GenerateValueCacheKey(element, name);
-                        
+
                         var paramInfo = await GetParameterInfoInternal(parameter, cancellationToken);
                         _parameterInfoCache[infoCacheKey] = paramInfo;
                         _parameterValueCache[valueCacheKey] = value;
@@ -367,7 +367,7 @@ public class ParameterBridge : IParameterBridge
         try
         {
             var cacheKey = GenerateInfoCacheKey(element, parameterName);
-            
+
             // Check cache first
             if (_parameterInfoCache.TryGetValue(cacheKey, out var cachedInfo))
             {
@@ -383,10 +383,10 @@ public class ParameterBridge : IParameterBridge
             }
 
             var parameterInfo = await GetParameterInfoInternal(parameter, cancellationToken);
-            
+
             // Cache the parameter info
             _parameterInfoCache[cacheKey] = parameterInfo;
-            
+
             RecordParameterInfoQuery(parameterName, stopwatch.Elapsed);
             return parameterInfo;
         }
@@ -418,8 +418,8 @@ public class ParameterBridge : IParameterBridge
 
     /// <inheritdoc/>
     public async Task<IEnumerable<ParameterInfo>> GetParametersByFilterAsync(
-        object element, 
-        ParameterFilter filter, 
+        object element,
+        ParameterFilter filter,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(element);
@@ -436,7 +436,7 @@ public class ParameterBridge : IParameterBridge
                 try
                 {
                     var parameterInfo = await GetParameterInfoInternal(parameter, cancellationToken);
-                    
+
                     if (filter.Matches(parameterInfo))
                     {
                         result.Add(parameterInfo);
@@ -490,7 +490,7 @@ public class ParameterBridge : IParameterBridge
     {
         // Initialize common parameter type mappings for faster lookup
         // This would be expanded with actual Revit parameter definitions
-        
+
         _parameterTypeMap["Length"] = typeof(double);
         _parameterTypeMap["Area"] = typeof(double);
         _parameterTypeMap["Volume"] = typeof(double);
@@ -503,7 +503,7 @@ public class ParameterBridge : IParameterBridge
     {
         // This would use actual Revit API: element.get_Parameter(parameterName) or element.LookupParameter(parameterName)
         await Task.Delay(1, cancellationToken); // Simulate API call
-        
+
         // Mock implementation
         return new { Name = parameterName, Element = element, HasValue = true };
     }
@@ -512,7 +512,7 @@ public class ParameterBridge : IParameterBridge
     {
         // This would use actual Revit API: element.Parameters
         await Task.Delay(5, cancellationToken); // Simulate API call
-        
+
         // Mock implementation
         var commonParameters = new[] { "Name", "Type", "Level", "Comments", "Mark" };
         return commonParameters.Select(name => new { Name = name, Element = element, HasValue = true });
@@ -522,7 +522,7 @@ public class ParameterBridge : IParameterBridge
     {
         // This would use actual Revit API based on parameter storage type
         await Task.Delay(1, cancellationToken); // Simulate API call
-        
+
         // Mock implementation - would check parameter.StorageType and call appropriate AsXXX() method
         return $"Value for {parameter}";
     }
@@ -531,7 +531,7 @@ public class ParameterBridge : IParameterBridge
     {
         // This would use actual Revit API: parameter.Definition.Name
         await Task.Delay(1, cancellationToken); // Simulate API call
-        
+
         // Mock implementation
         var nameProperty = parameter.GetType().GetProperty("Name");
         return nameProperty?.GetValue(parameter)?.ToString() ?? "Unknown";
@@ -541,7 +541,7 @@ public class ParameterBridge : IParameterBridge
     {
         // This would use actual Revit API: parameter.IsReadOnly
         await Task.Delay(1, cancellationToken); // Simulate API call
-        
+
         return false; // Mock implementation
     }
 
@@ -549,7 +549,7 @@ public class ParameterBridge : IParameterBridge
     {
         // This would extract comprehensive parameter information from Revit API
         await Task.Delay(1, cancellationToken); // Simulate API call
-        
+
         var name = await GetParameterName(parameter, cancellationToken);
         return new ParameterInfo
         {
@@ -584,7 +584,7 @@ public class ParameterBridge : IParameterBridge
     {
         // This would use actual Revit API: parameter.Set(value) or parameter.SetValueString(value), etc.
         await Task.Delay(2, cancellationToken); // Simulate API call
-        
+
         return true; // Mock implementation
     }
 

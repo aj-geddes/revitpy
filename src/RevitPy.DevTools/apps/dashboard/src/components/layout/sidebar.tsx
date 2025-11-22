@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  FolderOpen, 
-  Package, 
-  Terminal, 
-  Activity, 
-  Settings, 
+import {
+  LayoutDashboard,
+  FolderOpen,
+  Package,
+  Terminal,
+  Activity,
+  Settings,
   HelpCircle,
   ChevronLeft,
   ChevronRight,
@@ -38,7 +38,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { connectionStatus } = useRevitPyStore();
 
   return (
-    <div 
+    <div
       className={cn(
         'fixed left-0 top-0 z-40 h-screen bg-card border-r border-border transition-all duration-300',
         collapsed ? 'w-16' : 'w-64'
@@ -52,7 +52,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <span className="text-lg font-semibold">RevitPy</span>
           </div>
         )}
-        
+
         <Button
           variant="ghost"
           size="sm"
@@ -66,7 +66,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Connection Status */}
       <div className={cn('p-4 border-b border-border', collapsed && 'px-2')}>
         <div className={cn('flex items-center space-x-3', collapsed && 'justify-center')}>
-          <div 
+          <div
             className={cn(
               'status-dot',
               connectionStatus === 'connected' && 'status-online',

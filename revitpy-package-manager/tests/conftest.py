@@ -4,20 +4,21 @@ import asyncio
 import os
 import tempfile
 from pathlib import Path
-from typing import Generator
 
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
-
 from revitpy_package_manager.registry.api.main import create_app
 from revitpy_package_manager.registry.database import get_db_session
 from revitpy_package_manager.registry.models.base import Base
-from revitpy_package_manager.registry.models.user import User
 from revitpy_package_manager.registry.models.package import Package, PackageVersion
-from revitpy_package_manager.registry.services.storage import StorageService, LocalStorageBackend
+from revitpy_package_manager.registry.models.user import User
+from revitpy_package_manager.registry.services.storage import (
+    LocalStorageBackend,
+    StorageService,
+)
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 
 @pytest.fixture(scope="session")
@@ -32,17 +33,14 @@ def event_loop():
 async def test_db_engine():
     """Create a test database engine."""
     # Use in-memory SQLite for testing
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        echo=False
-    )
-    
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+
     # Create all tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     # Cleanup
     await engine.dispose()
 
@@ -51,11 +49,9 @@ async def test_db_engine():
 async def test_db_session(test_db_engine):
     """Create a test database session."""
     AsyncSessionLocal = sessionmaker(
-        test_db_engine,
-        class_=AsyncSession,
-        expire_on_commit=False
+        test_db_engine, class_=AsyncSession, expire_on_commit=False
     )
-    
+
     async with AsyncSessionLocal() as session:
         yield session
 
@@ -78,17 +74,17 @@ def test_storage_service(test_storage_dir):
 def test_app(test_db_session, test_storage_service):
     """Create a test FastAPI application."""
     app = create_app()
-    
+
     # Override dependencies
     async def override_get_db():
         yield test_db_session
-    
+
     def override_get_storage():
         return test_storage_service
-    
+
     app.dependency_overrides[get_db_session] = override_get_db
     app.dependency_overrides[StorageService] = override_get_storage
-    
+
     return app
 
 
@@ -102,19 +98,19 @@ def test_client(test_app):
 async def test_user(test_db_session):
     """Create a test user."""
     from revitpy_package_manager.registry.api.routers.auth import get_password_hash
-    
+
     user = User(
         username="testuser",
         email="test@example.com",
         password_hash=get_password_hash("testpassword"),
         full_name="Test User",
-        is_active=True
+        is_active=True,
     )
-    
+
     test_db_session.add(user)
     await test_db_session.commit()
     await test_db_session.refresh(user)
-    
+
     return user
 
 
@@ -127,13 +123,13 @@ async def test_package(test_db_session, test_user):
         summary="A test package",
         description="This is a test package for testing purposes",
         owner_id=test_user.id,
-        is_published=True
+        is_published=True,
     )
-    
+
     test_db_session.add(package)
     await test_db_session.commit()
     await test_db_session.refresh(package)
-    
+
     return package
 
 
@@ -152,13 +148,13 @@ async def test_package_version(test_db_session, test_package, test_user):
         file_hash_sha256="a" * 64,
         file_hash_md5="b" * 32,
         storage_path="test/path/test-package-1.0.0.tar.gz",
-        uploaded_by_id=test_user.id
+        uploaded_by_id=test_user.id,
     )
-    
+
     test_db_session.add(version)
     await test_db_session.commit()
     await test_db_session.refresh(version)
-    
+
     return version
 
 
@@ -176,15 +172,12 @@ def auth_headers(test_client, test_user):
     """Get authentication headers for API requests."""
     login_response = test_client.post(
         "/api/v1/auth/login",
-        json={
-            "username": test_user.username,
-            "password": "testpassword"
-        }
+        json={"username": test_user.username, "password": "testpassword"},
     )
-    
+
     token_data = login_response.json()
     access_token = token_data["access_token"]
-    
+
     return {"Authorization": f"Bearer {access_token}"}
 
 
@@ -219,48 +212,49 @@ def mock_version_data():
                 "dependency_name": "requests",
                 "version_constraint": ">=2.25.0",
                 "is_optional": False,
-                "dependency_type": "runtime"
+                "dependency_type": "runtime",
             }
-        ]
+        ],
     }
 
 
 class MockAsyncSession:
     """Mock async session for testing without database."""
-    
+
     def __init__(self):
         self.committed = False
         self.rolled_back = False
         self.closed = False
         self._objects = []
-    
+
     def add(self, obj):
         self._objects.append(obj)
-    
+
     async def commit(self):
         self.committed = True
-    
+
     async def rollback(self):
         self.rolled_back = True
-    
+
     async def close(self):
         self.closed = True
-    
+
     async def refresh(self, obj):
         pass
-    
+
     async def execute(self, query):
         # Mock query execution
         class MockResult:
             def scalar_one_or_none(self):
                 return None
-            
+
             def scalars(self):
                 class MockScalars:
                     def all(self):
                         return []
+
                 return MockScalars()
-        
+
         return MockResult()
 
 
@@ -273,34 +267,30 @@ def mock_db_session():
 # Test data factories
 class UserFactory:
     """Factory for creating test users."""
-    
+
     @staticmethod
     def create(
         username: str = "testuser",
         email: str = "test@example.com",
         password: str = "testpassword",
-        **kwargs
+        **kwargs,
     ) -> User:
         from revitpy_package_manager.registry.api.routers.auth import get_password_hash
-        
+
         return User(
             username=username,
             email=email,
             password_hash=get_password_hash(password),
             is_active=True,
-            **kwargs
+            **kwargs,
         )
 
 
 class PackageFactory:
     """Factory for creating test packages."""
-    
+
     @staticmethod
-    def create(
-        name: str = "test-package",
-        owner_id: str = None,
-        **kwargs
-    ) -> Package:
+    def create(name: str = "test-package", owner_id: str = None, **kwargs) -> Package:
         return Package(
             name=name,
             normalized_name=name.lower().replace("_", "-"),
@@ -308,19 +298,19 @@ class PackageFactory:
             description="This is a test package",
             owner_id=owner_id,
             is_published=True,
-            **kwargs
+            **kwargs,
         )
 
 
 class PackageVersionFactory:
     """Factory for creating test package versions."""
-    
+
     @staticmethod
     def create(
         package_id: str = None,
         version: str = "1.0.0",
         uploaded_by_id: str = None,
-        **kwargs
+        **kwargs,
     ) -> PackageVersion:
         return PackageVersion(
             package_id=package_id,
@@ -334,7 +324,7 @@ class PackageVersionFactory:
             file_hash_md5="b" * 32,
             storage_path=f"test/test-package-{version}.tar.gz",
             uploaded_by_id=uploaded_by_id,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -350,8 +340,10 @@ def pytest_configure(config):
 # Skip tests if dependencies are not available
 def pytest_collection_modifyitems(config, items):
     """Modify test collection to add skip markers."""
-    skip_integration = pytest.mark.skip(reason="Integration test dependencies not available")
-    
+    skip_integration = pytest.mark.skip(
+        reason="Integration test dependencies not available"
+    )
+
     for item in items:
         if "integration" in item.keywords:
             # Skip integration tests if test database is not configured

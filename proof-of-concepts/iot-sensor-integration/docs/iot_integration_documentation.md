@@ -65,7 +65,7 @@ class RealTimeBuildingMonitor:
 ```python
 async def monitor_all_sensors(self):
     """Monitor multiple sensor types concurrently (IMPOSSIBLE in PyRevit)"""
-    
+
     # Create concurrent monitoring tasks
     monitoring_tasks = [
         self.monitor_hvac_sensors(),
@@ -74,7 +74,7 @@ async def monitor_all_sensors(self):
         self.monitor_security_systems(),
         self.monitor_environmental_sensors()
     ]
-    
+
     # Run all monitoring concurrently
     await asyncio.gather(*monitoring_tasks, return_exceptions=True)
 ```
@@ -83,24 +83,24 @@ async def monitor_all_sensors(self):
 ```python
 async def initialize_cloud_connections(self):
     """Connect to cloud IoT platforms (IMPOSSIBLE in PyRevit)"""
-    
+
     # Azure IoT Hub connection
     self.azure_client = AzureIoTClient(
         connection_string=self.config['azure_connection_string']
     )
     await self.azure_client.connect()
-    
+
     # AWS IoT Core connection
     self.aws_client = AWSIoTClient(
         endpoint=self.config['aws_iot_endpoint'],
         cert_file=self.config['aws_cert_file']
     )
     await self.aws_client.connect()
-    
+
     # WebSocket dashboard connection
     self.websocket_server = await websockets.serve(
-        self.handle_dashboard_connection, 
-        "localhost", 
+        self.handle_dashboard_connection,
+        "localhost",
         8765
     )
 ```
@@ -109,17 +109,17 @@ async def initialize_cloud_connections(self):
 ```python
 async def analyze_equipment_health(self, equipment_data):
     """Predict equipment failures using ML (IMPOSSIBLE in PyRevit)"""
-    
+
     # Prepare features for ML model
     features = self._extract_equipment_features(equipment_data)
-    
+
     # Predict failure probability
     failure_probability = self.maintenance_model.predict_proba(features)[0][1]
-    
+
     # Generate maintenance recommendations
     if failure_probability > 0.7:
         await self._schedule_preventive_maintenance(equipment_data)
-    
+
     return {
         'failure_probability': failure_probability,
         'recommended_action': self._get_maintenance_action(failure_probability),
@@ -249,13 +249,13 @@ await self.aws_client.subscribe(
 # WebSocket dashboard updates
 async def send_dashboard_update(self, dashboard_data):
     """Send real-time updates to web dashboard"""
-    
+
     message = {
         'type': 'sensor_update',
         'timestamp': datetime.now().isoformat(),
         'data': dashboard_data
     }
-    
+
     # Send to all connected clients
     for websocket in self.connected_clients:
         await websocket.send(json.dumps(message))
@@ -269,13 +269,13 @@ async def send_dashboard_update(self, dashboard_data):
 ```python
 def calculate_equipment_health_score(self, equipment_data):
     """Calculate comprehensive equipment health score"""
-    
+
     # Key performance indicators
     efficiency = equipment_data['efficiency']
     vibration = equipment_data['vibration_level']
     temperature = equipment_data['operating_temperature']
     runtime = equipment_data['total_runtime_hours']
-    
+
     # Weighted health score calculation
     health_score = (
         efficiency * 0.3 +
@@ -283,7 +283,7 @@ def calculate_equipment_health_score(self, equipment_data):
         (1 - normalize_temperature(temperature)) * 0.25 +
         (1 - normalize_runtime(runtime)) * 0.2
     ) * 100
-    
+
     return max(0, min(100, health_score))
 ```
 
@@ -291,11 +291,11 @@ def calculate_equipment_health_score(self, equipment_data):
 ```python
 async def train_failure_prediction_model(self, historical_data):
     """Train ML model for equipment failure prediction"""
-    
+
     # Feature engineering
     features = self._extract_failure_prediction_features(historical_data)
     labels = self._extract_failure_labels(historical_data)
-    
+
     # Train Random Forest model
     self.failure_model = RandomForestClassifier(
         n_estimators=100,
@@ -303,7 +303,7 @@ async def train_failure_prediction_model(self, historical_data):
         random_state=42
     )
     self.failure_model.fit(features, labels)
-    
+
     # Validate model performance
     accuracy = self.failure_model.score(features, labels)
     return {'model_accuracy': accuracy, 'feature_importance': self.failure_model.feature_importances_}
@@ -340,7 +340,7 @@ await monitor.start_monitoring()
 # Real-time updates sent back to PyRevit
 async def send_alert_to_pyrevit(self, alert_data):
     """Send alerts back to PyRevit for model updates"""
-    
+
     alert_message = {
         'alert_type': alert_data['type'],
         'equipment_id': alert_data['equipment_id'],
@@ -348,7 +348,7 @@ async def send_alert_to_pyrevit(self, alert_data):
         'recommended_action': alert_data['action'],
         'revit_element_id': alert_data['revit_element_id']
     }
-    
+
     # Export for PyRevit consumption
     export_alert_for_pyrevit(alert_message)
 ```

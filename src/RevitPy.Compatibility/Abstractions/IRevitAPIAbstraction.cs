@@ -14,13 +14,13 @@ namespace RevitPy.Compatibility.Abstractions
         /// Gets the supported Revit version for this abstraction
         /// </summary>
         RevitVersion SupportedVersion { get; }
-        
+
         /// <summary>
         /// Initializes the API abstraction
         /// </summary>
         /// <param name="context">Initialization context</param>
         Task InitializeAsync(APIInitializationContext context);
-        
+
         // Element Management
         IElementManager ElementManager { get; }
         ITransactionManager TransactionManager { get; }
@@ -29,39 +29,39 @@ namespace RevitPy.Compatibility.Abstractions
         ISelectionManager SelectionManager { get; }
         IViewManager ViewManager { get; }
         IFamilyManager FamilyManager { get; }
-        
+
         // Version-specific feature checks
         bool SupportsFeature(string featureName);
         IFeatureAdapter GetFeatureAdapter(string featureName);
-        
+
         // Error handling and recovery
         Task<T> ExecuteWithFallbackAsync<T>(Func<Task<T>> primaryAction, Func<Task<T>> fallbackAction);
         void HandleVersionSpecificException(Exception exception);
     }
-    
+
     /// <summary>
     /// Element management abstraction
     /// </summary>
     public interface IElementManager
     {
-        Task<TElement> CreateElementAsync<TElement>(ElementCreationParameters parameters) 
+        Task<TElement> CreateElementAsync<TElement>(ElementCreationParameters parameters)
             where TElement : class;
-        
-        Task<TElement> GetElementAsync<TElement>(ElementId elementId) 
+
+        Task<TElement> GetElementAsync<TElement>(ElementId elementId)
             where TElement : class;
-        
-        Task<IEnumerable<TElement>> GetElementsAsync<TElement>(ElementFilter filter) 
+
+        Task<IEnumerable<TElement>> GetElementsAsync<TElement>(ElementFilter filter)
             where TElement : class;
-        
+
         Task<bool> DeleteElementAsync(ElementId elementId);
-        
-        Task<TElement> ModifyElementAsync<TElement>(TElement element, Action<TElement> modification) 
+
+        Task<TElement> ModifyElementAsync<TElement>(TElement element, Action<TElement> modification)
             where TElement : class;
-        
-        Task<IEnumerable<TElement>> GetElementsByTypeAsync<TElement>(Type elementType) 
+
+        Task<IEnumerable<TElement>> GetElementsByTypeAsync<TElement>(Type elementType)
             where TElement : class;
     }
-    
+
     /// <summary>
     /// Transaction management abstraction
     /// </summary>
@@ -69,15 +69,15 @@ namespace RevitPy.Compatibility.Abstractions
     {
         Task<TransactionResult> ExecuteInTransactionAsync(string transactionName, Func<Task> action);
         Task<TransactionResult<T>> ExecuteInTransactionAsync<T>(string transactionName, Func<Task<T>> action);
-        
+
         Task<ITransaction> BeginTransactionAsync(string transactionName);
         Task CommitTransactionAsync(ITransaction transaction);
         Task RollbackTransactionAsync(ITransaction transaction);
-        
+
         bool IsInTransaction { get; }
         bool SupportsNestedTransactions { get; }
     }
-    
+
     /// <summary>
     /// Parameter management abstraction
     /// </summary>
@@ -85,17 +85,17 @@ namespace RevitPy.Compatibility.Abstractions
     {
         Task<T> GetParameterValueAsync<T>(object element, string parameterName);
         Task<bool> SetParameterValueAsync<T>(object element, string parameterName, T value);
-        
+
         Task<IEnumerable<ParameterInfo>> GetParametersAsync(object element);
         Task<ParameterInfo> GetParameterInfoAsync(object element, string parameterName);
-        
+
         Task<bool> CreateParameterAsync(object element, ParameterDefinition definition);
         Task<bool> DeleteParameterAsync(object element, string parameterName);
-        
+
         bool SupportsParameterType(Type parameterType);
         object ConvertParameterValue(object value, Type targetType);
     }
-    
+
     /// <summary>
     /// Geometry management abstraction
     /// </summary>
@@ -103,15 +103,15 @@ namespace RevitPy.Compatibility.Abstractions
     {
         Task<GeometryElement> GetGeometryAsync(object element);
         Task<BoundingBox> GetBoundingBoxAsync(object element);
-        
+
         Task<Point3D> TransformPointAsync(Point3D point, Transform transform);
         Task<Curve> CreateLineAsync(Point3D start, Point3D end);
         Task<Surface> CreateSurfaceAsync(GeometryCreationParameters parameters);
-        
+
         bool SupportsGeometryType(Type geometryType);
         Task<T> ConvertGeometryAsync<T>(object geometry) where T : class;
     }
-    
+
     /// <summary>
     /// Selection management abstraction
     /// </summary>
@@ -119,17 +119,17 @@ namespace RevitPy.Compatibility.Abstractions
     {
         Task<IEnumerable<ElementId>> GetSelectedElementsAsync();
         Task SetSelectedElementsAsync(IEnumerable<ElementId> elementIds);
-        
+
         Task<ElementId> PickElementAsync(string prompt, ElementFilter filter = null);
         Task<IEnumerable<ElementId>> PickElementsAsync(string prompt, ElementFilter filter = null);
-        
+
         Task<Point3D> PickPointAsync(string prompt);
         Task<IEnumerable<Point3D>> PickPointsAsync(string prompt);
-        
+
         bool SupportsMultiSelect { get; }
         bool SupportsFilteredSelection { get; }
     }
-    
+
     /// <summary>
     /// View management abstraction
     /// </summary>
@@ -137,16 +137,16 @@ namespace RevitPy.Compatibility.Abstractions
     {
         Task<View> GetActiveViewAsync();
         Task SetActiveViewAsync(View view);
-        
+
         Task<IEnumerable<View>> GetViewsAsync(ViewType viewType = ViewType.All);
         Task<View> CreateViewAsync(ViewCreationParameters parameters);
-        
+
         Task<bool> SetViewParameterAsync(View view, string parameterName, object value);
         Task<T> GetViewParameterAsync<T>(View view, string parameterName);
-        
+
         bool SupportsViewType(ViewType viewType);
     }
-    
+
     /// <summary>
     /// Family management abstraction
     /// </summary>
@@ -154,15 +154,15 @@ namespace RevitPy.Compatibility.Abstractions
     {
         Task<Family> LoadFamilyAsync(string familyPath);
         Task<bool> ReloadFamilyAsync(Family family);
-        
+
         Task<IEnumerable<FamilySymbol>> GetFamilySymbolsAsync(Family family);
         Task<FamilyInstance> CreateFamilyInstanceAsync(FamilySymbol symbol, Point3D location);
-        
+
         Task<bool> EditFamilyAsync(Family family, Func<FamilyDocument, Task> editAction);
-        
+
         bool SupportsFamilyType(Type familyType);
     }
-    
+
     /// <summary>
     /// Feature adapter for version-specific implementations
     /// </summary>
@@ -171,14 +171,14 @@ namespace RevitPy.Compatibility.Abstractions
         string FeatureName { get; }
         RevitVersion MinimumVersion { get; }
         bool IsAvailable { get; }
-        
+
         Task<T> ExecuteAsync<T>(Func<Task<T>> action);
         Task ExecuteAsync(Func<Task> action);
-        
+
         object GetImplementation(Type interfaceType);
         bool SupportsInterface(Type interfaceType);
     }
-    
+
     // Supporting Types
     public class APIInitializationContext
     {
@@ -187,7 +187,7 @@ namespace RevitPy.Compatibility.Abstractions
         public object Document { get; set; }
         public Dictionary<string, object> Properties { get; set; } = new();
     }
-    
+
     public class ElementCreationParameters
     {
         public Type ElementType { get; set; }
@@ -195,7 +195,7 @@ namespace RevitPy.Compatibility.Abstractions
         public object Location { get; set; }
         public object Level { get; set; }
     }
-    
+
     public class ElementFilter
     {
         public Type ElementType { get; set; }
@@ -203,7 +203,7 @@ namespace RevitPy.Compatibility.Abstractions
         public string Category { get; set; }
         public Func<object, bool> CustomFilter { get; set; }
     }
-    
+
     public interface ITransaction : IDisposable
     {
         string Name { get; }
@@ -211,7 +211,7 @@ namespace RevitPy.Compatibility.Abstractions
         Task CommitAsync();
         Task RollbackAsync();
     }
-    
+
     public enum TransactionStatus
     {
         Started,
@@ -219,19 +219,19 @@ namespace RevitPy.Compatibility.Abstractions
         RolledBack,
         Error
     }
-    
+
     public class TransactionResult
     {
         public bool Success { get; set; }
         public string ErrorMessage { get; set; }
         public Exception Exception { get; set; }
     }
-    
+
     public class TransactionResult<T> : TransactionResult
     {
         public T Result { get; set; }
     }
-    
+
     public class ParameterInfo
     {
         public string Name { get; set; }
@@ -241,7 +241,7 @@ namespace RevitPy.Compatibility.Abstractions
         public string Unit { get; set; }
         public string Group { get; set; }
     }
-    
+
     public class ParameterDefinition
     {
         public string Name { get; set; }
@@ -250,7 +250,7 @@ namespace RevitPy.Compatibility.Abstractions
         public bool IsInstance { get; set; }
         public object DefaultValue { get; set; }
     }
-    
+
     public class GeometryElement
     {
         public object NativeGeometry { get; set; }
@@ -258,7 +258,7 @@ namespace RevitPy.Compatibility.Abstractions
         public IEnumerable<object> Faces { get; set; }
         public IEnumerable<object> Edges { get; set; }
     }
-    
+
     public class BoundingBox
     {
         public Point3D Min { get; set; }
@@ -269,45 +269,45 @@ namespace RevitPy.Compatibility.Abstractions
             (Min.Z + Max.Z) / 2
         );
     }
-    
+
     public class Point3D
     {
         public double X { get; set; }
         public double Y { get; set; }
         public double Z { get; set; }
-        
+
         public Point3D() { }
         public Point3D(double x, double y, double z)
         {
             X = x; Y = y; Z = z;
         }
     }
-    
+
     public class Transform
     {
         public double[,] Matrix { get; set; } = new double[4, 4];
         public Point3D Origin { get; set; } = new Point3D();
     }
-    
+
     public abstract class Curve
     {
         public abstract Point3D StartPoint { get; }
         public abstract Point3D EndPoint { get; }
         public abstract double Length { get; }
     }
-    
+
     public abstract class Surface
     {
         public abstract BoundingBox BoundingBox { get; }
         public abstract double Area { get; }
     }
-    
+
     public class GeometryCreationParameters
     {
         public Type GeometryType { get; set; }
         public Dictionary<string, object> Parameters { get; set; } = new();
     }
-    
+
     public class View
     {
         public object NativeView { get; set; }
@@ -315,7 +315,7 @@ namespace RevitPy.Compatibility.Abstractions
         public ViewType ViewType { get; set; }
         public ElementId Id { get; set; }
     }
-    
+
     public enum ViewType
     {
         All,
@@ -327,7 +327,7 @@ namespace RevitPy.Compatibility.Abstractions
         Schedule,
         DrawingSheet
     }
-    
+
     public class ViewCreationParameters
     {
         public ViewType ViewType { get; set; }
@@ -336,7 +336,7 @@ namespace RevitPy.Compatibility.Abstractions
         public object Level { get; set; }
         public Dictionary<string, object> Properties { get; set; } = new();
     }
-    
+
     public class Family
     {
         public object NativeFamily { get; set; }
@@ -344,7 +344,7 @@ namespace RevitPy.Compatibility.Abstractions
         public string Category { get; set; }
         public ElementId Id { get; set; }
     }
-    
+
     public class FamilySymbol
     {
         public object NativeSymbol { get; set; }
@@ -352,7 +352,7 @@ namespace RevitPy.Compatibility.Abstractions
         public Family Family { get; set; }
         public ElementId Id { get; set; }
     }
-    
+
     public class FamilyInstance
     {
         public object NativeInstance { get; set; }
@@ -360,25 +360,25 @@ namespace RevitPy.Compatibility.Abstractions
         public Point3D Location { get; set; }
         public ElementId Id { get; set; }
     }
-    
+
     public class FamilyDocument
     {
         public object NativeDocument { get; set; }
         public Family Family { get; set; }
     }
-    
+
     public class ElementId
     {
         public long Id { get; set; }
         public ElementId(long id) { Id = id; }
         public static implicit operator ElementId(long id) => new ElementId(id);
         public static implicit operator long(ElementId elementId) => elementId.Id;
-        
+
         public override bool Equals(object obj)
         {
             return obj is ElementId other && Id == other.Id;
         }
-        
+
         public override int GetHashCode()
         {
             return Id.GetHashCode();

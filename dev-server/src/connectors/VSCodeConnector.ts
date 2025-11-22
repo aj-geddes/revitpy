@@ -21,9 +21,9 @@ export class VSCodeConnector extends EventEmitter {
 
   async connect(): Promise<void> {
     if (!this.config.enabled) return;
-    
+
     this.logger.info('Connecting to VS Code...', { port: this.config.port });
-    
+
     // Simulate connection
     this.connected = true;
     this.emit('connected');
@@ -32,7 +32,7 @@ export class VSCodeConnector extends EventEmitter {
 
   async disconnect(): Promise<void> {
     if (!this.connected) return;
-    
+
     this.logger.info('Disconnecting from VS Code...');
     this.connected = false;
     this.emit('disconnected');

@@ -35,7 +35,7 @@ RevitPy Developer Tools
 ### Prerequisites
 
 - **Node.js** 18.0.0 or higher
-- **npm** 8.0.0 or higher  
+- **npm** 8.0.0 or higher
 - **.NET 6.0** or higher
 - **VS Code** (for extension development)
 - **Revit 2021+** (for testing)
@@ -206,7 +206,7 @@ function App() {
 var config = new WebViewConfiguration
 {
     Id = "my-panel",
-    Title = "My RevitPy Panel", 
+    Title = "My RevitPy Panel",
     Url = "http://localhost:3000",
     Type = PanelType.Dockable
 };
@@ -236,7 +236,7 @@ await host.ShowAsync();
    ```bash
    # Start all development servers
    npm run dev
-   
+
    # Or start individual components
    npm run dev:dashboard
    npm run dev:registry
@@ -262,7 +262,7 @@ await host.ShowAsync();
 │   ├── dashboard/
 │   │   ├── src/
 │   │   │   ├── components/    # React components
-│   │   │   ├── pages/         # Application pages  
+│   │   │   ├── pages/         # Application pages
 │   │   │   ├── hooks/         # Custom React hooks
 │   │   │   ├── stores/        # Zustand stores
 │   │   │   └── providers/     # Context providers

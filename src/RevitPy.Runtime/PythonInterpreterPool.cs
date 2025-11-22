@@ -41,12 +41,12 @@ public class PythonInterpreterPool : IPythonInterpreterPool
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        
+
         _semaphore = new SemaphoreSlim(_options.MaxInterpreters, _options.MaxInterpreters);
         _createdAt = DateTime.UtcNow;
 
         // Set up periodic health checks
-        _healthCheckTimer = new Timer(async _ => await PerformHealthCheckAsync(), 
+        _healthCheckTimer = new Timer(async _ => await PerformHealthCheckAsync(),
             null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
 
         // Set up periodic cleanup
@@ -59,7 +59,7 @@ public class PythonInterpreterPool : IPythonInterpreterPool
         if (_isInitialized)
             return;
 
-        _logger.LogInformation("Initializing Python interpreter pool with max size {MaxInterpreters}", 
+        _logger.LogInformation("Initializing Python interpreter pool with max size {MaxInterpreters}",
             _options.MaxInterpreters);
 
         try
@@ -77,8 +77,8 @@ public class PythonInterpreterPool : IPythonInterpreterPool
 
             _isInitialized = true;
             _stats.CurrentPoolSize = _allInterpreters.Count;
-            
-            _logger.LogInformation("Python interpreter pool initialized with {Count} interpreters", 
+
+            _logger.LogInformation("Python interpreter pool initialized with {Count} interpreters",
                 _allInterpreters.Count);
         }
         catch (Exception ex)
@@ -122,7 +122,7 @@ public class PythonInterpreterPool : IPythonInterpreterPool
                 {
                     // Wait for one to become available
                     var waitStopwatch = Stopwatch.StartNew();
-                    while (!_availableInterpreters.TryDequeue(out interpreter) && 
+                    while (!_availableInterpreters.TryDequeue(out interpreter) &&
                            waitStopwatch.Elapsed < effectiveTimeout)
                     {
                         await Task.Delay(100, cancellationToken);
@@ -145,7 +145,7 @@ public class PythonInterpreterPool : IPythonInterpreterPool
             _stats.TotalRentals++;
             _stats.PeakConcurrentRentals = Math.Max(_stats.PeakConcurrentRentals, _rentedInterpreters.Count);
 
-            _logger.LogDebug("Rented interpreter {InterpreterId} (rental time: {RentalTime}ms)", 
+            _logger.LogDebug("Rented interpreter {InterpreterId} (rental time: {RentalTime}ms)",
                 interpreter.Id, stopwatch.ElapsedMilliseconds);
 
             return rental;
@@ -168,7 +168,7 @@ public class PythonInterpreterPool : IPythonInterpreterPool
     public PythonInterpreterPoolStats GetStats()
     {
         var uptime = _lastResetAt?.Subtract(_createdAt) ?? DateTime.UtcNow.Subtract(_createdAt);
-        
+
         return new PythonInterpreterPoolStats
         {
             TotalCreated = _stats.TotalCreated,
@@ -203,13 +203,13 @@ public class PythonInterpreterPool : IPythonInterpreterPool
             try
             {
                 var stopwatch = Stopwatch.StartNew();
-                
+
                 // Simple health check - evaluate 1+1
-                var healthResult = await interpreter.EvaluateAsync<int>("1+1", 
+                var healthResult = await interpreter.EvaluateAsync<int>("1+1",
                     cancellationToken: cancellationToken);
-                
+
                 stopwatch.Stop();
-                
+
                 result.IsHealthy = healthResult == 2;
                 result.ResponseTime = stopwatch.Elapsed;
                 result.MemoryInfo = interpreter.GetMemoryInfo();
@@ -237,16 +237,16 @@ public class PythonInterpreterPool : IPythonInterpreterPool
         if (unhealthyCount > 0)
         {
             health.Issues.Add($"{unhealthyCount} interpreters are unhealthy");
-            
+
             if (unhealthyCount > _allInterpreters.Count / 2)
             {
                 health.RecommendedActions.Add("Consider resetting the interpreter pool");
             }
         }
 
-        var highMemoryCount = health.InterpreterResults.Count(r => 
+        var highMemoryCount = health.InterpreterResults.Count(r =>
             r.MemoryInfo.AllocatedBytes > _options.MaxMemoryUsageMB * 1024 * 1024);
-        
+
         if (highMemoryCount > 0)
         {
             health.Issues.Add($"{highMemoryCount} interpreters have high memory usage");
@@ -265,7 +265,7 @@ public class PythonInterpreterPool : IPythonInterpreterPool
             // Wait for all current rentals to complete or timeout
             var timeout = TimeSpan.FromSeconds(30);
             var stopwatch = Stopwatch.StartNew();
-            
+
             while (_rentedInterpreters.Count > 0 && stopwatch.Elapsed < timeout)
             {
                 await Task.Delay(1000, cancellationToken);
@@ -286,7 +286,7 @@ public class PythonInterpreterPool : IPythonInterpreterPool
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning("Error disposing interpreter {InterpreterId}: {Error}", 
+                    _logger.LogWarning("Error disposing interpreter {InterpreterId}: {Error}",
                         interpreter.Id, ex.Message);
                 }
             });
@@ -391,10 +391,10 @@ public class PythonInterpreterPool : IPythonInterpreterPool
     {
         var interpreter = _serviceProvider.GetRequiredService<IPythonInterpreter>();
         await interpreter.InitializeAsync(cancellationToken);
-        
+
         _allInterpreters[interpreter.Id] = interpreter;
         _availableInterpreters.Enqueue(interpreter);
-        
+
         _stats.TotalCreated++;
         _stats.CurrentPoolSize = _allInterpreters.Count;
 
@@ -405,7 +405,7 @@ public class PythonInterpreterPool : IPythonInterpreterPool
 
     private long CalculateTotalMemoryUsage()
     {
-        return _allInterpreters.Values.Sum(i => 
+        return _allInterpreters.Values.Sum(i =>
         {
             try
             {
@@ -426,10 +426,10 @@ public class PythonInterpreterPool : IPythonInterpreterPool
         try
         {
             var health = await HealthCheckAsync();
-            
+
             if (!health.IsHealthy)
             {
-                _logger.LogWarning("Interpreter pool health check failed: {Issues}", 
+                _logger.LogWarning("Interpreter pool health check failed: {Issues}",
                     string.Join(", ", health.Issues));
             }
         }
@@ -453,7 +453,7 @@ public class PythonInterpreterPool : IPythonInterpreterPool
 
             foreach (var rental in staleRentals)
             {
-                _logger.LogWarning("Force returning stale interpreter rental {InterpreterId}", 
+                _logger.LogWarning("Force returning stale interpreter rental {InterpreterId}",
                     rental.Interpreter.Id);
                 rental.ForceReturn();
             }
@@ -470,7 +470,7 @@ public class PythonInterpreterPool : IPythonInterpreterPool
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug("Error during GC on interpreter {InterpreterId}: {Error}", 
+                    _logger.LogDebug("Error during GC on interpreter {InterpreterId}: {Error}",
                         interpreter.Id, ex.Message);
                 }
             }

@@ -21,9 +21,9 @@ The RevitPy community is built on the principles of:
 -   :material-chat:{ .lg .middle } __Discord Community__
 
     ---
-    
+
     **Real-time chat** for quick questions, discussions, and community interaction.
-    
+
     - #general - General RevitPy discussion
     - #help - Get help with your code
     - #showcase - Show off your projects
@@ -34,9 +34,9 @@ The RevitPy community is built on the principles of:
 -   :material-forum:{ .lg .middle } __Community Forum__
 
     ---
-    
+
     **In-depth discussions** for complex topics, tutorials, and long-form content.
-    
+
     - Q&A with searchable history
     - Tutorial discussions
     - Feature requests and proposals
@@ -47,9 +47,9 @@ The RevitPy community is built on the principles of:
 -   :material-github:{ .lg .middle } __GitHub Discussions__
 
     ---
-    
+
     **Development-focused** discussions directly linked to the codebase.
-    
+
     - Feature proposals
     - Technical architecture discussions
     - Release planning
@@ -60,9 +60,9 @@ The RevitPy community is built on the principles of:
 -   :material-reddit:{ .lg .middle } __Reddit Community__
 
     ---
-    
+
     **Casual discussions** and community-driven content sharing.
-    
+
     - Project showcases
     - Industry news and trends
     - Memes and humor
@@ -123,7 +123,7 @@ We welcome all types of code contributions:
    # Create virtual environment
    python -m venv revitpy-dev
    source revitpy-dev/bin/activate  # On Windows: revitpy-dev\Scripts\activate
-   
+
    # Install in development mode
    pip install -e .
    pip install -r requirements-dev.txt
@@ -144,10 +144,10 @@ We welcome all types of code contributions:
    ```bash
    # Run unit tests
    pytest tests/
-   
+
    # Run integration tests
    pytest tests/integration/
-   
+
    # Check code quality
    flake8 revitpy/
    black revitpy/
@@ -182,10 +182,10 @@ Great documentation is crucial for community success:
    ```bash
    # Documentation is in the docs/ directory
    cd docs/
-   
+
    # Edit markdown files
    # Follow our style guide
-   
+
    # Test locally
    mkdocs serve
    ```
@@ -580,7 +580,7 @@ The RevitPy community is what makes this project special. Every contribution, wh
 !!! tip "Community Quick Links"
 
     - 💬 [Discord](https://discord.gg/revitpy) - Real-time community chat
-    - 📝 [Forum](https://forum.revitpy.dev) - In-depth discussions  
+    - 📝 [Forum](https://forum.revitpy.dev) - In-depth discussions
     - 🐙 [GitHub](https://github.com/highvelocitysolutions/revitpy) - Code and issues
     - 📚 [Contributing Guide](contributing.md) - How to contribute
     - 🎓 [Mentorship Program](https://forms.revitpy.dev/mentorship) - Get or give help

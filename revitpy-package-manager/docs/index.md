@@ -26,7 +26,7 @@ RevitPy Package Manager is a complete package management ecosystem designed spec
 
 === "⚡ Performance & Scale"
 
-    - **Intelligent Caching**: Optimized download and installation performance  
+    - **Intelligent Caching**: Optimized download and installation performance
     - **CDN Distribution**: Global content delivery for fast package access
     - **Parallel Processing**: Multi-threaded operations for enterprise deployments
     - **Resource Monitoring**: Built-in performance metrics and alerting
@@ -103,15 +103,15 @@ graph TB
     Builder -->|Signs & Uploads| Registry[Package Registry]
     Registry -->|Distributes| Installer[Package Installer]
     Installer -->|Installs to| Environment[Revit Environment]
-    
+
     Registry --- Database[(PostgreSQL)]
     Registry --- Storage[(S3 Storage)]
     Registry --- Cache[(Redis Cache)]
-    
+
     Security[Security Layer] -.-> Builder
     Security -.-> Registry
     Security -.-> Installer
-    
+
     Monitoring[Monitoring] -.-> Registry
     Monitoring -.-> Builder
     Monitoring -.-> Installer

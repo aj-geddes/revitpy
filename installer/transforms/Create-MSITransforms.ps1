@@ -8,11 +8,11 @@
 .DESCRIPTION
     This script creates MSI transform (.mst) files that allow organizations to customize
     the RevitPy installation behavior without modifying the original MSI package.
-    
+
     Transforms can customize:
     - Installation directory
     - Feature selection
-    - Registry settings  
+    - Registry settings
     - Configuration files
     - Revit version targeting
 
@@ -33,13 +33,13 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$MSIPath,
-    
+
     [Parameter(Mandatory = $true)]
     [string]$OutputPath,
-    
+
     [Parameter()]
     [string]$OrganizationName = "Enterprise",
-    
+
     [Parameter()]
     [switch]$Force
 )
@@ -75,7 +75,7 @@ $TransformConfigurations = @{
             }
         }
     }
-    
+
     "Developer-Workstation" = @{
         Description = "Developer workstation with all features"
         Properties = @{
@@ -100,7 +100,7 @@ $TransformConfigurations = @{
             }
         }
     }
-    
+
     "Revit2024-Only" = @{
         Description = "Revit 2024 specific deployment"
         Properties = @{
@@ -125,7 +125,7 @@ $TransformConfigurations = @{
             }
         }
     }
-    
+
     "Minimal-Installation" = @{
         Description = "Minimal installation without Python runtime"
         Properties = @{
@@ -157,7 +157,7 @@ function Write-Log {
         [string]$Message,
         [string]$Level = "Info"
     )
-    
+
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $color = switch ($Level) {
         "Error" { "Red" }
@@ -165,7 +165,7 @@ function Write-Log {
         "Info" { "Green" }
         default { "White" }
     }
-    
+
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
@@ -176,25 +176,25 @@ function New-MSITransform {
         [hashtable]$Configuration,
         [string]$OutputPath
     )
-    
+
     Write-Log "Creating transform: $TransformName"
-    
+
     try {
         # Open the MSI database
         $database = $WindowsInstaller.OpenDatabase($MSIPath, 1) # msiOpenDatabaseModeTransact
-        
+
         # Create transform
         $transformPath = Join-Path $OutputPath "$TransformName.mst"
-        
+
         # Apply property changes
         if ($Configuration.Properties) {
             Write-Log "Applying property changes for $TransformName"
-            
+
             foreach ($property in $Configuration.Properties.GetEnumerator()) {
                 $query = "SELECT * FROM Property WHERE Property = '$($property.Key)'"
                 $view = $database.OpenView($query)
                 $view.Execute()
-                
+
                 $record = $view.Fetch()
                 if ($record) {
                     # Update existing property
@@ -213,22 +213,22 @@ function New-MSITransform {
                     Write-Log "Added property: $($property.Key) = $($property.Value)"
                     $insertView.Close()
                 }
-                
+
                 $view.Close()
             }
         }
-        
+
         # Apply feature changes
         if ($Configuration.Features) {
             Write-Log "Applying feature changes for $TransformName"
-            
+
             foreach ($feature in $Configuration.Features.GetEnumerator()) {
                 $installLevel = switch ($feature.Value) {
                     "install" { 1 }
                     "absent" { 0 }
                     default { 1 }
                 }
-                
+
                 $query = "UPDATE Feature SET Level = $installLevel WHERE Feature = '$($feature.Key)'"
                 $view = $database.OpenView($query)
                 $view.Execute()
@@ -236,31 +236,31 @@ function New-MSITransform {
                 Write-Log "Set feature $($feature.Key) to $($feature.Value) (level $installLevel)"
             }
         }
-        
+
         # Apply registry changes
         if ($Configuration.Registry) {
             Write-Log "Applying registry changes for $TransformName"
-            
+
             foreach ($registryKey in $Configuration.Registry.GetEnumerator()) {
                 $keyPath = $registryKey.Key
                 $values = $registryKey.Value
-                
+
                 # Parse registry key
                 $parts = $keyPath -split '\\'
                 $root = $parts[0]
                 $key = ($parts[1..($parts.Length-1)]) -join '\'
-                
+
                 $rootValue = switch ($root) {
                     "HKLM" { -2147483646 }  # HKEY_LOCAL_MACHINE
                     "HKCU" { -2147483647 }  # HKEY_CURRENT_USER
                     default { -2147483646 }
                 }
-                
+
                 foreach ($regValue in $values.GetEnumerator()) {
                     # Generate unique component and registry IDs
                     $componentId = "Reg_" + ($TransformName -replace '[^A-Za-z0-9]', '') + "_" + ($regValue.Key -replace '[^A-Za-z0-9]', '')
                     $registryId = $componentId + "_Value"
-                    
+
                     # Insert registry entry
                     $insertQuery = "INSERT INTO Registry (Registry, Root, Key, Name, Value, Component_) VALUES (?, ?, ?, ?, ?, ?)"
                     $insertView = $database.OpenView($insertQuery)
@@ -271,7 +271,7 @@ function New-MSITransform {
                     $insertRecord.StringData(4) = $regValue.Key
                     $insertRecord.StringData(5) = $regValue.Value
                     $insertRecord.StringData(6) = $componentId
-                    
+
                     try {
                         $insertView.Execute($insertRecord)
                         Write-Log "Added registry value: $keyPath\$($regValue.Key) = $($regValue.Value)"
@@ -279,21 +279,21 @@ function New-MSITransform {
                     catch {
                         Write-Log "Warning: Could not add registry value: $($_.Exception.Message)" -Level Warning
                     }
-                    
+
                     $insertView.Close()
                 }
             }
         }
-        
+
         # Generate transform
         $referenceDatabase = $WindowsInstaller.OpenDatabase($MSIPath, 0) # msiOpenDatabaseModeReadOnly
         $database.GenerateTransform($referenceDatabase, $transformPath)
         $database.CreateTransformSummaryInfo($referenceDatabase, $transformPath, 0, 0)
-        
+
         $database.Commit()
         $referenceDatabase.Close()
         $database.Close()
-        
+
         if (Test-Path $transformPath) {
             Write-Log "Transform created successfully: $transformPath"
             return $transformPath
@@ -314,11 +314,11 @@ function New-TransformDocumentation {
         [string]$OutputPath,
         [hashtable]$Configurations
     )
-    
+
     Write-Log "Creating transform documentation"
-    
+
     $docPath = Join-Path $OutputPath "Transform-Documentation.md"
-    
+
     $documentation = @"
 # RevitPy MSI Transform Documentation
 
@@ -327,11 +327,11 @@ This document describes the available MSI transforms for customizing RevitPy dep
 ## Available Transforms
 
 "@
-    
+
     foreach ($config in $Configurations.GetEnumerator()) {
         $transformName = $config.Key
         $details = $config.Value
-        
+
         $documentation += @"
 
 ### $transformName
@@ -340,24 +340,24 @@ This document describes the available MSI transforms for customizing RevitPy dep
 
 **Properties:**
 "@
-        
+
         if ($details.Properties) {
             foreach ($prop in $details.Properties.GetEnumerator()) {
                 $documentation += "`n- $($prop.Key) = $($prop.Value)"
             }
         }
-        
+
         $documentation += @"
 
 **Features:**
 "@
-        
+
         if ($details.Features) {
             foreach ($feature in $details.Features.GetEnumerator()) {
                 $documentation += "`n- $($feature.Key) = $($feature.Value)"
             }
         }
-        
+
         $documentation += @"
 
 **Usage:**
@@ -367,7 +367,7 @@ msiexec /i RevitPy-1.0.0.msi TRANSFORMS=$transformName.mst /quiet
 
 "@
     }
-    
+
     $documentation += @"
 
 ## Enterprise Deployment Examples
@@ -421,7 +421,7 @@ foreach (`$computer in `$computers) {
 
 For technical support with transforms, contact the RevitPy team or refer to the enterprise deployment documentation.
 "@
-    
+
     Set-Content -Path $docPath -Value $documentation -Encoding UTF8
     Write-Log "Documentation created: $docPath"
 }
@@ -431,11 +431,11 @@ function New-DeploymentScript {
         [string]$OutputPath,
         [hashtable]$Configurations
     )
-    
+
     Write-Log "Creating deployment script template"
-    
+
     $scriptPath = Join-Path $OutputPath "Deploy-With-Transforms.ps1"
-    
+
     $deployScript = @'
 #Requires -Version 5.1
 #Requires -RunAsAdministrator
@@ -462,13 +462,13 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('@ + (($Configurations.Keys | ForEach-Object { "'$_'" }) -join ', ') + @')]
     [string]$TransformName,
-    
+
     [Parameter()]
     [string[]]$TargetComputers = @($env:COMPUTERNAME),
-    
+
     [Parameter()]
     [string]$MSIPath = ".\RevitPy-1.0.0.msi",
-    
+
     [Parameter()]
     [switch]$Silent
 )
@@ -500,33 +500,33 @@ if (-not (Test-Path $transformPath)) {
 
 foreach ($computer in $TargetComputers) {
     Write-Host "Deploying to $computer..."
-    
+
     $arguments = @(
         "/i", "`"$MSIPath`""
         "TRANSFORMS=`"$transformPath`""
     )
-    
+
     if ($Silent) {
         $arguments += "/quiet"
     }
-    
+
     $arguments += "/log", "C:\temp\revitpy-install-$computer.log"
-    
+
     if ($computer -eq $env:COMPUTERNAME) {
         Start-Process -FilePath "msiexec.exe" -ArgumentList $arguments -Wait
     }
     else {
         Invoke-Command -ComputerName $computer -ScriptBlock {
             param($MSI, $Transform, $Silent)
-            
+
             $args = @("/i", "`"$MSI`"", "TRANSFORMS=`"$Transform`"")
             if ($Silent) { $args += "/quiet" }
             $args += "/log", "C:\temp\revitpy-install.log"
-            
+
             Start-Process -FilePath "msiexec.exe" -ArgumentList $args -Wait
         } -ArgumentList $MSIPath, $transformPath, $Silent.IsPresent
     }
-    
+
     Write-Host "Deployment to $computer completed."
 }
 '@
@@ -538,20 +538,20 @@ foreach ($computer in $TargetComputers) {
 # Main execution
 try {
     Write-Log "Starting MSI transform creation for RevitPy"
-    
+
     if (-not (Test-Path $MSIPath)) {
         throw "MSI file not found: $MSIPath"
     }
-    
+
     if (-not (Test-Path $OutputPath)) {
         New-Item -Path $OutputPath -ItemType Directory -Force | Out-Null
     }
-    
+
     $createdTransforms = @()
-    
+
     foreach ($config in $TransformConfigurations.GetEnumerator()) {
         $transformPath = New-MSITransform -MSIPath $MSIPath -TransformName $config.Key -Configuration $config.Value -OutputPath $OutputPath
-        
+
         if ($transformPath) {
             $createdTransforms += @{
                 Name = $config.Key
@@ -560,20 +560,20 @@ try {
             }
         }
     }
-    
+
     # Create documentation
     New-TransformDocumentation -OutputPath $OutputPath -Configurations $TransformConfigurations
-    
+
     # Create deployment script
     New-DeploymentScript -OutputPath $OutputPath -Configurations $TransformConfigurations
-    
+
     Write-Log "Transform creation completed successfully"
     Write-Log "Created $($createdTransforms.Count) transforms:"
-    
+
     foreach ($transform in $createdTransforms) {
         Write-Log "  - $($transform.Name): $($transform.Description)"
     }
-    
+
     Write-Log "Output directory: $OutputPath"
 }
 catch {

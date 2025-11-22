@@ -1,6 +1,5 @@
 """Main FastAPI application for the RevitPy package registry."""
 
-import os
 from datetime import datetime
 
 from fastapi import FastAPI, Request
@@ -8,20 +7,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
-from .routers import auth, packages, users, admin, health
-from .schemas import ErrorResponse
-from ..database import create_tables
+from ...config import get_settings
 from ...security.config import SecurityConfig
-from ....__init__ import __version__
+from ..database import create_tables
+from .routers import admin, auth, health, packages, users
 
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    
+    settings = get_settings()
+
     app = FastAPI(
-        title="RevitPy Package Registry",
+        title=settings.app_name,
         description="Enterprise-grade package registry for the RevitPy framework",
-        version=__version__,
+        version=settings.app_version,
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/api/openapi.json",
@@ -30,76 +29,46 @@ def create_app() -> FastAPI:
     # Configure CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",
-            "http://localhost:8080",
-            "https://registry.revitpy.dev",
-            "https://hub.revitpy.dev",
-        ],
+        allow_origins=settings.server.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
         allow_headers=["*"],
     )
 
-    # Configure trusted hosts
-    if not os.getenv("DEBUG", "false").lower() == "true":
+    # Configure trusted hosts (disabled in debug mode)
+    if not settings.server.debug:
         app.add_middleware(
             TrustedHostMiddleware,
-            allowed_hosts=[
-                "localhost",
-                "127.0.0.1",
-                "registry.revitpy.dev",
-                "*.revitpy.dev",
-            ]
+            allowed_hosts=settings.server.trusted_hosts,
         )
-    
+
     # Add security headers middleware
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next):
         """Add security headers to all responses."""
         response = await call_next(request)
-        
+
         # Add security headers
         security_headers = SecurityConfig.get_security_headers()
         for header, value in security_headers.items():
             response.headers[header] = value
-        
+
         # Remove server header for security
         if "server" in response.headers:
             del response.headers["server"]
-        
+
         return response
 
     # Include routers
-    app.include_router(
-        health.router,
-        prefix="/api/v1/health",
-        tags=["Health"]
-    )
-    
-    app.include_router(
-        auth.router,
-        prefix="/api/v1/auth",
-        tags=["Authentication"]
-    )
-    
-    app.include_router(
-        users.router,
-        prefix="/api/v1/users",
-        tags=["Users"]
-    )
-    
-    app.include_router(
-        packages.router,
-        prefix="/api/v1/packages",
-        tags=["Packages"]
-    )
-    
-    app.include_router(
-        admin.router,
-        prefix="/api/v1/admin",
-        tags=["Administration"]
-    )
+    app.include_router(health.router, prefix="/api/v1/health", tags=["Health"])
+
+    app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+
+    app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
+
+    app.include_router(packages.router, prefix="/api/v1/packages", tags=["Packages"])
+
+    app.include_router(admin.router, prefix="/api/v1/admin", tags=["Administration"])
 
     # Global exception handler
     @app.exception_handler(Exception)
@@ -110,8 +79,8 @@ def create_app() -> FastAPI:
             content={
                 "error": "Internal Server Error",
                 "message": "An unexpected error occurred",
-                "details": {"type": type(exc).__name__} if os.getenv("DEBUG") else None
-            }
+                "details": {"type": type(exc).__name__} if settings.server.debug else None,
+            },
         )
 
     # Startup event
@@ -126,8 +95,8 @@ def create_app() -> FastAPI:
     async def root():
         """Root endpoint with API information."""
         return {
-            "name": "RevitPy Package Registry",
-            "version": __version__,
+            "name": settings.app_name,
+            "version": settings.app_version,
             "description": "Enterprise-grade package registry for the RevitPy framework",
             "docs_url": "/docs",
             "api_base": "/api/v1",
@@ -144,17 +113,15 @@ app = create_app()
 def main():
     """Main entry point for running the application."""
     import uvicorn
-    
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", 8000))
-    debug = os.getenv("DEBUG", "false").lower() == "true"
-    
+
+    settings = get_settings()
+
     uvicorn.run(
         "revitpy_package_manager.registry.api.main:app",
-        host=host,
-        port=port,
-        reload=debug,
-        workers=1 if debug else None,
+        host=settings.server.host,
+        port=settings.server.port,
+        reload=settings.server.reload,
+        workers=settings.server.workers,
     )
 
 

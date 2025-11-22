@@ -12,11 +12,11 @@ import { createHash } from 'crypto';
 import { debounce } from 'debounce';
 import pino from 'pino';
 
-import type { 
-  DevServerConfig, 
-  FileChangeEvent, 
+import type {
+  DevServerConfig,
+  FileChangeEvent,
   FileMetadata,
-  WatcherStats 
+  WatcherStats
 } from '../types/index.js';
 
 interface WatchedFile {
@@ -44,7 +44,7 @@ export class FileWatcherService extends EventEmitter {
   private changeQueue: ChangeQueue = {};
   private stats: WatcherStats;
   private dependencyGraph = new Map<string, Set<string>>();
-  
+
   // Performance optimization
   private debouncedProcessQueue: () => void;
   private fileHashCache = new Map<string, { hash: string; mtime: number }>();
@@ -54,7 +54,7 @@ export class FileWatcherService extends EventEmitter {
     super();
     this.config = config;
     this.logger = logger || pino({ name: 'FileWatcher' });
-    
+
     this.stats = {
       watchedFiles: 0,
       ignoredFiles: 0,
@@ -64,7 +64,7 @@ export class FileWatcherService extends EventEmitter {
 
     this.ignoredPatterns = new Set(this.buildIgnorePatterns());
     this.debouncedProcessQueue = debounce(
-      this.processChangeQueue.bind(this), 
+      this.processChangeQueue.bind(this),
       this.config.debounceMs
     );
 
@@ -118,7 +118,7 @@ export class FileWatcherService extends EventEmitter {
 
       const startupTime = Math.round(performance.now() - startTime);
       this.isWatching = true;
-      
+
       this.logger.info('File watcher started', {
         watchedFiles: this.stats.watchedFiles,
         startupTime,
@@ -216,9 +216,9 @@ export class FileWatcherService extends EventEmitter {
   async rebuildDependencyGraph(): Promise<void> {
     this.logger.info('Rebuilding dependency graph...');
     const startTime = performance.now();
-    
+
     await this.buildDependencyGraph();
-    
+
     const duration = Math.round(performance.now() - startTime);
     this.logger.info('Dependency graph rebuilt', { duration });
   }
@@ -256,7 +256,7 @@ export class FileWatcherService extends EventEmitter {
 
   private handleFileEvent(filePath: string, eventType: string, stats?: any): void {
     const resolvedPath = path.resolve(filePath);
-    
+
     // Skip if file should be ignored
     if (this.shouldIgnoreFile(resolvedPath)) {
       this.stats.ignoredFiles++;
@@ -307,26 +307,26 @@ export class FileWatcherService extends EventEmitter {
     if (!queuedChange) return;
 
     const startTime = performance.now();
-    
+
     try {
       const { event } = queuedChange;
-      
+
       // Calculate file hash for change detection
       if (event.type === 'change' && await this.fileExists(filePath)) {
         const currentHash = await this.calculateFileHash(filePath);
         const cachedHash = this.fileHashCache.get(filePath);
-        
+
         // Skip if file hasn't actually changed
         if (cachedHash && cachedHash.hash === currentHash) {
           this.logger.debug('File hash unchanged, skipping', { path: filePath });
           delete this.changeQueue[filePath];
           return;
         }
-        
+
         event.hash = currentHash;
-        this.fileHashCache.set(filePath, { 
-          hash: currentHash, 
-          mtime: Date.now() 
+        this.fileHashCache.set(filePath, {
+          hash: currentHash,
+          mtime: Date.now()
         });
       }
 
@@ -337,7 +337,7 @@ export class FileWatcherService extends EventEmitter {
 
       // Emit the file change event
       this.emit('file-changed', event);
-      
+
       const duration = Math.round(performance.now() - startTime);
       this.stats.processingTime += duration;
 
@@ -372,7 +372,7 @@ export class FileWatcherService extends EventEmitter {
     if (filePaths.length === 0) return;
 
     this.logger.debug('Processing change queue', { count: filePaths.length });
-    
+
     // Process changes in parallel for better performance
     await Promise.all(
       filePaths.map(filePath => this.processFileChange(filePath))
@@ -395,7 +395,7 @@ export class FileWatcherService extends EventEmitter {
   private createFileMetadata(filePath: string, stats?: any): FileMetadata {
     const ext = path.extname(filePath).toLowerCase();
     const isDir = stats ? stats.isDirectory() : false;
-    
+
     return {
       isDirectory: isDir,
       isFile: !isDir,
@@ -419,7 +419,7 @@ export class FileWatcherService extends EventEmitter {
       '.yaml': 'application/yaml',
       '.yml': 'application/yaml'
     };
-    
+
     return mimeTypes[extension] || 'text/plain';
   }
 
@@ -431,10 +431,10 @@ export class FileWatcherService extends EventEmitter {
   private shouldIgnoreFile(filePath: string): boolean {
     const relativePath = path.relative(this.config.projectRoot, filePath);
     const fileName = path.basename(filePath);
-    
+
     // Check against ignore patterns
     for (const pattern of this.ignoredPatterns) {
-      if (this.matchesPattern(relativePath, pattern) || 
+      if (this.matchesPattern(relativePath, pattern) ||
           this.matchesPattern(fileName, pattern)) {
         return true;
       }
@@ -445,7 +445,7 @@ export class FileWatcherService extends EventEmitter {
     if (fileName.endsWith('.tmp') || fileName.endsWith('.temp')) return true;
     if (filePath.includes('__pycache__')) return true;
     if (filePath.includes('node_modules')) return true;
-    
+
     return false;
   }
 
@@ -457,7 +457,7 @@ export class FileWatcherService extends EventEmitter {
         .replace(/\*/g, '[^/]*')
         .replace(/\?/g, '[^/]')
     );
-    
+
     return regex.test(filePath);
   }
 
@@ -467,60 +467,60 @@ export class FileWatcherService extends EventEmitter {
       '**/.git/**',
       '**/.svn/**',
       '**/.hg/**',
-      
+
       // Dependencies
       '**/node_modules/**',
       '**/venv/**',
       '**/.venv/**',
       '**/env/**',
       '**/.env/**',
-      
+
       // Build outputs
       '**/dist/**',
       '**/build/**',
       '**/.next/**',
       '**/.nuxt/**',
       '**/out/**',
-      
+
       // Cache directories
       '**/.cache/**',
       '**/__pycache__/**',
       '**/.pytest_cache/**',
       '**/coverage/**',
       '**/.nyc_output/**',
-      
+
       // IDE files
       '**/.vscode/**',
       '**/.idea/**',
       '**/*.swp',
       '**/*.swo',
       '**/*~',
-      
+
       // OS files
       '**/Thumbs.db',
       '**/.DS_Store',
-      
+
       // Log files
       '**/*.log',
       '**/logs/**',
-      
+
       // Temporary files
       '**/*.tmp',
       '**/*.temp',
       '**/tmp/**',
-      
+
       // Package files
       '**/*.pyc',
       '**/*.pyo',
       '**/*.pyd',
       '**/*.egg-info/**',
-      
+
       // Lock files
       '**/package-lock.json',
       '**/yarn.lock',
       '**/poetry.lock',
       '**/Pipfile.lock',
-      
+
       // User-defined patterns
       ...(this.config.hotReload.excludePatterns || [])
     ];
@@ -554,25 +554,25 @@ export class FileWatcherService extends EventEmitter {
     // This is a simplified dependency graph builder
     // In a real implementation, you'd parse import/require statements
     const startTime = performance.now();
-    
+
     for (const [filePath] of this.watchedFiles) {
       if (this.isSourceFile(filePath)) {
         try {
           const dependencies = await this.extractDependencies(filePath);
           this.dependencyGraph.set(filePath, new Set(dependencies));
         } catch (error) {
-          this.logger.warn('Failed to extract dependencies', { 
-            path: filePath, 
-            error: error.message 
+          this.logger.warn('Failed to extract dependencies', {
+            path: filePath,
+            error: error.message
           });
         }
       }
     }
-    
+
     const duration = Math.round(performance.now() - startTime);
-    this.logger.debug('Dependency graph built', { 
+    this.logger.debug('Dependency graph built', {
       files: this.dependencyGraph.size,
-      duration 
+      duration
     });
   }
 
@@ -582,7 +582,7 @@ export class FileWatcherService extends EventEmitter {
     try {
       const content = await fs.readFile(filePath, 'utf-8');
       const dependencies: string[] = [];
-      
+
       // Python imports
       if (filePath.endsWith('.py')) {
         const importRegex = /^(?:from\s+(\S+)\s+import|import\s+(\S+))/gm;
@@ -594,7 +594,7 @@ export class FileWatcherService extends EventEmitter {
           }
         }
       }
-      
+
       // JavaScript/TypeScript imports
       if (filePath.match(/\.(js|ts|jsx|tsx)$/)) {
         const importRegex = /^import.*from\s+['"]([^'"]+)['"]/gm;
@@ -606,7 +606,7 @@ export class FileWatcherService extends EventEmitter {
           }
         }
       }
-      
+
       return dependencies;
     } catch (error) {
       return [];
@@ -618,16 +618,16 @@ export class FileWatcherService extends EventEmitter {
       const dependencies = await this.extractDependencies(filePath);
       this.dependencyGraph.set(filePath, new Set(dependencies));
     } catch (error) {
-      this.logger.warn('Failed to update file dependencies', { 
-        path: filePath, 
-        error: error.message 
+      this.logger.warn('Failed to update file dependencies', {
+        path: filePath,
+        error: error.message
       });
     }
   }
 
   private async waitForReady(): Promise<void> {
     if (!this.watcher) throw new Error('Watcher not initialized');
-    
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('File watcher startup timeout'));

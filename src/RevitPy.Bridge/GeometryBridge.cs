@@ -124,9 +124,9 @@ public class GeometryBridge : IGeometryBridge
         try
         {
             var cacheKey = GenerateGeometryCacheKey(element, "geometry");
-            
+
             // Check cache first
-            if (_geometryCache.TryGetValue(cacheKey, out var cachedGeometry) && 
+            if (_geometryCache.TryGetValue(cacheKey, out var cachedGeometry) &&
                 cachedGeometry is IEnumerable<object> cachedEnumerable)
             {
                 RecordCacheHit(stopwatch.Elapsed);
@@ -144,7 +144,7 @@ public class GeometryBridge : IGeometryBridge
                 {
                     var processor = GetGeometryProcessor(geometry.GetType());
                     var processedGeometry = await processor.ProcessAsync(geometry, cancellationToken);
-                    
+
                     if (processedGeometry != null)
                     {
                         processedGeometries.Add(processedGeometry);
@@ -158,7 +158,7 @@ public class GeometryBridge : IGeometryBridge
 
             // Cache the processed geometries
             _geometryCache[cacheKey] = processedGeometries;
-            
+
             RecordGeometryExtraction(processedGeometries.Count, stopwatch.Elapsed);
             return processedGeometries.Select(g => _typeConverter.ConvertToPython(g));
         }
@@ -177,7 +177,7 @@ public class GeometryBridge : IGeometryBridge
         try
         {
             var cacheKey = $"point:{x:F6}:{y:F6}:{z:F6}";
-            
+
             if (_geometryCache.TryGetValue(cacheKey, out var cachedPoint))
             {
                 RecordCacheHit(stopwatch.Elapsed);
@@ -186,9 +186,9 @@ public class GeometryBridge : IGeometryBridge
 
             // Create Revit XYZ point
             var point = await CreateRevitPoint(x, y, z, cancellationToken);
-            
+
             _geometryCache[cacheKey] = point;
-            
+
             RecordGeometryCreation("Point", stopwatch.Elapsed);
             return _typeConverter.ConvertToPython(point);
         }
@@ -210,7 +210,7 @@ public class GeometryBridge : IGeometryBridge
         try
         {
             var cacheKey = GenerateGeometryCacheKey(new[] { startPoint, endPoint }, "line");
-            
+
             if (_geometryCache.TryGetValue(cacheKey, out var cachedLine))
             {
                 RecordCacheHit(stopwatch.Elapsed);
@@ -223,9 +223,9 @@ public class GeometryBridge : IGeometryBridge
 
             // Create Revit Line
             var line = await CreateRevitLine(revitStartPoint, revitEndPoint, cancellationToken);
-            
+
             _geometryCache[cacheKey] = line;
-            
+
             RecordGeometryCreation("Line", stopwatch.Elapsed);
             return _typeConverter.ConvertToPython(line);
         }
@@ -247,7 +247,7 @@ public class GeometryBridge : IGeometryBridge
         try
         {
             var cacheKey = GenerateGeometryCacheKey(new[] { point, normal }, "plane");
-            
+
             if (_geometryCache.TryGetValue(cacheKey, out var cachedPlane))
             {
                 RecordCacheHit(stopwatch.Elapsed);
@@ -260,9 +260,9 @@ public class GeometryBridge : IGeometryBridge
 
             // Create Revit Plane
             var plane = await CreateRevitPlane(revitPoint, revitNormal, cancellationToken);
-            
+
             _geometryCache[cacheKey] = plane;
-            
+
             RecordGeometryCreation("Plane", stopwatch.Elapsed);
             return _typeConverter.ConvertToPython(plane);
         }
@@ -292,7 +292,7 @@ public class GeometryBridge : IGeometryBridge
             {
                 // Perform transformation
                 var transformedGeometry = await ApplyTransformation(revitGeometry, revitTransform, cancellationToken);
-                
+
                 RecordGeometryTransformation(stopwatch.Elapsed);
                 return _typeConverter.ConvertToPython(transformedGeometry);
             }
@@ -319,7 +319,7 @@ public class GeometryBridge : IGeometryBridge
         try
         {
             var cacheKey = GenerateCalculationCacheKey(new[] { point1, point2 }, "distance");
-            
+
             if (_calculationCache.TryGetValue(cacheKey, out var cachedDistance))
             {
                 RecordCacheHit(stopwatch.Elapsed);
@@ -332,9 +332,9 @@ public class GeometryBridge : IGeometryBridge
 
             // Calculate distance using Revit API
             var distance = await CalculateRevitDistance(revitPoint1, revitPoint2, cancellationToken);
-            
+
             _calculationCache[cacheKey] = distance;
-            
+
             RecordCalculation("Distance", stopwatch.Elapsed);
             return distance;
         }
@@ -355,7 +355,7 @@ public class GeometryBridge : IGeometryBridge
         try
         {
             var cacheKey = GenerateCalculationCacheKey(surface, "area");
-            
+
             if (_calculationCache.TryGetValue(cacheKey, out var cachedArea))
             {
                 RecordCacheHit(stopwatch.Elapsed);
@@ -370,9 +370,9 @@ public class GeometryBridge : IGeometryBridge
             {
                 // Calculate area using Revit API
                 var area = await CalculateRevitArea(revitSurface, cancellationToken);
-                
+
                 _calculationCache[cacheKey] = area;
-                
+
                 RecordCalculation("Area", stopwatch.Elapsed);
                 return area;
             }
@@ -398,7 +398,7 @@ public class GeometryBridge : IGeometryBridge
         try
         {
             var cacheKey = GenerateCalculationCacheKey(solid, "volume");
-            
+
             if (_calculationCache.TryGetValue(cacheKey, out var cachedVolume))
             {
                 RecordCacheHit(stopwatch.Elapsed);
@@ -413,9 +413,9 @@ public class GeometryBridge : IGeometryBridge
             {
                 // Calculate volume using Revit API
                 var volume = await CalculateRevitVolume(revitSolid, cancellationToken);
-                
+
                 _calculationCache[cacheKey] = volume;
-                
+
                 RecordCalculation("Volume", stopwatch.Elapsed);
                 return volume;
             }
@@ -434,9 +434,9 @@ public class GeometryBridge : IGeometryBridge
 
     /// <inheritdoc/>
     public async Task<object> BooleanOperationAsync(
-        object solid1, 
-        object solid2, 
-        BooleanOperationType operation, 
+        object solid1,
+        object solid2,
+        BooleanOperationType operation,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(solid1);
@@ -454,7 +454,7 @@ public class GeometryBridge : IGeometryBridge
             {
                 // Perform boolean operation using Revit API
                 var result = await PerformBooleanOperation(revitSolid1, revitSolid2, operation, cancellationToken);
-                
+
                 RecordBooleanOperation(operation, stopwatch.Elapsed);
                 return _typeConverter.ConvertToPython(result);
             }
@@ -484,7 +484,7 @@ public class GeometryBridge : IGeometryBridge
         try
         {
             var cacheKey = GenerateGeometryCacheKey(geometryList, "boundingbox");
-            
+
             if (_geometryCache.TryGetValue(cacheKey, out var cachedBoundingBox))
             {
                 RecordCacheHit(stopwatch.Elapsed);
@@ -499,9 +499,9 @@ public class GeometryBridge : IGeometryBridge
             {
                 // Create bounding box using Revit API
                 var boundingBox = await CreateRevitBoundingBox(revitGeometries, cancellationToken);
-                
+
                 _geometryCache[cacheKey] = boundingBox;
-                
+
                 RecordBoundingBoxCreation(geometryList.Count, stopwatch.Elapsed);
                 return _typeConverter.ConvertToPython(boundingBox);
             }
@@ -536,7 +536,7 @@ public class GeometryBridge : IGeometryBridge
             {
                 // Project geometry onto plane using Revit API
                 var projectedGeometry = await ProjectRevitGeometry(revitGeometry, revitPlane, cancellationToken);
-                
+
                 RecordGeometryProjection(stopwatch.Elapsed);
                 return _typeConverter.ConvertToPython(projectedGeometry);
             }
@@ -571,7 +571,7 @@ public class GeometryBridge : IGeometryBridge
             {
                 // Intersect geometries using Revit API
                 var intersectionResults = await IntersectRevitGeometries(revitGeometry1, revitGeometry2, cancellationToken);
-                
+
                 RecordGeometryIntersection(intersectionResults.Count(), stopwatch.Elapsed);
                 return intersectionResults.Select(r => _typeConverter.ConvertToPython(r));
             }
@@ -635,7 +635,7 @@ public class GeometryBridge : IGeometryBridge
     {
         // This would use actual Revit API: element.get_Geometry(GeometryOptions)
         await Task.Delay(10, cancellationToken); // Simulate API call
-        
+
         // Mock implementation
         return new[]
         {
@@ -649,7 +649,7 @@ public class GeometryBridge : IGeometryBridge
     {
         // This would use actual Revit API: new XYZ(x, y, z)
         await Task.Delay(1, cancellationToken); // Simulate API call
-        
+
         return new { X = x, Y = y, Z = z, Type = "XYZ" }; // Mock implementation
     }
 
@@ -657,7 +657,7 @@ public class GeometryBridge : IGeometryBridge
     {
         // This would use actual Revit API: Line.CreateBound(startPoint, endPoint)
         await Task.Delay(2, cancellationToken); // Simulate API call
-        
+
         return new { StartPoint = startPoint, EndPoint = endPoint, Type = "Line" }; // Mock implementation
     }
 
@@ -665,7 +665,7 @@ public class GeometryBridge : IGeometryBridge
     {
         // This would use actual Revit API: Plane.CreateByNormalAndOrigin(normal, point)
         await Task.Delay(2, cancellationToken); // Simulate API call
-        
+
         return new { Origin = point, Normal = normal, Type = "Plane" }; // Mock implementation
     }
 
@@ -673,7 +673,7 @@ public class GeometryBridge : IGeometryBridge
     {
         // This would use actual Revit API geometry transformation methods
         await Task.Delay(5, cancellationToken); // Simulate API call
-        
+
         return new { Geometry = geometry, Transform = transform, Type = "TransformedGeometry" }; // Mock implementation
     }
 
@@ -681,7 +681,7 @@ public class GeometryBridge : IGeometryBridge
     {
         // This would use actual Revit API: point1.DistanceTo(point2)
         await Task.Delay(1, cancellationToken); // Simulate API call
-        
+
         return 10.0; // Mock implementation
     }
 
@@ -689,7 +689,7 @@ public class GeometryBridge : IGeometryBridge
     {
         // This would use actual Revit API: surface.Area
         await Task.Delay(3, cancellationToken); // Simulate API call
-        
+
         return 100.0; // Mock implementation
     }
 
@@ -697,7 +697,7 @@ public class GeometryBridge : IGeometryBridge
     {
         // This would use actual Revit API: solid.Volume
         await Task.Delay(3, cancellationToken); // Simulate API call
-        
+
         return 1000.0; // Mock implementation
     }
 
@@ -705,7 +705,7 @@ public class GeometryBridge : IGeometryBridge
     {
         // This would use actual Revit API: BooleanOperationsUtils methods
         await Task.Delay(10, cancellationToken); // Simulate API call
-        
+
         return new { Solid1 = solid1, Solid2 = solid2, Operation = operation, Type = "BooleanResult" }; // Mock implementation
     }
 
@@ -713,10 +713,10 @@ public class GeometryBridge : IGeometryBridge
     {
         // This would calculate the bounding box using Revit API
         await Task.Delay(5, cancellationToken); // Simulate API call
-        
-        return new 
-        { 
-            Min = new { X = 0.0, Y = 0.0, Z = 0.0 }, 
+
+        return new
+        {
+            Min = new { X = 0.0, Y = 0.0, Z = 0.0 },
             Max = new { X = 100.0, Y = 100.0, Z = 100.0 },
             Type = "BoundingBox"
         }; // Mock implementation
@@ -726,7 +726,7 @@ public class GeometryBridge : IGeometryBridge
     {
         // This would use actual Revit API projection methods
         await Task.Delay(5, cancellationToken); // Simulate API call
-        
+
         return new { Geometry = geometry, Plane = plane, Type = "ProjectedGeometry" }; // Mock implementation
     }
 
@@ -734,14 +734,14 @@ public class GeometryBridge : IGeometryBridge
     {
         // This would use actual Revit API intersection methods
         await Task.Delay(8, cancellationToken); // Simulate API call
-        
+
         return new[] { new { Type = "IntersectionPoint", X = 50.0, Y = 50.0, Z = 0.0 } }; // Mock implementation
     }
 
     private IGeometryProcessor GetGeometryProcessor(Type geometryType)
     {
         var typeName = geometryType.Name;
-        
+
         return _geometryProcessors.GetValueOrDefault(typeName, new DefaultGeometryProcessor(_logger));
     }
 

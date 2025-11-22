@@ -27,23 +27,23 @@ with RevitContext() as ctx:
                     .where(lambda w: w.level.name == "Level 1")
                     .order_by(lambda w: w.name)
                     .to_list())
-    
+
     # Relationship navigation
     room = ctx.first(RoomElement, lambda r: r.number == "101")
     connected_walls = room.walls.where(lambda w: w.structural == True)
-    
+
     # Change tracking and batch updates
     for wall in tall_walls:
         wall.fire_rating = 2
         wall.mark_dirty()
-    
+
     # Save all changes in one batch operation
     changes_saved = ctx.save_changes()  # Returns count of saved changes
 
 # Async support
 async with RevitContext().as_async() as ctx:
     walls = await ctx.all(WallElement).to_list_async()
-    
+
     async for wall in ctx.all(WallElement).as_streaming():
         print(f"Processing wall: {wall.name}")
 ```
@@ -241,19 +241,19 @@ async with AsyncRevitContext(provider) as ctx:
     # Async queries
     walls = await ctx.get_all_async(WallElement)
     wall = await ctx.get_by_id_async(123)
-    
+
     # Async transactions
     async with ctx.transaction() as trans:
         wall.height = 12
         wall.mark_dirty()
-        
+
         room = await ctx.get_by_id_async(456)
         room.area = 250
         room.mark_dirty()
-        
+
         # Auto-commit on success, rollback on exception
         await ctx.save_changes_async()
-    
+
     # Batch processing
     operations = [BatchOperation(...) for _ in range(1000)]
     result = await async_batch_operation(
@@ -275,7 +275,7 @@ The ORM layer meets strict performance requirements:
 
 ### Throughput
 - **Cache operations**: 10,000+ operations/second
-- **Change tracking**: 5,000+ tracked changes/second  
+- **Change tracking**: 5,000+ tracked changes/second
 - **Batch updates**: 5,000+ updates/second
 - **Validation**: 2,000+ validations/second
 
@@ -336,7 +336,7 @@ from pydantic import Field, validator
 class CustomElement(BaseElement):
     custom_property: str = Field(..., min_length=1)
     numeric_value: float = Field(..., gt=0)
-    
+
     @validator('custom_property')
     def validate_custom(cls, v):
         if not v.startswith('CUSTOM_'):
@@ -414,7 +414,7 @@ Comprehensive error handling with specific exception types:
 
 ```python
 from revitpy.orm.exceptions import (
-    ORMException, QueryError, ValidationError, 
+    ORMException, QueryError, ValidationError,
     CacheError, RelationshipError
 )
 

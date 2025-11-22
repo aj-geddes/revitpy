@@ -15,7 +15,7 @@ namespace RevitPy.Compatibility.Features
         /// <param name="featureName">Name of the feature</param>
         /// <returns>True if feature is enabled</returns>
         bool IsFeatureEnabled(string featureName);
-        
+
         /// <summary>
         /// Checks if a feature is enabled for a specific version
         /// </summary>
@@ -23,14 +23,14 @@ namespace RevitPy.Compatibility.Features
         /// <param name="version">Revit version</param>
         /// <returns>True if feature is enabled</returns>
         bool IsFeatureEnabled(string featureName, RevitVersion version);
-        
+
         /// <summary>
         /// Gets feature configuration for the current version
         /// </summary>
         /// <param name="featureName">Name of the feature</param>
         /// <returns>Feature configuration or null if not found</returns>
         FeatureConfiguration GetFeatureConfiguration(string featureName);
-        
+
         /// <summary>
         /// Gets feature configuration for a specific version
         /// </summary>
@@ -38,26 +38,26 @@ namespace RevitPy.Compatibility.Features
         /// <param name="version">Revit version</param>
         /// <returns>Feature configuration or null if not found</returns>
         FeatureConfiguration GetFeatureConfiguration(string featureName, RevitVersion version);
-        
+
         /// <summary>
         /// Gets all available features for the current version
         /// </summary>
         /// <returns>Collection of available features</returns>
         IEnumerable<FeatureConfiguration> GetAvailableFeatures();
-        
+
         /// <summary>
         /// Gets all available features for a specific version
         /// </summary>
         /// <param name="version">Revit version</param>
         /// <returns>Collection of available features</returns>
         IEnumerable<FeatureConfiguration> GetAvailableFeatures(RevitVersion version);
-        
+
         /// <summary>
         /// Registers a new feature
         /// </summary>
         /// <param name="feature">Feature configuration</param>
         void RegisterFeature(FeatureConfiguration feature);
-        
+
         /// <summary>
         /// Updates feature availability dynamically
         /// </summary>
@@ -65,13 +65,13 @@ namespace RevitPy.Compatibility.Features
         /// <param name="isEnabled">Whether the feature should be enabled</param>
         /// <param name="version">Specific version (optional)</param>
         void UpdateFeatureAvailability(string featureName, bool isEnabled, RevitVersion? version = null);
-        
+
         /// <summary>
         /// Gets feature compatibility matrix
         /// </summary>
         /// <returns>Compatibility matrix showing feature support across versions</returns>
         FeatureCompatibilityMatrix GetCompatibilityMatrix();
-        
+
         /// <summary>
         /// Validates feature dependencies
         /// </summary>
@@ -80,7 +80,7 @@ namespace RevitPy.Compatibility.Features
         /// <returns>Validation result</returns>
         Task<FeatureValidationResult> ValidateFeatureDependenciesAsync(string featureName, RevitVersion version);
     }
-    
+
     /// <summary>
     /// Feature configuration containing metadata and version requirements
     /// </summary>
@@ -102,27 +102,27 @@ namespace RevitPy.Compatibility.Features
         public FeaturePerformanceProfile PerformanceProfile { get; set; }
         public DateTime? DeprecationDate { get; set; }
         public string ReplacementFeature { get; set; }
-        
+
         public bool IsAvailableInVersion(RevitVersion version)
         {
             if (version < MinimumVersion)
                 return false;
-                
+
             if (MaximumVersion.HasValue && version > MaximumVersion.Value)
                 return false;
-                
+
             // Check version-specific overrides
             if (VersionConfigurations.TryGetValue(version, out var versionConfig))
             {
                 return versionConfig.IsEnabled;
             }
-            
+
             return true;
         }
-        
+
         public bool IsDeprecated => DeprecationDate.HasValue && DateTime.UtcNow > DeprecationDate.Value;
     }
-    
+
     /// <summary>
     /// Version-specific feature configuration
     /// </summary>
@@ -136,7 +136,7 @@ namespace RevitPy.Compatibility.Features
         public string[] KnownIssues { get; set; } = Array.Empty<string>();
         public string[] Workarounds { get; set; } = Array.Empty<string>();
     }
-    
+
     /// <summary>
     /// Feature categories for organization
     /// </summary>
@@ -159,7 +159,7 @@ namespace RevitPy.Compatibility.Features
         Security,
         Experimental
     }
-    
+
     /// <summary>
     /// Feature stability levels
     /// </summary>
@@ -172,7 +172,7 @@ namespace RevitPy.Compatibility.Features
         Deprecated,
         Obsolete
     }
-    
+
     /// <summary>
     /// Feature performance profile
     /// </summary>
@@ -187,7 +187,7 @@ namespace RevitPy.Compatibility.Features
         public bool SupportsAsync { get; set; }
         public Dictionary<RevitVersion, PerformanceCharacteristics> VersionPerformance { get; set; } = new();
     }
-    
+
     /// <summary>
     /// Performance impact levels
     /// </summary>
@@ -199,7 +199,7 @@ namespace RevitPy.Compatibility.Features
         High,
         Critical
     }
-    
+
     /// <summary>
     /// Performance characteristics for specific versions
     /// </summary>
@@ -211,7 +211,7 @@ namespace RevitPy.Compatibility.Features
         public PerformanceImpact Impact { get; set; }
         public string[] OptimizationNotes { get; set; } = Array.Empty<string>();
     }
-    
+
     /// <summary>
     /// Feature compatibility matrix
     /// </summary>
@@ -220,17 +220,17 @@ namespace RevitPy.Compatibility.Features
         public Dictionary<string, Dictionary<RevitVersion, FeatureAvailability>> Features { get; set; } = new();
         public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
         public string GeneratedBy { get; set; }
-        
+
         public void AddFeature(string featureName, RevitVersion version, FeatureAvailability availability)
         {
             if (!Features.ContainsKey(featureName))
             {
                 Features[featureName] = new Dictionary<RevitVersion, FeatureAvailability>();
             }
-            
+
             Features[featureName][version] = availability;
         }
-        
+
         public FeatureAvailability GetFeatureAvailability(string featureName, RevitVersion version)
         {
             if (Features.TryGetValue(featureName, out var versionMap) &&
@@ -238,11 +238,11 @@ namespace RevitPy.Compatibility.Features
             {
                 return availability;
             }
-            
+
             return FeatureAvailability.NotAvailable;
         }
     }
-    
+
     /// <summary>
     /// Feature availability status
     /// </summary>
@@ -256,7 +256,7 @@ namespace RevitPy.Compatibility.Features
         RequiresLicense,
         RequiresAdditionalSetup
     }
-    
+
     /// <summary>
     /// Feature validation result
     /// </summary>
@@ -271,7 +271,7 @@ namespace RevitPy.Compatibility.Features
         public List<string> ConflictingFeatures { get; set; } = new();
         public List<string> Recommendations { get; set; } = new();
     }
-    
+
     /// <summary>
     /// Validation issue
     /// </summary>
@@ -282,7 +282,7 @@ namespace RevitPy.Compatibility.Features
         public string Component { get; set; }
         public string Resolution { get; set; }
     }
-    
+
     /// <summary>
     /// Validation issue severity
     /// </summary>
@@ -293,7 +293,7 @@ namespace RevitPy.Compatibility.Features
         Error,
         Critical
     }
-    
+
     /// <summary>
     /// Built-in feature flags for RevitPy
     /// </summary>
@@ -308,7 +308,7 @@ namespace RevitPy.Compatibility.Features
         public const string FAMILY_API = "FamilyAPI";
         public const string VIEW_API = "ViewAPI";
         public const string SELECTION_API = "SelectionAPI";
-        
+
         // Version-specific Features
         public const string MODERN_TRANSACTIONS = "ModernTransactions";
         public const string ENHANCED_GEOMETRY = "EnhancedGeometry";
@@ -320,7 +320,7 @@ namespace RevitPy.Compatibility.Features
         public const string MODERN_UI = "ModernUI";
         public const string ENHANCED_SECURITY = "EnhancedSecurity";
         public const string WEBAPI_SUPPORT = "WebAPI_Support";
-        
+
         // RevitPy-specific Features
         public const string HOT_RELOAD = "HotReload";
         public const string PYTHON_DEBUGGING = "PythonDebugging";
@@ -332,7 +332,7 @@ namespace RevitPy.Compatibility.Features
         public const string PERFORMANCE_MONITORING = "PerformanceMonitoring";
         public const string ERROR_RECOVERY = "ErrorRecovery";
         public const string BATCH_OPERATIONS = "BatchOperations";
-        
+
         // Experimental Features
         public const string MACHINE_LEARNING = "MachineLearning";
         public const string REAL_TIME_COLLABORATION = "RealTimeCollaboration";

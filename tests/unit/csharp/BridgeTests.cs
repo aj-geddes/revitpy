@@ -28,7 +28,7 @@ public class BridgeTests : IDisposable
     public BridgeTests(ITestOutputHelper output)
     {
         _output = output;
-        
+
         // Setup mock services
         _mockRevitApp = new Mock<IRevitApplication>();
         _mockDocument = new Mock<IRevitDocument>();
@@ -101,7 +101,7 @@ public class BridgeTests : IDisposable
         // Arrange
         await SetupConnectedBridge();
         SetupMockDocument();
-        
+
         var parameters = JsonSerializer.Serialize(new { elementId = 12345 });
 
         _mockDocument
@@ -215,7 +215,7 @@ public class BridgeTests : IDisposable
 
         var mockElement = CreateMockElement(12345, "Test Wall");
         var mockTransaction = new Mock<ITransaction>();
-        
+
         _mockDocument.Setup(x => x.GetElement(It.IsAny<ElementId>())).Returns(mockElement);
         _mockDocument.Setup(x => x.NewTransaction(It.IsAny<string>())).Returns(mockTransaction.Object);
         mockTransaction.Setup(x => x.Start()).Returns(TransactionStatus.Started);
@@ -238,7 +238,7 @@ public class BridgeTests : IDisposable
         result.Should().NotBeNull();
         mockTransaction.Verify(x => x.Start(), Times.Once);
         mockTransaction.Verify(x => x.Commit(), Times.Once);
-        
+
         var response = JsonSerializer.Deserialize<Dictionary<string, object>>(result);
         response["success"].ToString().Should().Be("True");
     }
@@ -253,7 +253,7 @@ public class BridgeTests : IDisposable
 
         var mockElement = CreateMockElement(12345, "Test Wall");
         var mockTransaction = new Mock<ITransaction>();
-        
+
         _mockDocument.Setup(x => x.GetElement(It.IsAny<ElementId>())).Returns(mockElement);
         _mockDocument.Setup(x => x.NewTransaction(It.IsAny<string>())).Returns(mockTransaction.Object);
         mockTransaction.Setup(x => x.Start()).Returns(TransactionStatus.Started);
@@ -284,7 +284,7 @@ public class BridgeTests : IDisposable
 
         var mockTransaction = new Mock<ITransaction>();
         var mockNewElement = CreateMockElement(99999, "New Wall");
-        
+
         _mockDocument.Setup(x => x.NewTransaction(It.IsAny<string>())).Returns(mockTransaction.Object);
         _mockDocument.Setup(x => x.Create(It.IsAny<ElementCreationData>())).Returns(mockNewElement);
         mockTransaction.Setup(x => x.Start()).Returns(TransactionStatus.Started);
@@ -318,7 +318,7 @@ public class BridgeTests : IDisposable
 
         var mockElement = CreateMockElement(12345, "Test Wall");
         var mockTransaction = new Mock<ITransaction>();
-        
+
         _mockDocument.Setup(x => x.GetElement(It.IsAny<ElementId>())).Returns(mockElement);
         _mockDocument.Setup(x => x.NewTransaction(It.IsAny<string>())).Returns(mockTransaction.Object);
         _mockDocument.Setup(x => x.Delete(It.IsAny<ElementId>())).Returns(true);
@@ -334,7 +334,7 @@ public class BridgeTests : IDisposable
         result.Should().NotBeNull();
         var response = JsonSerializer.Deserialize<Dictionary<string, object>>(result);
         response["success"].ToString().Should().Be("True");
-        
+
         _mockDocument.Verify(x => x.Delete(It.IsAny<ElementId>()), Times.Once);
     }
 
@@ -366,7 +366,7 @@ public class BridgeTests : IDisposable
         // Assert
         results.Should().HaveCount(concurrentCalls);
         results.Should().OnlyContain(r => !string.IsNullOrEmpty(r));
-        
+
         // Verify each result contains the correct element ID
         for (int i = 0; i < concurrentCalls; i++)
         {
@@ -480,7 +480,7 @@ public class BridgeTests : IDisposable
 
         // Assert - Memory increase should be minimal (less than 10MB)
         var memoryIncrease = finalMemory - initialMemory;
-        memoryIncrease.Should().BeLessThan(10 * 1024 * 1024, 
+        memoryIncrease.Should().BeLessThan(10 * 1024 * 1024,
             $"Memory increased by {memoryIncrease / 1024 / 1024}MB");
     }
 
@@ -529,7 +529,7 @@ public class BridgeTests : IDisposable
         var mockDocuments = new Mock<IDocumentCollection>();
         mockDocuments.Setup(x => x.Size).Returns(1);
         mockDocuments.Setup(x => x.get_Item(0)).Returns(_mockDocument.Object);
-        
+
         _mockRevitApp.Setup(x => x.Documents).Returns(mockDocuments.Object);
     }
 
@@ -538,14 +538,14 @@ public class BridgeTests : IDisposable
         var mockElement = new Mock<IElement>();
         var mockCategory = new Mock<ICategory>();
         var mockElementId = new Mock<IElementId>();
-        
+
         mockElementId.Setup(x => x.IntegerValue).Returns(id);
         mockCategory.Setup(x => x.Name).Returns(category);
-        
+
         mockElement.Setup(x => x.Id).Returns(mockElementId.Object);
         mockElement.Setup(x => x.Name).Returns(name);
         mockElement.Setup(x => x.Category).Returns(mockCategory.Object);
-        
+
         return mockElement.Object;
     }
 
@@ -558,13 +558,13 @@ public class BridgeTests : IDisposable
                     .Setup(x => x.GetElement(It.IsAny<ElementId>()))
                     .Returns(CreateMockElement(12345, "Test Wall"));
                 break;
-                
+
             case "GetElements":
                 _mockDocument
                     .Setup(x => x.GetElements(It.IsAny<IElementFilter>()))
                     .Returns(new List<IElement> { CreateMockElement(12345, "Test Wall") });
                 break;
-                
+
             case "UpdateElement":
             case "DeleteElement":
                 var mockTransaction = new Mock<ITransaction>();
@@ -575,7 +575,7 @@ public class BridgeTests : IDisposable
                 mockTransaction.Setup(x => x.Start()).Returns(TransactionStatus.Started);
                 mockTransaction.Setup(x => x.Commit()).Returns(TransactionStatus.Committed);
                 break;
-                
+
             case "CreateElement":
                 var createTransaction = new Mock<ITransaction>();
                 _mockDocument.Setup(x => x.NewTransaction(It.IsAny<string>()))
@@ -608,12 +608,12 @@ public class BridgeEdgeCaseTests : IDisposable
     {
         _mockRevitApp = new Mock<IRevitApplication>();
         _mockLogger = new Mock<IRevitPyLogger>();
-        
+
         var services = new ServiceCollection();
         services.AddSingleton(_mockRevitApp.Object);
         services.AddSingleton(_mockLogger.Object);
         services.AddTransient<IRevitBridge, RevitBridge>();
-        
+
         var serviceProvider = services.BuildServiceProvider();
         _bridge = serviceProvider.GetRequiredService<IRevitBridge>() as RevitBridge;
     }

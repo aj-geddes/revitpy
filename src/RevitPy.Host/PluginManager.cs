@@ -21,13 +21,13 @@ public class PluginManager : IExtensionManager, IDisposable
     private readonly ConcurrentDictionary<string, ExtensionInfo> _loadedExtensions = new();
     private readonly ConcurrentDictionary<string, ExtensionLoadContext> _loadContexts = new();
     private readonly FileSystemWatcher[] _watchers;
-    
+
     private ExtensionManagerStats _stats = new();
     private readonly object _statsLock = new();
     private bool _isInitialized;
     private bool _isDisposed;
 
-    public IReadOnlyList<IExtensionInfo> LoadedExtensions => 
+    public IReadOnlyList<IExtensionInfo> LoadedExtensions =>
         _loadedExtensions.Values.Cast<IExtensionInfo>().ToList().AsReadOnly();
 
     public ExtensionManagerStats Stats
@@ -78,7 +78,7 @@ public class PluginManager : IExtensionManager, IDisposable
             if (_options.Extensions.EnableAutoDiscovery)
             {
                 await DiscoverExtensionsAsync(cancellationToken);
-                
+
                 // Auto-load discovered extensions
                 var discoveredExtensions = await DiscoverExtensionsAsync(cancellationToken);
                 foreach (var extensionPath in discoveredExtensions)
@@ -95,7 +95,7 @@ public class PluginManager : IExtensionManager, IDisposable
             }
 
             _isInitialized = true;
-            _logger.LogInformation("Plugin manager initialized successfully. Loaded {ExtensionCount} extensions", 
+            _logger.LogInformation("Plugin manager initialized successfully. Loaded {ExtensionCount} extensions",
                 _loadedExtensions.Count);
         }
         catch (Exception ex)
@@ -133,7 +133,7 @@ public class PluginManager : IExtensionManager, IDisposable
             }
 
             stopwatch.Stop();
-            _logger.LogInformation("Discovered {ExtensionCount} extensions in {Duration}ms", 
+            _logger.LogInformation("Discovered {ExtensionCount} extensions in {Duration}ms",
                 discoveredExtensions.Count, stopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
@@ -274,13 +274,13 @@ public class PluginManager : IExtensionManager, IDisposable
         _logger.LogInformation("Reloading extension: {ExtensionId} ({Name})", extensionId, extensionInfo.Name);
 
         var extensionPath = extensionInfo.Path;
-        
+
         // Unload the extension
         await UnloadExtensionAsync(extensionId, cancellationToken);
-        
+
         // Reload the extension
         await LoadExtensionAsync(extensionPath, cancellationToken);
-        
+
         _logger.LogInformation("Successfully reloaded extension: {ExtensionId}", extensionId);
     }
 
@@ -332,7 +332,7 @@ public class PluginManager : IExtensionManager, IDisposable
             }
 
             result.IsValid = !result.Errors.Any();
-            
+
             stopwatch.Stop();
             _logger.LogDebug("Extension validation completed in {Duration}ms. Valid: {IsValid}, Errors: {ErrorCount}",
                 stopwatch.ElapsedMilliseconds, result.IsValid, result.Errors.Count);
@@ -414,7 +414,7 @@ public class PluginManager : IExtensionManager, IDisposable
         try
         {
             var content = await File.ReadAllTextAsync(extensionInfo.Path);
-            
+
             // Extract metadata from Python comments or docstrings
             var lines = content.Split('\n');
             foreach (var line in lines.Take(20)) // Check first 20 lines
@@ -513,7 +513,7 @@ public class PluginManager : IExtensionManager, IDisposable
     private async Task<ExtensionLoadContext> LoadPythonExtensionAsync(ExtensionInfo extensionInfo, CancellationToken cancellationToken)
     {
         using var interpreter = await _interpreterPool.GetInterpreterAsync(TimeSpan.FromSeconds(5));
-        
+
         var script = await File.ReadAllTextAsync(extensionInfo.Path, cancellationToken);
         var result = await interpreter.ExecuteAsync(script, cancellationToken: cancellationToken);
 
@@ -546,7 +546,7 @@ public class PluginManager : IExtensionManager, IDisposable
     {
         // Implementation for native libraries (.dll files)
         var assembly = Assembly.LoadFrom(extensionInfo.Path);
-        
+
         return new ExtensionLoadContext
         {
             ExtensionId = extensionInfo.Id,
@@ -576,11 +576,11 @@ public class PluginManager : IExtensionManager, IDisposable
         try
         {
             var content = await File.ReadAllTextAsync(extensionPath, cancellationToken);
-            
+
             // Basic syntax validation using Python interpreter
             using var interpreter = await _interpreterPool.GetInterpreterAsync(TimeSpan.FromSeconds(5));
             var compileResult = await interpreter.ExecuteAsync($"compile({JsonSerializer.Serialize(content)}, {JsonSerializer.Serialize(extensionPath)}, 'exec')", cancellationToken: cancellationToken);
-            
+
             if (!compileResult.IsSuccess)
             {
                 result.Errors.Add($"Python syntax error: {compileResult.Error}");
@@ -611,7 +611,7 @@ public class PluginManager : IExtensionManager, IDisposable
         {
             // Validate that it's a valid .NET assembly
             var assembly = Assembly.ReflectionOnlyLoadFrom(extensionPath);
-            
+
             // Check for required interfaces or attributes
             // This would be specific to RevitPy extension requirements
         }
@@ -640,7 +640,7 @@ public class PluginManager : IExtensionManager, IDisposable
                 var suspiciousPatterns = new[]
                 {
                     "import os", "import subprocess", "import socket",
-                    "exec(", "eval(", "__import__", 
+                    "exec(", "eval(", "__import__",
                     "open(", "file(", "input("
                 };
 
@@ -746,7 +746,7 @@ public class PluginManager : IExtensionManager, IDisposable
             try
             {
                 await Task.Delay(1000); // Debounce file changes
-                
+
                 var extensionId = GenerateExtensionId(e.FullPath);
                 if (_loadedExtensions.ContainsKey(extensionId))
                 {
@@ -831,8 +831,8 @@ public class PluginManager : IExtensionManager, IDisposable
         }
 
         // Unload all extensions
-        var unloadTasks = _loadedExtensions.Keys.Select(extensionId => 
-            UnloadExtensionAsync(extensionId).ContinueWith(t => 
+        var unloadTasks = _loadedExtensions.Keys.Select(extensionId =>
+            UnloadExtensionAsync(extensionId).ContinueWith(t =>
             {
                 if (t.IsFaulted)
                     _logger.LogError(t.Exception, "Error unloading extension during disposal: {ExtensionId}", extensionId);
@@ -866,7 +866,7 @@ internal class ExtensionInfo : IExtensionInfo
     public DateTime LastActivity { get; set; } = DateTime.UtcNow;
     public Dictionary<string, object> Metadata { get; set; } = new();
     public IReadOnlyList<string> LoadErrors => _loadErrors.AsReadOnly();
-    
+
     internal List<string> _loadErrors = new();
     List<string> IExtensionInfo.LoadErrors => _loadErrors;
 }

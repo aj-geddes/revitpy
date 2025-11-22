@@ -93,7 +93,7 @@ public class ElementBridge : IElementBridge
         try
         {
             var cacheKey = GenerateCacheKey(document, elementId);
-            
+
             // Check cache first
             if (_elementCache.TryGetValue(cacheKey, out var cachedElement))
             {
@@ -103,13 +103,13 @@ public class ElementBridge : IElementBridge
 
             // Get element from Revit API
             var element = await GetElementFromRevitApi(document, elementId, cancellationToken);
-            
+
             if (element != null)
             {
                 // Cache the element
                 _elementCache[cacheKey] = element;
                 RecordCacheMiss(stopwatch.Elapsed);
-                
+
                 return _typeConverter.ConvertToPython(element);
             }
 
@@ -126,8 +126,8 @@ public class ElementBridge : IElementBridge
 
     /// <inheritdoc/>
     public async Task<Dictionary<object, object?>> GetElementsByIdsAsync(
-        object document, 
-        IEnumerable<object> elementIds, 
+        object document,
+        IEnumerable<object> elementIds,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -164,7 +164,7 @@ public class ElementBridge : IElementBridge
                 try
                 {
                     var batchElements = await GetElementsBatchFromRevitApi(document, uncachedIds, cancellationToken);
-                    
+
                     foreach (var kvp in batchElements)
                     {
                         var cacheKey = GenerateCacheKey(document, kvp.Key);
@@ -194,8 +194,8 @@ public class ElementBridge : IElementBridge
 
     /// <inheritdoc/>
     public async Task<IEnumerable<object>> GetElementsByTypeAsync(
-        object document, 
-        Type elementType, 
+        object document,
+        Type elementType,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -213,7 +213,7 @@ public class ElementBridge : IElementBridge
                 if (converted != null)
                 {
                     convertedElements.Add(converted);
-                    
+
                     // Cache elements for future retrieval
                     var elementId = GetElementId(element);
                     if (elementId != null)
@@ -237,8 +237,8 @@ public class ElementBridge : IElementBridge
 
     /// <inheritdoc/>
     public async Task<IEnumerable<object>> GetElementsByFilterAsync(
-        object document, 
-        object filter, 
+        object document,
+        object filter,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -256,7 +256,7 @@ public class ElementBridge : IElementBridge
                 if (converted != null)
                 {
                     convertedElements.Add(converted);
-                    
+
                     // Cache elements for future retrieval
                     var elementId = GetElementId(element);
                     if (elementId != null)
@@ -280,9 +280,9 @@ public class ElementBridge : IElementBridge
 
     /// <inheritdoc/>
     public async Task<object> CreateElementAsync(
-        object document, 
-        string elementTypeName, 
-        object[] parameters, 
+        object document,
+        string elementTypeName,
+        object[] parameters,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -297,7 +297,7 @@ public class ElementBridge : IElementBridge
                 async () =>
                 {
                     var element = await CreateElementInRevitApi(document, elementTypeName, parameters, cancellationToken);
-                    
+
                     if (element != null)
                     {
                         // Cache the newly created element
@@ -327,8 +327,8 @@ public class ElementBridge : IElementBridge
 
     /// <inheritdoc/>
     public async Task<bool> DeleteElementsAsync(
-        object document, 
-        IEnumerable<object> elementIds, 
+        object document,
+        IEnumerable<object> elementIds,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -346,7 +346,7 @@ public class ElementBridge : IElementBridge
                 async () =>
                 {
                     var success = await DeleteElementsInRevitApi(document, ids, cancellationToken);
-                    
+
                     if (success)
                     {
                         // Remove deleted elements from cache
@@ -374,9 +374,9 @@ public class ElementBridge : IElementBridge
 
     /// <inheritdoc/>
     public async Task<Dictionary<object, object>> CopyElementsAsync(
-        object sourceDocument, 
-        object targetDocument, 
-        IEnumerable<object> elementIds, 
+        object sourceDocument,
+        object targetDocument,
+        IEnumerable<object> elementIds,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(sourceDocument);
@@ -395,7 +395,7 @@ public class ElementBridge : IElementBridge
                 async () =>
                 {
                     var copyResults = await CopyElementsInRevitApi(sourceDocument, targetDocument, ids, cancellationToken);
-                    
+
                     // Cache copied elements in target document
                     foreach (var kvp in copyResults)
                     {
@@ -408,7 +408,7 @@ public class ElementBridge : IElementBridge
                     }
 
                     RecordElementCopy(ids.Count, copyResults.Count, stopwatch.Elapsed);
-                    
+
                     // Convert results to Python objects
                     var convertedResults = new Dictionary<object, object>();
                     foreach (var kvp in copyResults)
@@ -472,7 +472,7 @@ public class ElementBridge : IElementBridge
     {
         // This would use actual Revit API batch operations
         await Task.Delay(elementIds.Count, cancellationToken); // Simulate API call
-        
+
         var result = new Dictionary<object, object?>();
         foreach (var id in elementIds)
         {
@@ -485,7 +485,7 @@ public class ElementBridge : IElementBridge
     {
         // This would use actual Revit API filtered element collector
         await Task.Delay(10, cancellationToken); // Simulate API call
-        
+
         return Enumerable.Range(1, 5).Select(i => new { Id = i, Type = elementType.Name }); // Mock implementation
     }
 
@@ -493,7 +493,7 @@ public class ElementBridge : IElementBridge
     {
         // This would use actual Revit API filtered element collector with custom filter
         await Task.Delay(15, cancellationToken); // Simulate API call
-        
+
         return Enumerable.Range(1, 3).Select(i => new { Id = i, Filter = filter.GetType().Name }); // Mock implementation
     }
 
@@ -501,7 +501,7 @@ public class ElementBridge : IElementBridge
     {
         // This would use actual Revit API element creation methods
         await Task.Delay(5, cancellationToken); // Simulate API call
-        
+
         return new { Id = Guid.NewGuid(), Type = elementTypeName, Parameters = parameters }; // Mock implementation
     }
 
@@ -509,7 +509,7 @@ public class ElementBridge : IElementBridge
     {
         // This would use actual Revit API: document.Delete(elementIds)
         await Task.Delay(elementIds.Count * 2, cancellationToken); // Simulate API call
-        
+
         return true; // Mock implementation
     }
 
@@ -517,7 +517,7 @@ public class ElementBridge : IElementBridge
     {
         // This would use actual Revit API: ElementTransformUtils.CopyElements
         await Task.Delay(elementIds.Count * 3, cancellationToken); // Simulate API call
-        
+
         var result = new Dictionary<object, object>();
         foreach (var id in elementIds)
         {

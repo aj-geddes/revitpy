@@ -2,7 +2,7 @@
 
 ## Critical Vulnerabilities - REQUIRES ACTION
 - [ ] All critical (CVSS 9.0+) vulnerabilities patched
-- [ ] All high (CVSS 7.0-8.9) vulnerabilities addressed  
+- [ ] All high (CVSS 7.0-8.9) vulnerabilities addressed
 - [ ] JWT secret key properly configured and required
 - [ ] No hardcoded secrets in production code
 - [ ] Subprocess calls properly secured

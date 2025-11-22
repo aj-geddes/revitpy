@@ -38,15 +38,15 @@ export class PythonAnalyzer {
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            
+
             // Check for syntax issues
             const syntaxDiagnostics = this.checkSyntax(line, i);
             diagnostics.push(...syntaxDiagnostics);
-            
+
             // Check for common issues
             const commonDiagnostics = this.checkCommonIssues(line, i);
             diagnostics.push(...commonDiagnostics);
-            
+
             // Check for style issues
             const styleDiagnostics = this.checkStyle(line, i);
             diagnostics.push(...styleDiagnostics);
@@ -57,14 +57,14 @@ export class PythonAnalyzer {
 
     private checkSyntax(line: string, lineNumber: number): Diagnostic[] {
         const diagnostics: Diagnostic[] = [];
-        
+
         // Check for unmatched brackets
         const brackets = { '(': ')', '[': ']', '{': '}' };
         const stack: string[] = [];
-        
+
         for (let i = 0; i < line.length; i++) {
             const char = line[i];
-            
+
             if (Object.keys(brackets).includes(char)) {
                 stack.push(char);
             } else if (Object.values(brackets).includes(char)) {
@@ -82,7 +82,7 @@ export class PythonAnalyzer {
                 }
             }
         }
-        
+
         // Check for unclosed brackets at end of line
         if (stack.length > 0) {
             const unclosed = stack[stack.length - 1];
@@ -122,7 +122,7 @@ export class PythonAnalyzer {
         const variableUsage = line.match(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g);
         if (variableUsage) {
             for (const variable of variableUsage) {
-                if (!this.pythonKeywords.includes(variable) && 
+                if (!this.pythonKeywords.includes(variable) &&
                     !this.builtinFunctions.includes(variable) &&
                     !this.isDefinedVariable(variable, line)) {
                     // This is a very basic check - in reality, we'd need more context
@@ -194,7 +194,7 @@ export class PythonAnalyzer {
 
     async getCompletions(document: TextDocument, position: Position): Promise<CompletionItem[]> {
         const completions: CompletionItem[] = [];
-        
+
         const line = document.getText({
             start: { line: position.line, character: 0 },
             end: { line: position.line, character: position.character }
@@ -204,10 +204,10 @@ export class PythonAnalyzer {
 
         // Add keyword completions
         completions.push(...this.getKeywordCompletions(context.prefix));
-        
+
         // Add builtin function completions
         completions.push(...this.getBuiltinCompletions(context.prefix));
-        
+
         // Add module completions for import statements
         if (context.isImport) {
             completions.push(...this.getModuleCompletions(context.prefix));
@@ -223,11 +223,11 @@ export class PythonAnalyzer {
         const beforeCursor = line;
         const wordMatch = beforeCursor.match(/(\w+)$/);
         const prefix = wordMatch ? wordMatch[1] : '';
-        
+
         const isImport = beforeCursor.includes('import ') || beforeCursor.includes('from ');
         const isAfterDot = beforeCursor.endsWith('.');
         const isInString = this.isInString(beforeCursor);
-        
+
         return {
             prefix,
             isImport,
@@ -333,13 +333,13 @@ export class PythonAnalyzer {
             /^\s*(if|elif|else|for|while|def|class|try|except|finally|with|match|case)\b/,
             /^\s*\w+\s*:/  // Dictionary or case label
         ];
-        
+
         return colonStatements.some(pattern => pattern.test(line));
     }
 
     private isDefinedVariable(variable: string, line: string): boolean {
         // Very basic check - in a real implementation, this would need scope analysis
-        return line.includes(`${variable} =`) || 
+        return line.includes(`${variable} =`) ||
                line.includes(`def ${variable}`) ||
                line.includes(`class ${variable}`) ||
                line.includes(`import ${variable}`) ||

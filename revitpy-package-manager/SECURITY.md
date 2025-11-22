@@ -267,7 +267,7 @@ We will respond within 24 hours and provide updates on resolution progress.
 # Default security headers (customizable via environment)
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY", 
+    "X-Frame-Options": "DENY",
     "X-XSS-Protection": "1; mode=block",
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "Content-Security-Policy": "default-src 'self'; script-src 'self'",
@@ -284,6 +284,6 @@ SECURITY_HEADERS = {
 
 ---
 
-**Last Updated**: August 19, 2025  
-**Version**: 1.0  
+**Last Updated**: August 19, 2025
+**Version**: 1.0
 **Next Review**: November 19, 2025

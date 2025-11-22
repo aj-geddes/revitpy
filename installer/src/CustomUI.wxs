@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  
+
   <Fragment>
     <!-- Custom User Interface -->
     <UI Id="RevitPyInstaller">
       <!-- Reference standard dialogs -->
       <UIRef Id="WixUI_Common" />
-      
+
       <!-- Welcome Dialog -->
       <Dialog Id="RevitPyWelcomeDlg" Width="370" Height="270" Title="!(loc.WelcomeDlg_Title)">
         <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
@@ -32,13 +32,13 @@
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
         <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Revit Installations Detected" />
         <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="The following Revit installations were detected:" />
-        
+
         <!-- Revit Version Checkboxes -->
         <Control Id="Revit2022Check" Type="CheckBox" X="25" Y="60" Width="320" Height="15" Property="INSTALL_REVIT_2022" CheckBoxValue="1" Text="Autodesk Revit 2022" />
         <Control Id="Revit2023Check" Type="CheckBox" X="25" Y="80" Width="320" Height="15" Property="INSTALL_REVIT_2023" CheckBoxValue="1" Text="Autodesk Revit 2023" />
         <Control Id="Revit2024Check" Type="CheckBox" X="25" Y="100" Width="320" Height="15" Property="INSTALL_REVIT_2024" CheckBoxValue="1" Text="Autodesk Revit 2024" />
         <Control Id="Revit2025Check" Type="CheckBox" X="25" Y="120" Width="320" Height="15" Property="INSTALL_REVIT_2025" CheckBoxValue="1" Text="Autodesk Revit 2025" />
-        
+
         <!-- Python Installation Status -->
         <Control Id="PythonStatusText" Type="Text" X="25" Y="150" Width="320" Height="15" Text="Python Status:" />
         <Control Id="PythonVersionText" Type="Text" X="25" Y="170" Width="320" Height="15" Text="[PYTHON_STATUS_TEXT]" />
@@ -71,7 +71,7 @@
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
         <Control Id="Description" Type="Text" X="135" Y="80" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="RevitPy has been successfully installed. The add-in is now available in your Revit installations." />
         <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Bigger}RevitPy Installation Complete" />
-        
+
         <!-- Launch options -->
         <Control Id="LaunchCheckBox" Type="CheckBox" X="135" Y="140" Width="220" Height="15" Property="LAUNCH_DOCUMENTATION" CheckBoxValue="1" Text="View RevitPy documentation" />
         <Control Id="ServiceCheckBox" Type="CheckBox" X="135" Y="160" Width="220" Height="15" Property="START_SERVICE" CheckBoxValue="1" Text="Start RevitPy Host Service" />
@@ -123,17 +123,17 @@
     </UI>
 
     <!-- Additional Custom Actions for UI -->
-    <CustomAction Id="LaunchDocumentation" 
-                  ExeCommand="[#SystemFolder]cmd.exe /c start https://revitpy.readthedocs.io/" 
-                  Directory="SystemFolder" 
+    <CustomAction Id="LaunchDocumentation"
+                  ExeCommand="[#SystemFolder]cmd.exe /c start https://revitpy.readthedocs.io/"
+                  Directory="SystemFolder"
                   Return="asyncNoWait" />
 
-    <CustomAction Id="SetPythonStatusText" 
-                  Property="PYTHON_STATUS_TEXT" 
+    <CustomAction Id="SetPythonStatusText"
+                  Property="PYTHON_STATUS_TEXT"
                   Value="Python [PYTHON_VERSION] detected" />
 
-    <CustomAction Id="SetPythonNotFoundText" 
-                  Property="PYTHON_STATUS_TEXT" 
+    <CustomAction Id="SetPythonNotFoundText"
+                  Property="PYTHON_STATUS_TEXT"
                   Value="Python not found - will install Python 3.11" />
 
     <!-- Conditional text setting -->

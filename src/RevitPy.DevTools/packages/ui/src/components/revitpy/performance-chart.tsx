@@ -26,9 +26,9 @@ export interface PerformanceChartProps extends React.HTMLAttributes<HTMLDivEleme
 }
 
 const PerformanceChart = React.forwardRef<HTMLDivElement, PerformanceChartProps>(
-  ({ 
-    className, 
-    data, 
+  ({
+    className,
+    data,
     type = 'line',
     showGrid = true,
     showTooltip = true,
@@ -36,7 +36,7 @@ const PerformanceChart = React.forwardRef<HTMLDivElement, PerformanceChartProps>
     timeRange = 10,
     refreshInterval = 5000,
     onRefresh,
-    ...props 
+    ...props
   }, ref) => {
     const [selectedMetric, setSelectedMetric] = React.useState<string>('memory');
     const [isLive, setIsLive] = React.useState(true);
@@ -59,7 +59,7 @@ const PerformanceChart = React.forwardRef<HTMLDivElement, PerformanceChartProps>
     }, [data, timeRange]);
 
     const formatTimestamp = (timestamp: number) => {
-      return new Date(timestamp).toLocaleTimeString('en-US', { 
+      return new Date(timestamp).toLocaleTimeString('en-US', {
         hour12: false,
         minute: '2-digit',
         second: '2-digit'
@@ -137,15 +137,15 @@ const PerformanceChart = React.forwardRef<HTMLDivElement, PerformanceChartProps>
                   Real-time system performance monitoring
                 </CardDescription>
               </div>
-              
+
               <div className="flex items-center space-x-2">
-                <Badge 
+                <Badge
                   variant={isLive ? 'default' : 'outline'}
                   className={isLive ? 'animate-pulse' : ''}
                 >
                   {isLive ? 'Live' : 'Paused'}
                 </Badge>
-                
+
                 <button
                   onClick={() => setIsLive(!isLive)}
                   className="text-sm text-muted-foreground hover:text-foreground"
@@ -155,7 +155,7 @@ const PerformanceChart = React.forwardRef<HTMLDivElement, PerformanceChartProps>
               </div>
             </div>
           </CardHeader>
-          
+
           <CardContent>
             <Tabs value={selectedMetric} onValueChange={setSelectedMetric}>
               <div className="flex items-center justify-between mb-4">
@@ -177,7 +177,7 @@ const PerformanceChart = React.forwardRef<HTMLDivElement, PerformanceChartProps>
                     <span>Response</span>
                   </TabsTrigger>
                 </TabsList>
-                
+
                 <div className="flex items-center space-x-4 text-sm">
                   <div className="text-center">
                     <div className="text-muted-foreground">Current</div>
@@ -201,14 +201,14 @@ const PerformanceChart = React.forwardRef<HTMLDivElement, PerformanceChartProps>
                     <ResponsiveContainer>
                       <ChartComponent data={filteredData}>
                         {showGrid && <CartesianGrid strokeDasharray="3 3" />}
-                        <XAxis 
+                        <XAxis
                           dataKey="timestamp"
                           tickFormatter={formatTimestamp}
                           type="number"
                           scale="time"
                           domain={['dataMin', 'dataMax']}
                         />
-                        <YAxis 
+                        <YAxis
                           tickFormatter={(value) => formatValue(value, metric)}
                         />
                         {showTooltip && (
@@ -220,7 +220,7 @@ const PerformanceChart = React.forwardRef<HTMLDivElement, PerformanceChartProps>
                             ]}
                           />
                         )}
-                        
+
                         {type === 'area' ? (
                           <Area
                             type="monotone"

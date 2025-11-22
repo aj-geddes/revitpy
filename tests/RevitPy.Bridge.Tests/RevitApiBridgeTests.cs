@@ -82,7 +82,7 @@ public class RevitApiBridgeTests : IDisposable
         // Arrange
         var bridge = CreateBridge();
         var code = "2 + 2";
-        
+
         _mockTypeConverter.Setup(x => x.ConvertToPython(It.IsAny<object>()))
             .Returns((object obj) => obj);
 
@@ -314,7 +314,7 @@ public class RevitApiBridgePerformanceTests : IDisposable
             var stats = _bridge.GetStats();
             stopwatch.Stop();
             times.Add(stopwatch.ElapsedTicks);
-            
+
             Assert.NotNull(stats);
         }
 
@@ -386,7 +386,7 @@ public class RevitApiBridgePerformanceTests : IDisposable
         for (int i = 0; i < iterations; i++)
         {
             var stats = _bridge.GetStats();
-            
+
             // Simulate some operations that might create objects
             var temp = new Dictionary<string, object>
             {
@@ -405,7 +405,7 @@ public class RevitApiBridgePerformanceTests : IDisposable
 
         // Assert
         // Memory growth should be reasonable (less than 10MB for 1000 iterations)
-        Assert.True(memoryGrowth < 10 * 1024 * 1024, 
+        Assert.True(memoryGrowth < 10 * 1024 * 1024,
             $"Memory growth of {memoryGrowth / (1024 * 1024)}MB is too high");
     }
 
@@ -432,7 +432,7 @@ public class BridgeServiceCollectionExtensionsTests
 
         // Assert
         var serviceProvider = services.BuildServiceProvider();
-        
+
         Assert.NotNull(serviceProvider.GetService<IRevitTypeConverter>());
         Assert.NotNull(serviceProvider.GetService<ITransactionManager>());
         Assert.NotNull(serviceProvider.GetService<IElementBridge>());
@@ -454,7 +454,7 @@ public class BridgeServiceCollectionExtensionsTests
         // Assert
         var serviceProvider = services.BuildServiceProvider();
         var config = serviceProvider.GetService<RevitBridgeConfiguration>();
-        
+
         Assert.NotNull(config);
         Assert.True(config.EnableCaching);
         Assert.True(config.EnablePerformanceMonitoring);
@@ -475,7 +475,7 @@ public class BridgeServiceCollectionExtensionsTests
         // Assert
         var serviceProvider = services.BuildServiceProvider();
         var config = serviceProvider.GetService<RevitBridgeConfiguration>();
-        
+
         Assert.NotNull(config);
         Assert.True(config.EnableCaching);
         Assert.True(config.EnablePerformanceMonitoring);
@@ -496,7 +496,7 @@ public class RevitBridgeHealthCheckTests
         // Arrange
         var mockBridge = new Mock<IRevitBridge>();
         var mockLogger = new Mock<ILogger<RevitBridgeHealthCheck>>();
-        
+
         mockBridge.Setup(x => x.ExecutePythonCodeAsync("1 + 1", null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(2);
 
@@ -516,7 +516,7 @@ public class RevitBridgeHealthCheckTests
         var mockBridge = new Mock<IRevitBridge>();
         var mockLogger = new Mock<ILogger<RevitBridgeHealthCheck>>();
         var mockPyObject = new Mock<PyObject>();
-        
+
         mockBridge.Setup(x => x.ExecutePythonCodeAsync(It.IsAny<string>(), null, It.IsAny<CancellationToken>()))
             .ReturnsAsync("Python 3.9.0");
         mockBridge.Setup(x => x.ImportPythonModuleAsync("math", false, It.IsAny<CancellationToken>()))

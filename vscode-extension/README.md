@@ -46,7 +46,7 @@ A comprehensive Visual Studio Code extension for RevitPy development that provid
    ```bash
    # From VS Code Marketplace (when published)
    code --install-extension revitpy.revitpy-vscode
-   
+
    # Or install from VSIX
    code --install-extension revitpy-vscode-1.0.0.vsix
    ```

@@ -155,7 +155,7 @@ public class PythonInterpreterTests : IDisposable
 
         // Act
         await _interpreter.ResetAsync();
-        
+
         // Assert
         var retrievedValue = await _interpreter.EvaluateAsync<string>("test_var if 'test_var' in globals() else None");
         retrievedValue.Should().BeNull();

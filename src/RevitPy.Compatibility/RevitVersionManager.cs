@@ -17,7 +17,7 @@ namespace RevitPy.Compatibility
         private readonly ILogger<RevitVersionManager> _logger;
         private readonly Dictionary<RevitVersion, VersionConfiguration> _versionConfigurations;
         private readonly Dictionary<string, RevitVersion> _featureMinVersions;
-        
+
         private static readonly Dictionary<RevitVersion, string[]> VersionFeatures = new()
         {
             {
@@ -59,33 +59,33 @@ namespace RevitPy.Compatibility
                 }
             }
         };
-        
+
         public RevitVersionManager(ILogger<RevitVersionManager> logger)
         {
             _logger = logger;
             _versionConfigurations = InitializeVersionConfigurations();
             _featureMinVersions = InitializeFeatureMinVersions();
         }
-        
+
         public async Task<RevitVersionInfo> DetectRevitVersionAsync()
         {
             try
             {
                 _logger.LogInformation("Starting Revit version detection");
-                
+
                 // Try multiple detection methods
                 var versionInfo = await TryDetectFromRegistryAsync() ??
                                  await TryDetectFromApplicationAsync() ??
                                  await TryDetectFromFileSystemAsync() ??
                                  await TryDetectFromEnvironmentAsync();
-                
+
                 if (versionInfo != null)
                 {
-                    _logger.LogInformation("Detected Revit version: {Version} ({VersionString})", 
+                    _logger.LogInformation("Detected Revit version: {Version} ({VersionString})",
                         versionInfo.Version, versionInfo.VersionString);
                     return versionInfo;
                 }
-                
+
                 _logger.LogWarning("Could not detect Revit version, returning unknown");
                 return new RevitVersionInfo
                 {
@@ -100,31 +100,31 @@ namespace RevitPy.Compatibility
                 throw;
             }
         }
-        
+
         public IEnumerable<string> GetSupportedFeatures(RevitVersion version)
         {
             if (VersionFeatures.TryGetValue(version, out var features))
             {
                 return features;
             }
-            
+
             _logger.LogWarning("No features defined for Revit version: {Version}", version);
             return Enumerable.Empty<string>();
         }
-        
+
         public bool IsFeatureAvailable(string feature, RevitVersion version)
         {
             var supportedFeatures = GetSupportedFeatures(version);
             return supportedFeatures.Contains(feature, StringComparer.OrdinalIgnoreCase);
         }
-        
+
         public RevitVersion GetMinimumVersionForFeature(string feature)
         {
             if (_featureMinVersions.TryGetValue(feature, out var version))
             {
                 return version;
             }
-            
+
             // Find the minimum version that supports this feature
             foreach (var kvp in VersionFeatures.OrderBy(x => x.Key))
             {
@@ -133,21 +133,21 @@ namespace RevitPy.Compatibility
                     return kvp.Key;
                 }
             }
-            
+
             return RevitVersion.Unknown;
         }
-        
+
         public async Task<CompatibilityResult> ValidateCompatibilityAsync()
         {
             var result = new CompatibilityResult();
-            
+
             try
             {
                 _logger.LogInformation("Starting compatibility validation");
-                
+
                 // Detect current version
                 result.DetectedVersion = await DetectRevitVersionAsync();
-                
+
                 if (result.DetectedVersion.Version == RevitVersion.Unknown)
                 {
                     result.IsCompatible = false;
@@ -160,7 +160,7 @@ namespace RevitPy.Compatibility
                     });
                     return result;
                 }
-                
+
                 // Check minimum version requirement
                 if (result.DetectedVersion.Version < RevitVersion.Revit2022)
                 {
@@ -174,22 +174,22 @@ namespace RevitPy.Compatibility
                     });
                     return result;
                 }
-                
+
                 // Validate features
                 await ValidateFeaturesAsync(result);
-                
+
                 // Check .NET compatibility
                 await ValidateDotNetCompatibilityAsync(result);
-                
+
                 // Check installation integrity
                 await ValidateInstallationAsync(result);
-                
-                result.IsCompatible = !result.Issues.Any(i => 
-                    i.Severity == CompatibilityIssueSeverity.Critical || 
+
+                result.IsCompatible = !result.Issues.Any(i =>
+                    i.Severity == CompatibilityIssueSeverity.Critical ||
                     i.Severity == CompatibilityIssueSeverity.Error);
-                
+
                 _logger.LogInformation("Compatibility validation completed. Compatible: {IsCompatible}", result.IsCompatible);
-                
+
                 return result;
             }
             catch (Exception ex)
@@ -206,18 +206,18 @@ namespace RevitPy.Compatibility
                 return result;
             }
         }
-        
+
         public VersionConfiguration GetVersionConfiguration(RevitVersion version)
         {
             if (_versionConfigurations.TryGetValue(version, out var config))
             {
                 return config;
             }
-            
+
             _logger.LogWarning("No configuration found for Revit version: {Version}", version);
             return new VersionConfiguration { Version = version };
         }
-        
+
         private async Task<RevitVersionInfo> TryDetectFromRegistryAsync()
         {
             try
@@ -227,22 +227,22 @@ namespace RevitPy.Compatibility
                     @"SOFTWARE\Autodesk\Revit",
                     @"SOFTWARE\WOW6432Node\Autodesk\Revit"
                 };
-                
+
                 foreach (var path in registryPaths)
                 {
                     using var key = Registry.LocalMachine.OpenSubKey(path);
                     if (key == null) continue;
-                    
+
                     foreach (var subKeyName in key.GetSubKeyNames())
                     {
                         if (TryParseVersionFromKey(subKeyName, out var version, out var versionString))
                         {
                             using var versionKey = key.OpenSubKey(subKeyName);
                             if (versionKey == null) continue;
-                            
+
                             var installPath = versionKey.GetValue("InstallationPath") as string;
                             var productName = versionKey.GetValue("ProductName") as string;
-                            
+
                             return new RevitVersionInfo
                             {
                                 Version = version,
@@ -254,7 +254,7 @@ namespace RevitPy.Compatibility
                         }
                     }
                 }
-                
+
                 return null;
             }
             catch (Exception ex)
@@ -263,7 +263,7 @@ namespace RevitPy.Compatibility
                 return null;
             }
         }
-        
+
         private async Task<RevitVersionInfo> TryDetectFromApplicationAsync()
         {
             try
@@ -272,7 +272,7 @@ namespace RevitPy.Compatibility
                 var revitAssemblies = AppDomain.CurrentDomain.GetAssemblies()
                     .Where(a => a.FullName.Contains("RevitAPI") || a.FullName.Contains("Autodesk.Revit"))
                     .ToList();
-                
+
                 foreach (var assembly in revitAssemblies)
                 {
                     var version = assembly.GetName().Version;
@@ -287,7 +287,7 @@ namespace RevitPy.Compatibility
                         };
                     }
                 }
-                
+
                 return null;
             }
             catch (Exception ex)
@@ -296,7 +296,7 @@ namespace RevitPy.Compatibility
                 return null;
             }
         }
-        
+
         private async Task<RevitVersionInfo> TryDetectFromFileSystemAsync()
         {
             try
@@ -306,13 +306,13 @@ namespace RevitPy.Compatibility
                     @"C:\Program Files\Autodesk",
                     @"C:\Program Files (x86)\Autodesk"
                 };
-                
+
                 foreach (var basePath in commonPaths)
                 {
                     if (!Directory.Exists(basePath)) continue;
-                    
+
                     var revitDirs = Directory.GetDirectories(basePath, "Revit*", SearchOption.TopDirectoryOnly);
-                    
+
                     foreach (var dir in revitDirs)
                     {
                         var dirName = Path.GetFileName(dir);
@@ -335,7 +335,7 @@ namespace RevitPy.Compatibility
                         }
                     }
                 }
-                
+
                 return null;
             }
             catch (Exception ex)
@@ -344,7 +344,7 @@ namespace RevitPy.Compatibility
                 return null;
             }
         }
-        
+
         private async Task<RevitVersionInfo> TryDetectFromEnvironmentAsync()
         {
             try
@@ -371,7 +371,7 @@ namespace RevitPy.Compatibility
                         }
                     }
                 }
-                
+
                 return null;
             }
             catch (Exception ex)
@@ -380,41 +380,41 @@ namespace RevitPy.Compatibility
                 return null;
             }
         }
-        
+
         private bool TryParseVersionFromKey(string keyName, out RevitVersion version, out string versionString)
         {
             version = RevitVersion.Unknown;
             versionString = keyName;
-            
+
             // Extract year from key name (e.g., "2025" from "Revit 2025")
             var yearMatch = System.Text.RegularExpressions.Regex.Match(keyName, @"(\d{4})");
             if (yearMatch.Success && int.TryParse(yearMatch.Groups[1].Value, out var year))
             {
                 return TryParseRevitVersion(year.ToString(), out version);
             }
-            
+
             return false;
         }
-        
+
         private bool TryParseVersionFromPath(string pathName, out RevitVersion version, out string versionString)
         {
             version = RevitVersion.Unknown;
             versionString = pathName;
-            
+
             // Extract year from path name (e.g., "2025" from "Revit 2025")
             var yearMatch = System.Text.RegularExpressions.Regex.Match(pathName, @"(\d{4})");
             if (yearMatch.Success && int.TryParse(yearMatch.Groups[1].Value, out var year))
             {
                 return TryParseRevitVersion(year.ToString(), out version);
             }
-            
+
             return false;
         }
-        
+
         private bool TryParseRevitVersion(string versionString, out RevitVersion version)
         {
             version = RevitVersion.Unknown;
-            
+
             if (int.TryParse(versionString, out var year))
             {
                 version = year switch
@@ -427,49 +427,49 @@ namespace RevitPy.Compatibility
                     _ when year > 2026 => RevitVersion.Future,
                     _ => RevitVersion.Unknown
                 };
-                
+
                 return version != RevitVersion.Unknown;
             }
-            
+
             return false;
         }
-        
+
         private async Task ValidateFeaturesAsync(CompatibilityResult result)
         {
             var supportedFeatures = GetSupportedFeatures(result.DetectedVersion.Version);
-            
+
             foreach (var feature in supportedFeatures)
             {
                 result.FeatureCompatibility[feature] = true;
             }
-            
+
             // Check for missing features in older versions
             if (result.DetectedVersion.Version < RevitVersion.Revit2023)
             {
                 result.Warnings.Add("Modern transaction API is not available in this version. Legacy API will be used.");
             }
-            
+
             if (result.DetectedVersion.Version < RevitVersion.Revit2024)
             {
                 result.Warnings.Add("Cloud model support is not available in this version.");
             }
         }
-        
+
         private async Task ValidateDotNetCompatibilityAsync(CompatibilityResult result)
         {
             var config = GetVersionConfiguration(result.DetectedVersion.Version);
-            
+
             // Check .NET Framework version
             var currentFramework = Environment.Version;
             _logger.LogDebug("Current .NET Framework version: {Version}", currentFramework);
-            
+
             // Add framework compatibility check based on Revit version
             if (result.DetectedVersion.Version >= RevitVersion.Revit2025)
             {
                 result.Recommendations.Add("Consider using .NET 8+ features when available");
             }
         }
-        
+
         private async Task ValidateInstallationAsync(CompatibilityResult result)
         {
             if (string.IsNullOrEmpty(result.DetectedVersion.InstallationPath))
@@ -477,7 +477,7 @@ namespace RevitPy.Compatibility
                 result.Warnings.Add("Installation path could not be determined");
                 return;
             }
-            
+
             if (!Directory.Exists(result.DetectedVersion.InstallationPath))
             {
                 result.Issues.Add(new CompatibilityIssue
@@ -489,7 +489,7 @@ namespace RevitPy.Compatibility
                 });
             }
         }
-        
+
         private Dictionary<RevitVersion, VersionConfiguration> InitializeVersionConfigurations()
         {
             return new Dictionary<RevitVersion, VersionConfiguration>
@@ -534,7 +534,7 @@ namespace RevitPy.Compatibility
                 }
             };
         }
-        
+
         private Dictionary<string, RevitVersion> InitializeFeatureMinVersions()
         {
             return new Dictionary<string, RevitVersion>

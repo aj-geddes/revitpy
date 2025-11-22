@@ -9,10 +9,10 @@ import path from 'path';
 import pino from 'pino';
 import mime from 'mime';
 
-import type { 
-  DevServerConfig, 
-  Asset, 
-  ProcessingResult 
+import type {
+  DevServerConfig,
+  Asset,
+  ProcessingResult
 } from '../types/index.js';
 
 export class AssetProcessor extends EventEmitter {
@@ -29,7 +29,7 @@ export class AssetProcessor extends EventEmitter {
   async processFile(filePath: string): Promise<string> {
     try {
       const content = await fs.readFile(filePath, 'utf-8');
-      
+
       // Simple processing - would include optimization, minification, etc.
       return content;
     } catch (error) {

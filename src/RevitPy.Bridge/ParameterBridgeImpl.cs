@@ -107,7 +107,7 @@ public class ParameterBridge : IParameterBridge
         try
         {
             var cacheKey = GenerateParameterCacheKey(element, parameter);
-            
+
             // Check cache first
             if (_parameterCache.TryGetValue(cacheKey, out var cachedValue))
             {
@@ -117,19 +117,19 @@ public class ParameterBridge : IParameterBridge
 
             // Get parameter info
             var paramInfo = await GetParameterInfoAsync(parameter, cancellationToken);
-            
+
             // Get value from Revit API
             var rawValue = await GetParameterValueFromRevitApi(element, parameter, paramInfo, cancellationToken);
-            
+
             if (rawValue != null)
             {
                 // Convert based on parameter type
                 var convertedValue = ConvertParameterValue(rawValue, paramInfo);
-                
+
                 // Cache the converted value
                 _parameterCache[cacheKey] = convertedValue;
                 RecordCacheMiss(stopwatch.Elapsed);
-                
+
                 return _typeConverter.ConvertToPython(convertedValue);
             }
 
@@ -155,7 +155,7 @@ public class ParameterBridge : IParameterBridge
         {
             // Get parameter info for validation
             var paramInfo = await GetParameterInfoAsync(parameter, cancellationToken);
-            
+
             // Validate the value
             var validationResult = await ValidateParameterValueAsync(parameter, value, cancellationToken);
             if (!validationResult.IsValid)
@@ -171,10 +171,10 @@ public class ParameterBridge : IParameterBridge
                 {
                     // Convert value to Revit type
                     var revitValue = ConvertValueForParameter(value, paramInfo);
-                    
+
                     // Set value in Revit API
                     var success = await SetParameterValueInRevitApi(element, parameter, revitValue, paramInfo, cancellationToken);
-                    
+
                     if (success)
                     {
                         // Update cache
@@ -236,7 +236,7 @@ public class ParameterBridge : IParameterBridge
                 if (uncachedParams.Count > 0)
                 {
                     var batchValues = await GetParameterValuesBatchFromRevitApi(element, uncachedParams, cancellationToken);
-                    
+
                     foreach (var kvp in batchValues)
                     {
                         var cacheKey = GenerateParameterCacheKey(element, kvp.Key);
@@ -294,7 +294,7 @@ public class ParameterBridge : IParameterBridge
                         else
                         {
                             result[kvp.Key] = false;
-                            _logger.LogWarning("Parameter validation failed for {Parameter}: {Message}", 
+                            _logger.LogWarning("Parameter validation failed for {Parameter}: {Message}",
                                 kvp.Key, validationResult.ValidationMessage);
                         }
                     }
@@ -304,11 +304,11 @@ public class ParameterBridge : IParameterBridge
                     try
                     {
                         var batchResults = await SetParameterValuesBatchInRevitApi(element, validatedValues, cancellationToken);
-                        
+
                         foreach (var kvp in batchResults)
                         {
                             result[kvp.Key] = kvp.Value;
-                            
+
                             if (kvp.Value)
                             {
                                 // Update cache
@@ -348,7 +348,7 @@ public class ParameterBridge : IParameterBridge
         try
         {
             var elementType = element.GetType();
-            
+
             // Check cache for parameter definitions
             if (_elementParameterCache.TryGetValue(elementType, out var cachedParams))
             {
@@ -359,10 +359,10 @@ public class ParameterBridge : IParameterBridge
             // Get parameters from Revit API
             var parameters = await GetElementParametersFromRevitApi(element, cancellationToken);
             var paramDefinitions = parameters.Select(CreateParameterDefinition).ToArray();
-            
+
             // Cache parameter definitions
             _elementParameterCache[elementType] = paramDefinitions;
-            
+
             RecordCacheMiss(stopwatch.Elapsed);
             return paramDefinitions.Select(p => _typeConverter.ConvertToPython(p)).OfType<object>();
         }
@@ -390,7 +390,7 @@ public class ParameterBridge : IParameterBridge
                 async () =>
                 {
                     var parameter = await CreateSharedParameterInRevitApi(document, parameterName, parameterType, categorySet, cancellationToken);
-                    
+
                     if (parameter != null)
                     {
                         RecordParameterCreation("Shared", parameterName, stopwatch.Elapsed);
@@ -426,7 +426,7 @@ public class ParameterBridge : IParameterBridge
                 async () =>
                 {
                     var parameter = await CreateProjectParameterInRevitApi(document, parameterName, parameterType, categorySet, cancellationToken);
-                    
+
                     if (parameter != null)
                     {
                         RecordParameterCreation("Project", parameterName, stopwatch.Elapsed);
@@ -474,10 +474,10 @@ public class ParameterBridge : IParameterBridge
         {
             _logger.LogError(ex, "Parameter validation failed");
             RecordFailure(stopwatch.Elapsed);
-            return new ParameterValidationResult 
-            { 
-                IsValid = false, 
-                ValidationMessage = $"Validation error: {ex.Message}" 
+            return new ParameterValidationResult
+            {
+                IsValid = false,
+                ValidationMessage = $"Validation error: {ex.Message}"
             };
         }
     }
@@ -522,11 +522,11 @@ public class ParameterBridge : IParameterBridge
     {
         var rules = new[]
         {
-            new ParameterValidationRule("NotNull", (value, info) => 
-                value != null ? ParameterValidationResult.Valid() : 
+            new ParameterValidationRule("NotNull", (value, info) =>
+                value != null ? ParameterValidationResult.Valid() :
                 ParameterValidationResult.Invalid("Value cannot be null")),
-            
-            new ParameterValidationRule("NumericRange", (value, info) => 
+
+            new ParameterValidationRule("NumericRange", (value, info) =>
             {
                 if (info.ParameterType == "Number" && value is double numValue)
                 {
@@ -537,8 +537,8 @@ public class ParameterBridge : IParameterBridge
                 }
                 return ParameterValidationResult.Valid();
             }),
-            
-            new ParameterValidationRule("StringLength", (value, info) => 
+
+            new ParameterValidationRule("StringLength", (value, info) =>
             {
                 if (info.ParameterType == "Text" && value is string strValue)
                 {
@@ -547,9 +547,9 @@ public class ParameterBridge : IParameterBridge
                 }
                 return ParameterValidationResult.Valid();
             }),
-            
-            new ParameterValidationRule("ReadOnly", (value, info) => 
-                !info.IsReadOnly ? ParameterValidationResult.Valid() : 
+
+            new ParameterValidationRule("ReadOnly", (value, info) =>
+                !info.IsReadOnly ? ParameterValidationResult.Valid() :
                 ParameterValidationResult.Invalid("Parameter is read-only"))
         };
 
@@ -564,7 +564,7 @@ public class ParameterBridge : IParameterBridge
     private async Task<ParameterInfo> GetParameterInfoAsync(object parameter, CancellationToken cancellationToken)
     {
         var paramKey = parameter.GetHashCode().ToString();
-        
+
         if (_parameterInfoCache.TryGetValue(paramKey, out var cachedInfo))
         {
             return cachedInfo;
@@ -578,7 +578,7 @@ public class ParameterBridge : IParameterBridge
     private ParameterValidationRule[] GetValidationRules(ParameterInfo paramInfo)
     {
         var allRules = new List<ParameterValidationRule>();
-        
+
         // Add built-in rules
         foreach (var ruleSet in _validationRulesCache.Values)
         {
@@ -644,19 +644,19 @@ public class ParameterBridge : IParameterBridge
         };
     }
 
-    private string ExtractParameterName(object parameter) => 
+    private string ExtractParameterName(object parameter) =>
         parameter.GetType().GetProperty("Definition")?.GetValue(parameter)?.ToString() ?? "Unknown";
 
-    private string ExtractParameterType(object parameter) => 
+    private string ExtractParameterType(object parameter) =>
         parameter.GetType().GetProperty("StorageType")?.GetValue(parameter)?.ToString() ?? "Unknown";
 
-    private bool ExtractIsShared(object parameter) => 
+    private bool ExtractIsShared(object parameter) =>
         parameter.GetType().GetProperty("IsShared")?.GetValue(parameter) is bool shared && shared;
 
-    private bool ExtractIsReadOnly(object parameter) => 
+    private bool ExtractIsReadOnly(object parameter) =>
         parameter.GetType().GetProperty("IsReadOnly")?.GetValue(parameter) is bool readOnly && readOnly;
 
-    private string ExtractGroupName(object parameter) => 
+    private string ExtractGroupName(object parameter) =>
         parameter.GetType().GetProperty("Definition")?.GetValue(parameter)?.GetType()
             .GetProperty("ParameterGroup")?.GetValue(parameter)?.ToString() ?? "Other";
 
@@ -678,7 +678,7 @@ public class ParameterBridge : IParameterBridge
     private async Task<Dictionary<object, object?>> GetParameterValuesBatchFromRevitApi(object element, IList<object> parameters, CancellationToken cancellationToken)
     {
         await Task.Delay(parameters.Count, cancellationToken);
-        
+
         var result = new Dictionary<object, object?>();
         foreach (var param in parameters)
         {
@@ -696,7 +696,7 @@ public class ParameterBridge : IParameterBridge
     private async Task<Dictionary<object, bool>> SetParameterValuesBatchInRevitApi(object element, Dictionary<object, object?> parameterValues, CancellationToken cancellationToken)
     {
         await Task.Delay(parameterValues.Count * 2, cancellationToken);
-        
+
         var result = new Dictionary<object, bool>();
         foreach (var kvp in parameterValues)
         {
@@ -708,14 +708,14 @@ public class ParameterBridge : IParameterBridge
     private async Task<IEnumerable<object>> GetElementParametersFromRevitApi(object element, CancellationToken cancellationToken)
     {
         await Task.Delay(5, cancellationToken);
-        
+
         return Enumerable.Range(1, 10).Select(i => new { Name = $"Parameter{i}", Type = "Text" });
     }
 
     private async Task<ParameterInfo> ExtractParameterInfoFromRevitApi(object parameter, CancellationToken cancellationToken)
     {
         await Task.Delay(1, cancellationToken);
-        
+
         return new ParameterInfo
         {
             Name = $"Param_{parameter.GetHashCode()}",
@@ -873,7 +873,7 @@ public class ParameterValidationResult
 {
     public bool IsValid { get; set; }
     public string ValidationMessage { get; set; } = string.Empty;
-    
+
     public static ParameterValidationResult Valid() => new() { IsValid = true };
     public static ParameterValidationResult Invalid(string message) => new() { IsValid = false, ValidationMessage = message };
 }

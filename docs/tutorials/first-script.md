@@ -18,7 +18,7 @@ Welcome to RevitPy! In this tutorial, you'll create and run your first RevitPy s
 
 **Estimated Time:** 15 minutes
 
-**Files Needed:** 
+**Files Needed:**
 - [Basic Building Model](https://github.com/highvelocitysolutions/revitpy/releases/download/tutorials/basic-building.rvt) (optional)
 - Any Revit model with walls will work
 
@@ -76,41 +76,41 @@ from revitpy import RevitContext
 def main():
     """Main script entry point."""
     print("🚀 Starting My First RevitPy Script...")
-    
+
     # Create a RevitContext to interact with Revit
     with RevitContext() as context:
         print(f"✅ Connected to document: {context.get_active_document().Title}")
-        
+
         # Query all walls in the model
         walls = context.elements.of_category('Walls')
         wall_count = len(walls)
-        
+
         print(f"🧱 Found {wall_count} walls in the model")
-        
+
         if wall_count == 0:
             print("⚠️  No walls found. Try opening a model with walls.")
             return
-        
+
         # Display information about the first 5 walls
         print("\n📋 Wall Information:")
         print("=" * 50)
-        
+
         for i, wall in enumerate(walls.take(5), 1):
             wall_name = wall.Name or f"Wall-{wall.Id}"
             wall_height = wall.get_parameter('Height').AsDouble()
             wall_length = wall.get_parameter('Length').AsDouble()
             wall_area = wall.get_parameter('Area').AsDouble()
-            
+
             print(f"{i}. {wall_name}")
             print(f"   Height: {wall_height:.1f} ft")
-            print(f"   Length: {wall_length:.1f} ft") 
+            print(f"   Length: {wall_length:.1f} ft")
             print(f"   Area: {wall_area:.1f} sq ft")
             print(f"   ID: {wall.Id}")
             print()
-        
+
         if wall_count > 5:
             print(f"... and {wall_count - 5} more walls")
-    
+
     print("✨ Script completed successfully!")
 
 if __name__ == "__main__":
@@ -291,7 +291,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     logger.debug("Starting script execution")
-    
+
     with RevitContext() as context:
         logger.debug(f"Context created: {context}")
         # ... rest of your code
@@ -315,7 +315,7 @@ walls = context.elements.of_category('Walls')
 # Filter walls by height
 tall_walls = walls.where(lambda w: w.Height > 10.0)
 
-# Take only first 5 results  
+# Take only first 5 results
 first_five = walls.take(5)
 ```
 
@@ -413,11 +413,11 @@ Ready to continue? Let's dive deeper into [Working with Elements](working-with-e
 ---
 
 !!! success "Tutorial Complete! 🎉"
-    
+
     You've successfully completed your first RevitPy tutorial. Take a moment to celebrate - you're now part of the modern Revit automation community!
-    
+
     **Achievement Unlocked:** RevitPy First Steps 🌟
-    
+
     Ready for more? The next tutorial builds on what you've learned here and introduces more powerful features.
 
 ---

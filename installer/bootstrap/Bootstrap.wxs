@@ -13,7 +13,7 @@
 
     <!-- Bundle UI Theme -->
     <BootstrapperApplicationRef Id="WixStandardBootstrapperApplication.RtfLicense">
-      <bal:WixStandardBootstrapperApplication 
+      <bal:WixStandardBootstrapperApplication
         LicenseFile="assets\license.rtf"
         LogoFile="assets\logo.png"
         ThemeFile="assets\Theme.xml"
@@ -64,7 +64,7 @@
                   Cache="yes"
                   EnableFeatureSelection="yes"
                   ForcePerMachine="yes">
-        
+
         <!-- Pass properties to MSI -->
         <MsiProperty Name="INSTALLDIR" Value="[InstallDir]" />
         <MsiProperty Name="INSTALL_PYTHON" Value="[InstallPython]" />

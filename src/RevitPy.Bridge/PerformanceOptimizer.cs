@@ -70,7 +70,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
     private readonly object _metricsLock = new();
     private readonly Timer _cleanupTimer;
     private readonly SemaphoreSlim _batchSemaphore;
-    
+
     // Performance tuning parameters
     private readonly int _maxObjectsPerPool;
     private readonly TimeSpan _defaultCacheExpiration;
@@ -80,24 +80,24 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
     public PerformanceOptimizer(ILogger<PerformanceOptimizer> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        
+
         _objectPools = new ConcurrentDictionary<Type, IObjectPool<object>>();
         _computationCache = new ConcurrentDictionary<string, CacheEntry>();
         _computationSemaphores = new ConcurrentDictionary<string, SemaphoreSlim>();
         _objectPoolProvider = new DefaultObjectPoolProvider();
         _metrics = new PerformanceMetrics { StartTime = DateTime.UtcNow };
-        
+
         // Performance configuration
         _maxObjectsPerPool = Environment.ProcessorCount * 4;
         _defaultCacheExpiration = TimeSpan.FromMinutes(10);
         _maxConcurrentComputations = Environment.ProcessorCount * 2;
         _cleanupInterval = TimeSpan.FromMinutes(5);
-        
+
         _batchSemaphore = new SemaphoreSlim(_maxConcurrentComputations, _maxConcurrentComputations);
-        
+
         // Start cleanup timer
         _cleanupTimer = new Timer(async _ => await OptimizeMemoryAsync(), null, _cleanupInterval, _cleanupInterval);
-        
+
         InitializeCommonPools();
     }
 
@@ -109,7 +109,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
         {
             var pool = GetOrCreatePool<T>();
             var obj = (T)pool.Get();
-            
+
             RecordPoolOperation("Get", typeof(T), stopwatch.Elapsed);
             return obj;
         }
@@ -117,7 +117,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
         {
             _logger.LogWarning(ex, "Failed to get pooled object of type {Type}", typeof(T).Name);
             RecordPoolFailure("Get", typeof(T), stopwatch.Elapsed);
-            
+
             // Fallback to creating new instance
             return new T();
         }
@@ -133,7 +133,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
         {
             var pool = GetOrCreatePool<T>();
             pool.Return(obj);
-            
+
             RecordPoolOperation("Return", typeof(T), stopwatch.Elapsed);
         }
         catch (Exception ex)
@@ -145,7 +145,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
 
     /// <inheritdoc/>
     public async Task<TResult> ExecuteWithPooledObjects<TResult>(
-        Func<IObjectPoolProvider, Task<TResult>> operation, 
+        Func<IObjectPoolProvider, Task<TResult>> operation,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(operation);
@@ -154,7 +154,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
         try
         {
             var result = await operation(_objectPoolProvider);
-            
+
             RecordPooledOperation("ExecuteWithPooled", stopwatch.Elapsed, true);
             return result;
         }
@@ -168,8 +168,8 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
 
     /// <inheritdoc/>
     public async Task<TResult> GetOrComputeAsync<TResult>(
-        string cacheKey, 
-        Func<Task<TResult>> computeFunc, 
+        string cacheKey,
+        Func<Task<TResult>> computeFunc,
         TimeSpan? expiration = null,
         CancellationToken cancellationToken = default)
     {
@@ -177,9 +177,9 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
         ArgumentNullException.ThrowIfNull(computeFunc);
 
         var stopwatch = Stopwatch.StartNew();
-        
+
         // Check cache first
-        if (_computationCache.TryGetValue(cacheKey, out var cacheEntry) && 
+        if (_computationCache.TryGetValue(cacheKey, out var cacheEntry) &&
             !cacheEntry.IsExpired)
         {
             RecordCacheOperation("Hit", cacheKey, stopwatch.Elapsed);
@@ -188,12 +188,12 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
 
         // Get or create semaphore for this computation
         var semaphore = _computationSemaphores.GetOrAdd(cacheKey, _ => new SemaphoreSlim(1, 1));
-        
+
         await semaphore.WaitAsync(cancellationToken);
         try
         {
             // Double-check cache after acquiring lock
-            if (_computationCache.TryGetValue(cacheKey, out cacheEntry) && 
+            if (_computationCache.TryGetValue(cacheKey, out cacheEntry) &&
                 !cacheEntry.IsExpired)
             {
                 RecordCacheOperation("Hit", cacheKey, stopwatch.Elapsed);
@@ -203,7 +203,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
             // Compute the value
             var computationStopwatch = Stopwatch.StartNew();
             var result = await computeFunc();
-            
+
             // Cache the result
             var cacheExpiration = expiration ?? _defaultCacheExpiration;
             _computationCache[cacheKey] = new CacheEntry
@@ -216,7 +216,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
 
             RecordCacheOperation("Miss", cacheKey, stopwatch.Elapsed);
             RecordComputation(cacheKey, computationStopwatch.Elapsed);
-            
+
             return result;
         }
         finally
@@ -241,11 +241,11 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
 
         var stopwatch = Stopwatch.StartNew();
         var concurrency = maxConcurrency ?? Math.Min(_maxConcurrentComputations, inputList.Count);
-        
+
         try
         {
             await _batchSemaphore.WaitAsync(cancellationToken);
-            
+
             var results = new ConcurrentBag<TResult>();
             var semaphore = new SemaphoreSlim(concurrency, concurrency);
             var tasks = new List<Task>();
@@ -256,10 +256,10 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
             }
 
             await Task.WhenAll(tasks);
-            
+
             var resultList = results.ToList();
             RecordBatchOperation(inputList.Count, resultList.Count, concurrency, stopwatch.Elapsed);
-            
+
             return resultList;
         }
         finally
@@ -284,7 +284,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
                 BatchOperations = _metrics.BatchOperations,
                 FailedOperations = _metrics.FailedOperations,
                 AverageOperationTime = _metrics.AverageOperationTime,
-                CacheHitRatio = _metrics.CacheOperations > 0 ? 
+                CacheHitRatio = _metrics.CacheOperations > 0 ?
                     (double)_metrics.CacheHits / _metrics.CacheOperations : 0.0,
                 PoolUtilization = CalculatePoolUtilization(),
                 CacheSize = _computationCache.Count,
@@ -340,7 +340,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
             }
 
             RecordCleanupOperation(cleanedEntries, cleanedSemaphores, stopwatch.Elapsed);
-            
+
             _logger.LogDebug("Memory optimization completed: {CleanedEntries} cache entries, {CleanedSemaphores} semaphores in {Duration}ms",
                 cleanedEntries, cleanedSemaphores, stopwatch.ElapsedMilliseconds);
         }
@@ -372,7 +372,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
                 try
                 {
                     var pool = GetOrCreatePoolForType(type);
-                    
+
                     // Pre-populate pool with half of max capacity
                     var preloadCount = _maxObjectsPerPool / 2;
                     for (int i = 0; i < preloadCount && !cancellationToken.IsCancellationRequested; i++)
@@ -392,7 +392,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
             }
 
             RecordPreloadOperation(preloadedCount, stopwatch.Elapsed);
-            
+
             _logger.LogInformation("Pool preloading completed: {PreloadedCount} objects in {Duration}ms",
                 preloadedCount, stopwatch.ElapsedMilliseconds);
         }
@@ -431,7 +431,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
             var policy = new DefaultPooledObjectPolicy<object>(
                 () => Activator.CreateInstance(t) ?? throw new InvalidOperationException($"Cannot create instance of {t.Name}"),
                 obj => ResetObject(obj));
-            
+
             return new DefaultObjectPool<object>(policy, _maxObjectsPerPool);
         });
     }
@@ -460,7 +460,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
                     // Don't reuse disposable objects that have been disposed
                     return false;
             }
-            
+
             return true;
         }
         catch
@@ -541,10 +541,10 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
         {
             _metrics.TotalOperations++;
             _metrics.CacheOperations++;
-            
+
             if (operation == "Hit")
                 _metrics.CacheHits++;
-            
+
             UpdateAverageTime(duration);
         }
     }
@@ -597,7 +597,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
     {
         _cleanupTimer?.Dispose();
         _batchSemaphore?.Dispose();
-        
+
         // Dispose all semaphores
         foreach (var semaphore in _computationSemaphores.Values)
         {
@@ -610,7 +610,7 @@ public class PerformanceOptimizer : IPerformanceOptimizer, IDisposable
                 _logger.LogWarning(ex, "Error disposing semaphore");
             }
         }
-        
+
         _computationSemaphores.Clear();
         _computationCache.Clear();
         _objectPools.Clear();
@@ -626,7 +626,7 @@ internal class CacheEntry
     public DateTime ExpirationTime { get; set; }
     public TimeSpan ComputationTime { get; set; }
     public long AccessCount { get; set; }
-    
+
     public bool IsExpired => DateTime.UtcNow > ExpirationTime;
 }
 
@@ -723,13 +723,13 @@ public class PerformanceMetrics
     /// <summary>
     /// Gets or sets the success ratio
     /// </summary>
-    public double SuccessRatio => TotalOperations > 0 ? 
+    public double SuccessRatio => TotalOperations > 0 ?
         (double)(TotalOperations - FailedOperations) / TotalOperations : 1.0;
 
     /// <summary>
     /// Gets or sets the operations per second
     /// </summary>
-    public double OperationsPerSecond => UpTime.TotalSeconds > 0 ? 
+    public double OperationsPerSecond => UpTime.TotalSeconds > 0 ?
         TotalOperations / UpTime.TotalSeconds : 0.0;
 }
 

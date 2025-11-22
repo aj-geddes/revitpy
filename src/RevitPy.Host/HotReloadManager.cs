@@ -21,7 +21,7 @@ public class HotReloadManager : IHotReloadManager, IDisposable
     private readonly ConcurrentDictionary<string, FileInfo> _watchedFiles = new();
     private readonly Timer _debounceTimer;
     private readonly ConcurrentQueue<FileChangeEvent> _pendingChanges = new();
-    
+
     private bool _isActive;
     private bool _isDisposed;
     private HotReloadStats _stats = new();
@@ -335,7 +335,7 @@ public class HotReloadManager : IHotReloadManager, IDisposable
         catch (Exception ex)
         {
             stopwatch.Stop();
-            
+
             lock (_statsLock)
             {
                 _stats.TotalReloads++;
@@ -365,10 +365,10 @@ public class HotReloadManager : IHotReloadManager, IDisposable
         try
         {
             var content = await File.ReadAllTextAsync(filePath, cancellationToken);
-            
+
             // Validate Python syntax first
             using var interpreter = await _interpreterPool.GetInterpreterAsync(TimeSpan.FromSeconds(5));
-            
+
             var compileResult = await interpreter.ExecuteAsync(
                 $"compile({System.Text.Json.JsonSerializer.Serialize(content)}, {System.Text.Json.JsonSerializer.Serialize(filePath)}, 'exec')",
                 cancellationToken: cancellationToken);
@@ -404,15 +404,15 @@ public class HotReloadManager : IHotReloadManager, IDisposable
         {
             // For configuration files, we might trigger a configuration reload
             var content = await File.ReadAllTextAsync(filePath, cancellationToken);
-            
+
             // Basic JSON validation
             System.Text.Json.JsonDocument.Parse(content);
-            
+
             _logger.LogDebug("Configuration file validated: {FilePath}", filePath);
-            
+
             // In a real implementation, this might trigger a configuration refresh
             // For now, we just validate the JSON structure
-            
+
             return true;
         }
         catch (System.Text.Json.JsonException ex)
@@ -518,7 +518,7 @@ public class HotReloadManager : IHotReloadManager, IDisposable
             return;
 
         var changes = new List<FileChangeEvent>();
-        
+
         // Collect all pending changes
         while (_pendingChanges.TryDequeue(out var change))
         {
@@ -556,7 +556,7 @@ public class HotReloadManager : IHotReloadManager, IDisposable
         foreach (var deletedChange in latestChanges.Where(c => c.Type == FileChangeType.Deleted))
         {
             _watchedFiles.TryRemove(deletedChange.FilePath, out _);
-            
+
             await NotifyClientsAsync(new HotReloadEvent
             {
                 Type = HotReloadEventType.FileDeleted,

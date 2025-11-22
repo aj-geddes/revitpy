@@ -7,7 +7,7 @@ query:
   timeout: 300  # seconds
   batch_size: 100
   default_category: "Walls"
-  
+
 # Data collection settings
 data_collection:
   include_geometry: true
@@ -17,41 +17,41 @@ data_collection:
     - "Internal"
     - "System"
   geometry_detail_level: "medium"  # low, medium, high
-  
+
 # Performance settings
 performance:
   enable_caching: true
   cache_size: 1000  # number of elements to cache
   progress_reporting: true
   parallel_processing: false  # Set to true for large datasets
-  
+
 # Logging settings
 logging:
   level: "INFO"
   format: "detailed"  # simple, detailed, json
   file: "element_query.log"
   console_colors: true
-  
+
 # Export settings
 export:
   default_format: "json"
   timestamp_files: true
   compression: false
   include_metadata: true
-  
+
 # Filter settings
 filters:
   case_sensitive_names: false
   strict_parameter_matching: false
   ignore_empty_parameters: true
-  
+
 # Display settings
 display:
   max_console_results: 10
   detailed_properties: false
   show_statistics: true
   progress_bar: true
-  
+
 # Development settings
 development:
   debug_mode: false

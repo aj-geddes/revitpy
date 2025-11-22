@@ -11,11 +11,11 @@ __email__ = "team@revitpy.dev"
 
 from .element_query import ElementQueryTool
 from .filters import CustomElementFilter
-from .utils import setup_logging, format_element_data
+from .utils import format_element_data, setup_logging
 
 __all__ = [
     "ElementQueryTool",
-    "CustomElementFilter", 
+    "CustomElementFilter",
     "setup_logging",
     "format_element_data",
 ]

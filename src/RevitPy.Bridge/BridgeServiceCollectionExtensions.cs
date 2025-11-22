@@ -202,7 +202,7 @@ public class RevitBridgeFactory : IRevitBridgeFactory
         try
         {
             var bridge = _serviceProvider.GetRequiredService<IRevitBridge>();
-            
+
             if (configuration?.PreloadModules.Count > 0)
             {
                 _ = Task.Run(async () =>

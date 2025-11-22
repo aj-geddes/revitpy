@@ -2,58 +2,104 @@
 Pytest configuration and fixtures for ORM tests.
 """
 
-import pytest
 import asyncio
-from typing import List, Any
-from unittest.mock import Mock
+from typing import Any
 
-from revitpy.orm.validation import WallElement, RoomElement, DoorElement, WindowElement
-from revitpy.orm.cache import CacheManager, CacheConfiguration
+import pytest
+
+from revitpy.orm.cache import CacheConfiguration, CacheManager
 from revitpy.orm.change_tracker import ChangeTracker
+from revitpy.orm.validation import RoomElement, WallElement
 
 
 class MockElementProvider:
     """Mock element provider for testing."""
-    
-    def __init__(self, elements: List[Any] = None):
+
+    def __init__(self, elements: list[Any] = None):
         self.elements = elements or []
         self._generate_test_elements()
-    
+
     def _generate_test_elements(self):
         """Generate a standard set of test elements."""
         if not self.elements:
             # Create test walls
-            self.elements.extend([
-                WallElement(id=1, name="Wall 1", height=10, length=20, width=0.5, category="Walls"),
-                WallElement(id=2, name="Wall 2", height=8, length=15, width=0.4, category="Walls"),
-                WallElement(id=3, name="Wall 3", height=12, length=25, width=0.6, category="Walls"),
-            ])
-            
+            self.elements.extend(
+                [
+                    WallElement(
+                        id=1,
+                        name="Wall 1",
+                        height=10,
+                        length=20,
+                        width=0.5,
+                        category="Walls",
+                    ),
+                    WallElement(
+                        id=2,
+                        name="Wall 2",
+                        height=8,
+                        length=15,
+                        width=0.4,
+                        category="Walls",
+                    ),
+                    WallElement(
+                        id=3,
+                        name="Wall 3",
+                        height=12,
+                        length=25,
+                        width=0.6,
+                        category="Walls",
+                    ),
+                ]
+            )
+
             # Create test rooms
-            self.elements.extend([
-                RoomElement(id=10, number="101", name="Room 101", area=200, perimeter=60, volume=2000),
-                RoomElement(id=11, number="102", name="Room 102", area=300, perimeter=70, volume=3000),
-                RoomElement(id=12, number="103", name="Room 103", area=150, perimeter=50, volume=1500),
-            ])
-    
-    def get_all_elements(self) -> List[Any]:
+            self.elements.extend(
+                [
+                    RoomElement(
+                        id=10,
+                        number="101",
+                        name="Room 101",
+                        area=200,
+                        perimeter=60,
+                        volume=2000,
+                    ),
+                    RoomElement(
+                        id=11,
+                        number="102",
+                        name="Room 102",
+                        area=300,
+                        perimeter=70,
+                        volume=3000,
+                    ),
+                    RoomElement(
+                        id=12,
+                        number="103",
+                        name="Room 103",
+                        area=150,
+                        perimeter=50,
+                        volume=1500,
+                    ),
+                ]
+            )
+
+    def get_all_elements(self) -> list[Any]:
         return self.elements.copy()
-    
-    def get_elements_of_type(self, element_type: Any) -> List[Any]:
+
+    def get_elements_of_type(self, element_type: Any) -> list[Any]:
         return [elem for elem in self.elements if isinstance(elem, element_type)]
-    
+
     def get_element_by_id(self, element_id: Any) -> Any:
         for elem in self.elements:
             if elem.id == element_id:
                 return elem
         return None
-    
-    async def get_all_elements_async(self) -> List[Any]:
+
+    async def get_all_elements_async(self) -> list[Any]:
         return self.get_all_elements()
-    
-    async def get_elements_of_type_async(self, element_type: Any) -> List[Any]:
+
+    async def get_elements_of_type_async(self, element_type: Any) -> list[Any]:
         return self.get_elements_of_type(element_type)
-    
+
     async def get_element_by_id_async(self, element_id: Any) -> Any:
         return self.get_element_by_id(element_id)
 
@@ -67,11 +113,7 @@ def mock_provider():
 @pytest.fixture
 def cache_manager():
     """Fixture providing a cache manager for testing."""
-    config = CacheConfiguration(
-        max_size=1000,
-        enable_statistics=True,
-        thread_safe=True
-    )
+    config = CacheConfiguration(max_size=1000, enable_statistics=True, thread_safe=True)
     return CacheManager(config)
 
 

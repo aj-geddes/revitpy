@@ -64,23 +64,23 @@ class StructuralAnalyzer:
 ```python
 def analyze_frame_structure(self, structural_elements=None):
     """Perform finite element analysis with sparse matrices (IMPOSSIBLE in PyRevit)"""
-    
+
     # Extract element properties
     element_properties = self._extract_element_properties(structural_elements)
-    
+
     # Build global stiffness matrix (sparse)
     K = self._build_global_stiffness_matrix(element_properties)
-    
+
     # Build load vector
     F = self._build_load_vector(element_properties)
-    
+
     # Solve system K*u = F using sparse solver
     displacements = spsolve(K, F)
-    
+
     # Calculate stresses and safety factors
     stresses = self._calculate_element_stresses(displacements, element_properties)
     safety_analysis = self._analyze_safety_factors(stresses, element_properties)
-    
+
     return {
         'displacements': displacements,
         'stresses': stresses,
@@ -94,27 +94,27 @@ def analyze_frame_structure(self, structural_elements=None):
 ```python
 def seismic_response_analysis(self, structural_elements=None):
     """Perform seismic time-history integration (IMPOSSIBLE in PyRevit)"""
-    
+
     # Build dynamic system matrices
     M = self._build_mass_matrix(structural_elements)
     C = self._build_damping_matrix(structural_elements)
     K = self._build_dynamic_stiffness_matrix(structural_elements)
-    
+
     # Generate earthquake record
     time_vector = np.linspace(0, 60, 6000)  # 60 seconds, 0.01s steps
     ground_acceleration = self._generate_earthquake_record(time_vector)
-    
+
     # Time-history integration using SciPy ODE solver
     def equations_of_motion(t, y):
         displacement = y[:len(y)//2]
         velocity = y[len(y)//2:]
-        
+
         # M*a + C*v + K*u = F(t)
         force = self._calculate_seismic_force(t, ground_acceleration, time_vector)
         acceleration = spsolve(M, force - C @ velocity - K @ displacement)
-        
+
         return np.concatenate([velocity, acceleration])
-    
+
     # Solve differential equation
     solution = solve_ivp(
         equations_of_motion,
@@ -124,7 +124,7 @@ def seismic_response_analysis(self, structural_elements=None):
         method='RK45',
         rtol=1e-6
     )
-    
+
     return self._process_seismic_results(solution)
 ```
 
@@ -132,23 +132,23 @@ def seismic_response_analysis(self, structural_elements=None):
 ```python
 def optimize_structural_design(self, analysis_results=None):
     """Optimize structural design using SciPy algorithms (IMPOSSIBLE in PyRevit)"""
-    
+
     # Define design variables (member sizes)
     initial_design = self._get_initial_member_sizes()
-    
+
     # Define objective function (minimize weight + maximize safety)
     def objective_function(design_variables):
         weight = self._calculate_total_weight(design_variables)
         safety_penalty = self._calculate_safety_penalty(design_variables)
         return weight + safety_penalty * 1000
-    
+
     # Define constraints
     constraints = [
         {'type': 'ineq', 'fun': lambda x: self._stress_constraint(x)},
         {'type': 'ineq', 'fun': lambda x: self._deflection_constraint(x)},
         {'type': 'ineq', 'fun': lambda x: self._stability_constraint(x)}
     ]
-    
+
     # Run optimization
     result = minimize(
         objective_function,
@@ -157,7 +157,7 @@ def optimize_structural_design(self, analysis_results=None):
         constraints=constraints,
         options={'maxiter': 500}
     )
-    
+
     return self._format_optimization_results(result)
 ```
 

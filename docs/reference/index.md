@@ -7,7 +7,7 @@ Welcome to the comprehensive API reference for RevitPy Framework. This section p
 RevitPy's API is organized into several key modules:
 
 - **[Core API](api/core.md)**: Essential classes and functions for Revit interaction
-- **[ORM Layer](api/orm.md)**: Object-relational mapping for intuitive element queries  
+- **[ORM Layer](api/orm.md)**: Object-relational mapping for intuitive element queries
 - **[Extensions](api/extensions.md)**: Plugin architecture and extension management
 - **[Async Support](api/async.md)**: Asynchronous programming capabilities
 - **[CLI Tools](cli/index.md)**: Command-line interface documentation
@@ -32,10 +32,10 @@ from revitpy import RevitContext
 with RevitContext() as context:
     # Get all walls
     walls = context.elements.of_category('Walls')
-    
+
     # Query with filtering
     tall_walls = walls.where(lambda w: w.Height > 10.0)
-    
+
     # Execute transaction
     with context.transaction("Update Walls") as txn:
         for wall in tall_walls:
@@ -67,7 +67,7 @@ async def process_elements():
 
 ### Naming Conventions
 - **Classes**: PascalCase (`RevitContext`, `ElementSet`)
-- **Methods**: snake_case (`get_parameter`, `set_parameter`)  
+- **Methods**: snake_case (`get_parameter`, `set_parameter`)
 - **Properties**: PascalCase (`Name`, `Height`, `Area`)
 - **Constants**: UPPER_SNAKE_CASE (`DEFAULT_TIMEOUT`)
 
@@ -96,17 +96,17 @@ RevitPy provides complete type annotations for better IDE support:
 from typing import List, Optional
 from revitpy import RevitContext, Element
 
-def get_walls_by_type(context: RevitContext, 
+def get_walls_by_type(context: RevitContext,
                      wall_type: str) -> List[Element]:
     """Get walls of a specific type.
-    
+
     Args:
         context: The Revit context
         wall_type: Name of the wall type to filter by
-        
+
     Returns:
         List of wall elements matching the type
-        
+
     Raises:
         ValidationError: If wall_type is empty or invalid
     """
@@ -122,7 +122,7 @@ revitpy/
 ├── __init__.py           # Main exports
 ├── api/                  # Core API classes
 │   ├── element.py       # Element manipulation
-│   ├── query.py         # Query execution  
+│   ├── query.py         # Query execution
 │   ├── transaction.py   # Transaction management
 │   └── wrapper.py       # Revit API wrapper
 ├── orm/                  # ORM layer
@@ -145,7 +145,7 @@ revitpy/
 
 ### Best Practices
 1. **Use transactions efficiently**: Group related operations
-2. **Minimize element creation**: Reuse existing elements when possible  
+2. **Minimize element creation**: Reuse existing elements when possible
 3. **Batch operations**: Use bulk methods for large datasets
 4. **Cache frequently accessed data**: Store results to avoid repeated queries
 5. **Dispose resources**: Use context managers (`with` statements)
@@ -158,7 +158,7 @@ from revitpy.utils import performance_monitor
 def process_walls(context: RevitContext) -> None:
     """Process walls with performance tracking."""
     walls = context.elements.of_category('Walls')
-    
+
     # Performance metrics are automatically collected
     with context.transaction("Update Walls"):
         for wall in walls:
@@ -184,12 +184,12 @@ def test_wall_processing():
         wall1 = create_mock_element('Wall', height=10.0)
         wall2 = create_mock_element('Wall', height=15.0)
         mock_context.add_elements([wall1, wall2])
-        
+
         # Test your code
         tall_walls = mock_context.elements.where(
             lambda w: w.Height > 12.0
         ).to_list()
-        
+
         assert len(tall_walls) == 1
         assert tall_walls[0].Height == 15.0
 ```

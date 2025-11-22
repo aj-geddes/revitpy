@@ -189,7 +189,7 @@ This ROI calculator provides a structured approach for prospective customers to 
 - Manual progress reporting: _____ hours/month × $_____ = $_____ monthly
 - **Annual Reporting Costs: $_____ × 12 = $_______ (A)**
 
-- Quality inspections: _____ hours/month × $_____ = $_____ monthly  
+- Quality inspections: _____ hours/month × $_____ = $_____ monthly
 - **Annual Inspection Costs: $_____ × 12 = $_______ (B)**
 
 **Annual Rework Costs:**
@@ -233,7 +233,7 @@ Select your 3 highest-impact POCs:
 3. __________________ - Annual Benefit: $_______
 
 **Total Annual Benefits: $_______ (A)**
-**Total Implementation Costs: $_______ (B)**  
+**Total Implementation Costs: $_______ (B)**
 **Package Discount (20%): $_______ (C)**
 **Net Implementation Cost (B - C): $_______ (D)**
 
@@ -242,7 +242,7 @@ Select your 3 highest-impact POCs:
 #### Scenario 2: Complete Portfolio (5 POCs)
 **Total Annual Benefits (sum of all POCs): $_______ (A)**
 **Total Implementation Costs: $_______ (B)**
-**Portfolio Discount (30%): $_______ (C)**  
+**Portfolio Discount (30%): $_______ (C)**
 **Net Implementation Cost (B - C): $_______ (D)**
 
 **Portfolio ROI: ((A - D) ÷ D) × 100 = _______%**
@@ -258,7 +258,7 @@ Select your 3 highest-impact POCs:
 - Implementation on budget: 100%
 - **Risk-Adjusted Annual Benefit: $_______ × 0.8 = $_______**
 
-#### Optimistic Scenario (30% probability)  
+#### Optimistic Scenario (30% probability)
 - Annual benefits achieved: 120% of projected
 - Implementation under budget: 90%
 - **Risk-Adjusted Annual Benefit: $_______ × 1.2 = $_______**
@@ -280,7 +280,7 @@ Select your 3 highest-impact POCs:
 - Annual benefit: $_______
 - **Simple Payback: _____ months**
 
-#### Option 2: Annual Subscription  
+#### Option 2: Annual Subscription
 - Annual subscription cost: $_______ (implementation cost ÷ 3 years)
 - Net annual benefit: $_______ - $_______ = $_______
 - **Ongoing ROI: _______%**
@@ -297,7 +297,7 @@ Select your 3 highest-impact POCs:
 ### Executive Summary
 **Project:** RevitPy POC Implementation - [Selected POCs]
 **Total Investment:** $_______
-**Annual Benefits:** $_______  
+**Annual Benefits:** $_______
 **ROI:** _______%
 **Payback Period:** _____ months
 
@@ -312,7 +312,7 @@ Select your 3 highest-impact POCs:
 ### Risk Assessment
 **Implementation Risks:**
 - [ ] Low Risk (ROI > 300%)
-- [ ] Medium Risk (ROI 200-300%)  
+- [ ] Medium Risk (ROI 200-300%)
 - [ ] High Risk (ROI < 200%)
 
 **Mitigation Strategies:**
@@ -338,7 +338,7 @@ Based on this analysis, the RevitPy POC implementation presents:
 3. Validate assumptions with customer-specific data
 4. Present risk-adjusted scenarios for conservative decision-making
 
-### For Customer Evaluations  
+### For Customer Evaluations
 1. Complete current state assessment with actual company data
 2. Validate benefit assumptions with internal stakeholders
 3. Consider implementation timeline and resource requirements

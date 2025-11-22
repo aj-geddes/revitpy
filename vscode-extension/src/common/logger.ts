@@ -9,7 +9,7 @@ export class Logger {
     constructor(channelName: string) {
         this.outputChannel = vscode.window.createOutputChannel(channelName);
         this.updateLogLevel();
-        
+
         // Watch for configuration changes
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('revitpy.logLevel')) {
@@ -31,7 +31,7 @@ export class Logger {
     private formatMessage(level: LogLevel, message: string, data?: any): string {
         const timestamp = new Date().toISOString();
         const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
-        
+
         if (data) {
             return `${prefix} ${message}: ${JSON.stringify(data, null, 2)}`;
         }

@@ -85,7 +85,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
     private readonly PerformanceTargets _targets;
     private bool _isMonitoring;
     private bool _disposed;
-    
+
     // Performance tuning parameters
     private readonly int _maxObjectsPerPool;
     private readonly TimeSpan _defaultCacheExpiration;
@@ -96,7 +96,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
     public EnhancedPerformanceOptimizer(ILogger<EnhancedPerformanceOptimizer> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        
+
         _objectPools = new ConcurrentDictionary<Type, IObjectPool<object>>();
         _computationCache = new ConcurrentDictionary<string, CacheEntry>();
         _computationSemaphores = new ConcurrentDictionary<string, SemaphoreSlim>();
@@ -106,7 +106,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         _memorySnapshots = new ConcurrentQueue<MemorySnapshot>();
         _latencyTrackers = new ConcurrentDictionary<string, LatencyTracker>();
         _historicalMetrics = new List<PerformanceMetrics>();
-        
+
         // Performance targets as specified in requirements
         _targets = new PerformanceTargets
         {
@@ -129,12 +129,12 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         _maxConcurrentComputations = Environment.ProcessorCount * 4; // Increased concurrency
         _cleanupInterval = TimeSpan.FromMinutes(2); // More frequent cleanup
         _monitoringInterval = TimeSpan.FromSeconds(5);
-        
+
         _batchSemaphore = new SemaphoreSlim(_maxConcurrentComputations, _maxConcurrentComputations);
-        
+
         // Start cleanup timer
         _cleanupTimer = new Timer(async _ => await OptimizeMemoryAsync(), null, _cleanupInterval, _cleanupInterval);
-        
+
         InitializeOptimizedPools();
         _ = Task.Run(RecordStartupMetrics);
     }
@@ -148,7 +148,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         {
             var pool = GetOrCreatePool<T>();
             var obj = (T)pool.Get();
-            
+
             RecordPoolOperation("Get", typeof(T), stopwatch.Elapsed);
             return obj;
         }
@@ -179,7 +179,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
     }
 
     public async Task<TResult> ExecuteWithPooledObjects<TResult>(
-        Func<IObjectPoolProvider, Task<TResult>> operation, 
+        Func<IObjectPoolProvider, Task<TResult>> operation,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(operation);
@@ -200,8 +200,8 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
     }
 
     public async Task<TResult> GetOrComputeAsync<TResult>(
-        string cacheKey, 
-        Func<Task<TResult>> computeFunc, 
+        string cacheKey,
+        Func<Task<TResult>> computeFunc,
         TimeSpan? expiration = null,
         CancellationToken cancellationToken = default)
     {
@@ -209,7 +209,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         ArgumentNullException.ThrowIfNull(computeFunc);
 
         var stopwatch = Stopwatch.StartNew();
-        
+
         // Check cache first
         if (_computationCache.TryGetValue(cacheKey, out var cacheEntry) && !cacheEntry.IsExpired)
         {
@@ -218,7 +218,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         }
 
         var semaphore = _computationSemaphores.GetOrAdd(cacheKey, _ => new SemaphoreSlim(1, 1));
-        
+
         await semaphore.WaitAsync(cancellationToken);
         try
         {
@@ -232,7 +232,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
             // Compute the value
             var computationStopwatch = Stopwatch.StartNew();
             var result = await computeFunc();
-            
+
             // Cache the result with optimized expiration
             var cacheExpiration = expiration ?? _defaultCacheExpiration;
             _computationCache[cacheKey] = new CacheEntry
@@ -246,7 +246,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
 
             RecordCacheOperation("Miss", cacheKey, stopwatch.Elapsed);
             RecordComputation(cacheKey, computationStopwatch.Elapsed);
-            
+
             return result;
         }
         finally
@@ -270,19 +270,19 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
 
         var stopwatch = Stopwatch.StartNew();
         var concurrency = maxConcurrency ?? Math.Min(_maxConcurrentComputations, inputList.Count);
-        
+
         try
         {
             await _batchSemaphore.WaitAsync(cancellationToken);
-            
+
             var partitioner = Partitioner.Create(inputList, true);
             var results = new ConcurrentBag<TResult>();
 
-            await Parallel.ForEachAsync(partitioner, 
-                new ParallelOptions 
-                { 
+            await Parallel.ForEachAsync(partitioner,
+                new ParallelOptions
+                {
                     MaxDegreeOfParallelism = concurrency,
-                    CancellationToken = cancellationToken 
+                    CancellationToken = cancellationToken
                 },
                 async (input, ct) =>
                 {
@@ -296,10 +296,10 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
                         _logger.LogWarning(ex, "Batch operation failed for input item");
                     }
                 });
-            
+
             var resultList = results.ToList();
             RecordBatchOperation(inputList.Count, resultList.Count, concurrency, stopwatch.Elapsed);
-            
+
             return resultList;
         }
         finally
@@ -314,7 +314,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         {
             var currentTime = DateTime.UtcNow;
             var latestSnapshot = _memorySnapshots.LastOrDefault();
-            
+
             return new PerformanceMetrics
             {
                 StartTime = _metrics.StartTime,
@@ -325,7 +325,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
                 BatchOperations = _metrics.BatchOperations,
                 FailedOperations = _metrics.FailedOperations,
                 AverageOperationTime = _metrics.AverageOperationTime,
-                CacheHitRatio = _metrics.CacheOperations > 0 ? 
+                CacheHitRatio = _metrics.CacheOperations > 0 ?
                     (double)_metrics.CacheHits / _metrics.CacheOperations : 0.0,
                 PoolUtilization = CalculatePoolUtilization(),
                 CacheSize = _computationCache.Count,
@@ -334,9 +334,9 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
                 UpTime = currentTime - _metrics.StartTime,
                 CleanupOperations = _metrics.CleanupOperations,
                 PreloadOperations = _metrics.PreloadOperations,
-                SuccessRatio = _metrics.TotalOperations > 0 ? 
+                SuccessRatio = _metrics.TotalOperations > 0 ?
                     (double)(_metrics.TotalOperations - _metrics.FailedOperations) / _metrics.TotalOperations : 1.0,
-                OperationsPerSecond = (currentTime - _metrics.StartTime).TotalSeconds > 0 ? 
+                OperationsPerSecond = (currentTime - _metrics.StartTime).TotalSeconds > 0 ?
                     _metrics.TotalOperations / (currentTime - _metrics.StartTime).TotalSeconds : 0.0
             };
         }
@@ -352,8 +352,8 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         {
             // Clean expired cache entries with access pattern analysis
             var expiredKeys = _computationCache
-                .Where(kvp => kvp.Value.IsExpired || 
-                             (kvp.Value.AccessCount < 3 && 
+                .Where(kvp => kvp.Value.IsExpired ||
+                             (kvp.Value.AccessCount < 3 &&
                               DateTime.UtcNow - kvp.Value.LastAccessTime > TimeSpan.FromHours(1)))
                 .Select(kvp => kvp.Key)
                 .ToList();
@@ -396,7 +396,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
             }
 
             RecordCleanupOperation(cleanedEntries, cleanedSemaphores, stopwatch.Elapsed);
-            
+
             _logger.LogDebug("Memory optimization completed: {CleanedEntries} cache entries, {CleanedSemaphores} semaphores, {MemoryMB}MB in {Duration}ms",
                 cleanedEntries, cleanedSemaphores, memoryPressure, stopwatch.ElapsedMilliseconds);
         }
@@ -428,10 +428,10 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
 
             // Parallel preloading for faster startup
             await Parallel.ForEachAsync(commonTypes,
-                new ParallelOptions 
-                { 
+                new ParallelOptions
+                {
                     MaxDegreeOfParallelism = Environment.ProcessorCount,
-                    CancellationToken = cancellationToken 
+                    CancellationToken = cancellationToken
                 },
                 async (type, ct) =>
                 {
@@ -439,7 +439,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
                     {
                         var pool = GetOrCreatePoolForType(type);
                         var preloadCount = _maxObjectsPerPool / 2;
-                        
+
                         for (int i = 0; i < preloadCount && !ct.IsCancellationRequested; i++)
                         {
                             var obj = Activator.CreateInstance(type);
@@ -457,7 +457,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
                 });
 
             RecordPreloadOperation(preloadedCount, stopwatch.Elapsed);
-            
+
             _logger.LogInformation("Enhanced pool preloading completed: {PreloadedCount} objects in {Duration}ms",
                 preloadedCount, stopwatch.ElapsedMilliseconds);
         }
@@ -509,11 +509,11 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
 
         _isMonitoring = true;
         _monitoringTimer?.Change(_monitoringInterval, _monitoringInterval);
-        
+
         // Start background monitoring tasks
         _ = Task.Run(() => MonitorMemoryUsageAsync(cancellationToken), cancellationToken);
         _ = Task.Run(() => MonitorLatencyAsync(cancellationToken), cancellationToken);
-        
+
         _logger.LogInformation("Performance monitoring started");
         await Task.CompletedTask;
     }
@@ -522,7 +522,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
     {
         _isMonitoring = false;
         _monitoringTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-        
+
         _logger.LogInformation("Performance monitoring stopped");
         await Task.CompletedTask;
     }
@@ -611,7 +611,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
                 await ExpandPoolsAsync();
                 report.Optimizations.Add(new AppliedOptimization
                 {
-                    Type = "PoolExpansion", 
+                    Type = "PoolExpansion",
                     Description = "Expanded object pools due to high utilization",
                     ExpectedImpact = "Reduced object allocation overhead"
                 });
@@ -665,9 +665,9 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         try
         {
             // Benchmark simple operations
-            var simpleLatencies = await BenchmarkOperationAsync("SimpleOperation", 
+            var simpleLatencies = await BenchmarkOperationAsync("SimpleOperation",
                 async () => await Task.Delay(0), 100);
-            
+
             report.Benchmarks["SimpleOperation"] = new LatencyBenchmark
             {
                 OperationType = "SimpleOperation",
@@ -681,7 +681,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
 
             // Benchmark complex operations
             var complexLatencies = await BenchmarkOperationAsync("ComplexOperation",
-                async () => 
+                async () =>
                 {
                     // Simulate complex operation
                     await GetOrComputeAsync("benchmark_key", async () =>
@@ -693,7 +693,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
 
             report.Benchmarks["ComplexOperation"] = new LatencyBenchmark
             {
-                OperationType = "ComplexOperation", 
+                OperationType = "ComplexOperation",
                 AverageLatencyMs = complexLatencies.Average(),
                 MedianLatencyMs = complexLatencies.OrderBy(x => x).ElementAt(complexLatencies.Count / 2),
                 P95LatencyMs = complexLatencies.OrderBy(x => x).ElementAt((int)(complexLatencies.Count * 0.95)),
@@ -702,7 +702,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
                 TargetMs = _targets.APILatencyComplexMs
             };
 
-            report.OverallResult = report.Benchmarks.Values.All(b => b.MeetsTarget) ? 
+            report.OverallResult = report.Benchmarks.Values.All(b => b.MeetsTarget) ?
                 BenchmarkResult.Pass : BenchmarkResult.Fail;
         }
         catch (Exception ex)
@@ -751,10 +751,10 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
             {
                 var first = report.Snapshots.First();
                 var last = report.Snapshots.Last();
-                
+
                 report.MemoryGrowthMB = last.MemoryUsageMB - first.MemoryUsageMB;
                 report.HasMemoryLeak = report.MemoryGrowthMB > 10; // > 10MB growth indicates potential leak
-                
+
                 if (report.HasMemoryLeak)
                 {
                     report.LeakRate = report.MemoryGrowthMB / duration.TotalHours; // MB per hour
@@ -788,15 +788,15 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
             // Run all benchmark types
             report.LatencyBenchmark = await BenchmarkLatencyAsync();
             report.MemoryLeakReport = await MonitorMemoryLeaksAsync(TimeSpan.FromMinutes(5));
-            
+
             // Throughput benchmarks
             report.ThroughputBenchmarks = await RunThroughputBenchmarksAsync();
-            
+
             // Scalability benchmarks
             report.ScalabilityBenchmarks = await RunScalabilityBenchmarksAsync();
 
             // Overall assessment
-            report.OverallResult = 
+            report.OverallResult =
                 report.LatencyBenchmark.OverallResult == BenchmarkResult.Pass &&
                 !report.MemoryLeakReport.HasMemoryLeak &&
                 report.ThroughputBenchmarks.All(t => t.Value.MeetsTarget) &&
@@ -855,8 +855,8 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
             // Final verification
             var finalMetrics = GetMetrics();
             var finalStartup = GetStartupMetrics();
-            
-            result.Success = 
+
+            result.Success =
                 finalStartup.TotalStartupTime.TotalMilliseconds <= targets.StartupTimeMs &&
                 finalMetrics.MemoryPressure <= targets.MemoryPeakMB * 1024 * 1024;
 
@@ -906,7 +906,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
             // Record various startup phases
             await Task.Delay(100); // Simulate initialization
             _startupMetrics.FrameworkInitTime = DateTime.UtcNow - _startupMetrics.StartTime;
-            
+
             await Task.Delay(50); // Simulate additional setup
             _startupMetrics.ServiceInitTime = DateTime.UtcNow - _startupMetrics.StartTime - _startupMetrics.FrameworkInitTime;
         }
@@ -945,7 +945,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
             {
                 GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
             }
-            
+
             await Task.CompletedTask;
         }
         catch (Exception ex)
@@ -962,7 +962,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
             _ = GetPooledObject<Dictionary<string, object>>();
             ReturnPooledObject(new Dictionary<string, object>());
             _ = await GetOrComputeAsync("prejit_test", async () => "test");
-            
+
             await Task.CompletedTask;
         }
         catch (Exception ex)
@@ -982,7 +982,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
                     Timestamp = DateTime.UtcNow,
                     MemoryUsageMB = GC.GetTotalMemory(false) / 1024.0 / 1024.0,
                     Generation0Collections = GC.CollectionCount(0),
-                    Generation1Collections = GC.CollectionCount(1), 
+                    Generation1Collections = GC.CollectionCount(1),
                     Generation2Collections = GC.CollectionCount(2)
                 };
 
@@ -1045,7 +1045,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         {
             // Increase cache expiration for better hit rates
             _defaultCacheExpiration.Add(TimeSpan.FromMinutes(5));
-            
+
             _logger.LogInformation("Cache expanded to improve hit ratio");
             await Task.CompletedTask;
         }
@@ -1061,7 +1061,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         {
             // This would involve creating new pools with larger capacities
             // Implementation depends on object pool provider capabilities
-            
+
             _logger.LogInformation("Object pools expanded due to high utilization");
             await Task.CompletedTask;
         }
@@ -1080,7 +1080,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
             var stopwatch = Stopwatch.StartNew();
             await operation();
             stopwatch.Stop();
-            
+
             latencies.Add(stopwatch.Elapsed.TotalMilliseconds);
         }
 
@@ -1096,12 +1096,12 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
             // Cache throughput
             var cacheOperations = 1000;
             var cacheStart = DateTime.UtcNow;
-            
+
             for (int i = 0; i < cacheOperations; i++)
             {
                 await GetOrComputeAsync($"throughput_test_{i}", async () => i.ToString());
             }
-            
+
             var cacheDuration = DateTime.UtcNow - cacheStart;
             benchmarks["CacheThroughput"] = new ThroughputBenchmark
             {
@@ -1114,13 +1114,13 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
             // Pool throughput
             var poolOperations = 2000;
             var poolStart = DateTime.UtcNow;
-            
+
             for (int i = 0; i < poolOperations; i++)
             {
                 var obj = GetPooledObject<Dictionary<string, object>>();
                 ReturnPooledObject(obj);
             }
-            
+
             var poolDuration = DateTime.UtcNow - poolStart;
             benchmarks["PoolThroughput"] = new ThroughputBenchmark
             {
@@ -1146,20 +1146,20 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         {
             // Test with increasing loads
             var loads = new[] { 100, 1000, 5000, 10000 };
-            
+
             foreach (var load in loads)
             {
                 var start = DateTime.UtcNow;
-                
+
                 var tasks = Enumerable.Range(0, load)
                     .Select(async i => await GetOrComputeAsync($"scale_test_{i}", async () => i.ToString()))
                     .ToArray();
-                
+
                 await Task.WhenAll(tasks);
-                
+
                 var duration = DateTime.UtcNow - start;
                 var opsPerSecond = load / duration.TotalSeconds;
-                
+
                 benchmarks[$"Scalability_{load}"] = new ScalabilityBenchmark
                 {
                     Load = load,
@@ -1190,7 +1190,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
             var policy = new DefaultPooledObjectPolicy<object>(
                 () => Activator.CreateInstance(t) ?? throw new InvalidOperationException($"Cannot create instance of {t.Name}"),
                 obj => ResetObject(obj));
-            
+
             return new DefaultObjectPool<object>(policy, _maxObjectsPerPool);
         });
     }
@@ -1226,7 +1226,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
                 case IDisposable:
                     return false;
             }
-            
+
             return true;
         }
         catch
@@ -1245,7 +1245,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
     }
 
     // Statistics recording methods (similar to base class but enhanced)
-    
+
     private void RecordPoolOperation(string operation, Type type, TimeSpan duration)
     {
         lock (_metricsLock)
@@ -1283,10 +1283,10 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         {
             _metrics.TotalOperations++;
             _metrics.CacheOperations++;
-            
+
             if (operation == "Hit")
                 _metrics.CacheHits++;
-            
+
             UpdateAverageTime(duration);
         }
     }
@@ -1351,7 +1351,7 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
         _cleanupTimer?.Dispose();
         _monitoringTimer?.Dispose();
         _batchSemaphore?.Dispose();
-        
+
         // Dispose all semaphores
         foreach (var semaphore in _computationSemaphores.Values)
         {
@@ -1364,11 +1364,11 @@ public class EnhancedPerformanceOptimizer : IEnhancedPerformanceOptimizer, IDisp
                 _logger.LogWarning(ex, "Error disposing semaphore");
             }
         }
-        
+
         _computationSemaphores.Clear();
         _computationCache.Clear();
         _objectPools.Clear();
-        
+
         _disposed = true;
     }
 }
@@ -1385,7 +1385,7 @@ internal class CacheEntry
     public TimeSpan ComputationTime { get; set; }
     public long AccessCount { get; set; }
     public DateTime LastAccessTime { get; set; }
-    
+
     public bool IsExpired => DateTime.UtcNow > ExpirationTime;
 }
 
@@ -1441,7 +1441,7 @@ public class LatencyTracker
 {
     private readonly Queue<double> _latencies = new();
     private readonly int _maxSamples;
-    
+
     public string OperationName { get; }
 
     public LatencyTracker(string operationName, int maxSamples = 100)

@@ -14,10 +14,10 @@ import { RateLimiterMemory } from 'rate-limiter-flexible';
 import pino from 'pino';
 import { performance } from 'perf_hooks';
 
-import type { 
-  DevServerConfig, 
-  DevServerEvents, 
-  Client, 
+import type {
+  DevServerConfig,
+  DevServerEvents,
+  Client,
   WebSocketMessage,
   PerformanceMetrics,
   BuildResult,
@@ -72,13 +72,13 @@ export class DevServer extends EventEmitter {
     super();
     this.config = this.validateAndNormalizeConfig(config);
     this.logger = Logger.create('DevServer', this.config.performance.monitoring);
-    
+
     this.setupExpress();
     this.setupWebSocket();
     this.setupRateLimiting();
     this.initializeServices();
     this.setupEventHandlers();
-    
+
     this.logger.info('RevitPy Development Server initialized', {
       config: {
         host: this.config.host,
@@ -218,7 +218,7 @@ export class DevServer extends EventEmitter {
 
       const stopTime = Math.round(performance.now() - stopStart);
       this.isRunning = false;
-      
+
       this.logger.info(`Server stopped in ${stopTime}ms`);
       this.emit('server-stopped');
 
@@ -313,7 +313,7 @@ export class DevServer extends EventEmitter {
   private validateAndNormalizeConfig(config: DevServerConfig): DevServerConfig {
     const validator = new ConfigValidator();
     const result = validator.validate(config);
-    
+
     if (!result.valid) {
       const error = new Error(`Invalid configuration: ${result.errors.join(', ')}`);
       this.logger?.error('Configuration validation failed', { errors: result.errors });
@@ -329,30 +329,30 @@ export class DevServer extends EventEmitter {
 
   private setupExpress(): void {
     this.app = express();
-    
+
     // Security middleware
     this.app.use(helmet({
       contentSecurityPolicy: false, // Allow inline scripts for hot reload
       crossOriginResourcePolicy: { policy: 'cross-origin' }
     }));
-    
+
     // Basic middleware
     this.app.use(compression());
     this.app.use(cors({
       origin: true,
       credentials: true
     }));
-    
+
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-    
+
     // Setup routes
     this.setupRoutes();
   }
 
   private setupWebSocket(): void {
     this.server = createServer(this.app);
-    this.wss = new WebSocketServer({ 
+    this.wss = new WebSocketServer({
       server: this.server,
       path: '/ws',
       clientTracking: true
@@ -374,11 +374,11 @@ export class DevServer extends EventEmitter {
     this.assetProcessor = new AssetProcessor(this.config, this.logger);
     this.performance = new PerformanceService(this.config, this.logger);
     this.errorRecovery = new ErrorRecoveryService(this.config, this.logger);
-    
+
     if (this.config.moduleReloader.enabled) {
       this.moduleReloader = new ModuleReloaderService(this.config, this.logger);
     }
-    
+
     if (this.config.uiReload.enabled) {
       this.uiReloader = new UIReloaderService(this.config, this.logger);
     }
@@ -387,11 +387,11 @@ export class DevServer extends EventEmitter {
     if (this.config.revit.enabled) {
       this.revitConnector = new RevitConnector(this.config.revit, this.logger);
     }
-    
+
     if (this.config.vscode.enabled) {
       this.vscodeConnector = new VSCodeConnector(this.config.vscode, this.logger);
     }
-    
+
     if (this.config.webview.enabled) {
       this.webviewConnector = new WebViewConnector(this.config.webview, this.logger);
     }
@@ -424,7 +424,7 @@ export class DevServer extends EventEmitter {
       });
     }
 
-    // UI reload events  
+    // UI reload events
     if (this.uiReloader) {
       this.uiReloader.on('ui-reloaded', async (result) => {
         await this.handleUIReload(result);
@@ -453,10 +453,10 @@ export class DevServer extends EventEmitter {
 
     // Communication events
     this.communication.on('client-connected', (client) => {
-      this.logger.info('Client connected', { 
-        id: client.id, 
-        type: client.type, 
-        capabilities: client.capabilities 
+      this.logger.info('Client connected', {
+        id: client.id,
+        type: client.type,
+        capabilities: client.capabilities
       });
       this.emit('client-connected', client);
     });
@@ -577,30 +577,30 @@ export class DevServer extends EventEmitter {
 
   private async handleFileChange(event: any): Promise<void> {
     const startTime = performance.now();
-    
+
     try {
       this.logger.debug('File change detected', { path: event.path, type: event.type });
 
       // Determine reload strategy based on file type
       const reloadStrategy = this.determineReloadStrategy(event.path);
-      
+
       switch (reloadStrategy) {
         case 'python-module':
           if (this.moduleReloader) {
             await this.moduleReloader.reloadModule(event.path);
           }
           break;
-          
+
         case 'ui-component':
           if (this.uiReloader) {
             await this.uiReloader.reloadComponent(event.path);
           }
           break;
-          
+
         case 'static-asset':
           await this.buildService.build([event.path]);
           break;
-          
+
         case 'full-rebuild':
           await this.buildService.rebuild();
           break;
@@ -610,18 +610,18 @@ export class DevServer extends EventEmitter {
       this.lastReloadTime = duration;
       this.reloadCount++;
 
-      this.logger.debug('File change processed', { 
-        path: event.path, 
-        strategy: reloadStrategy, 
-        duration 
+      this.logger.debug('File change processed', {
+        path: event.path,
+        strategy: reloadStrategy,
+        duration
       });
 
     } catch (error) {
-      this.logger.error('Error handling file change', { 
-        path: event.path, 
-        error: error.message 
+      this.logger.error('Error handling file change', {
+        path: event.path,
+        error: error.message
       });
-      
+
       await this.errorRecovery.handleError(error, {
         operation: 'file-change',
         file: event.path

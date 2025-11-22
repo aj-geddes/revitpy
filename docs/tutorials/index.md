@@ -11,9 +11,9 @@ Our tutorials are designed for progressive learning, with each tutorial building
 -   :material-numeric-1-box:{ .lg .middle } __Your First Script__
 
     ---
-    
+
     **Time:** 15 minutes | **Level:** Beginner
-    
+
     Create and run your first RevitPy script with basic element queries.
 
     [:octicons-arrow-right-24: Start Tutorial](first-script.md)
@@ -21,9 +21,9 @@ Our tutorials are designed for progressive learning, with each tutorial building
 -   :material-numeric-2-box:{ .lg .middle } __Working with Elements__
 
     ---
-    
+
     **Time:** 30 minutes | **Level:** Beginner
-    
+
     Learn to query, filter, and manipulate Revit elements with the ORM layer.
 
     [:octicons-arrow-right-24: Start Tutorial](working-with-elements.md)
@@ -31,9 +31,9 @@ Our tutorials are designed for progressive learning, with each tutorial building
 -   :material-numeric-3-box:{ .lg .middle } __Advanced Queries__
 
     ---
-    
+
     **Time:** 45 minutes | **Level:** Intermediate
-    
+
     Master complex queries, relationships, and performance optimization.
 
     [:octicons-arrow-right-24: Start Tutorial](advanced-queries.md)
@@ -41,9 +41,9 @@ Our tutorials are designed for progressive learning, with each tutorial building
 -   :material-numeric-4-box:{ .lg .middle } __Creating UI Panels__
 
     ---
-    
+
     **Time:** 60 minutes | **Level:** Intermediate
-    
+
     Build interactive user interfaces with WebView and modern web technologies.
 
     [:octicons-arrow-right-24: Start Tutorial](ui-panels.md)
@@ -51,9 +51,9 @@ Our tutorials are designed for progressive learning, with each tutorial building
 -   :material-numeric-5-box:{ .lg .middle } __Package Development__
 
     ---
-    
+
     **Time:** 45 minutes | **Level:** Intermediate
-    
+
     Create, test, and publish RevitPy packages for distribution.
 
     [:octicons-arrow-right-24: Start Tutorial](package-development.md)
@@ -61,9 +61,9 @@ Our tutorials are designed for progressive learning, with each tutorial building
 -   :material-numeric-6-box:{ .lg .middle } __Enterprise Deployment__
 
     ---
-    
+
     **Time:** 90 minutes | **Level:** Advanced
-    
+
     Deploy RevitPy at scale with security, monitoring, and administration.
 
     [:octicons-arrow-right-24: Start Tutorial](enterprise-deployment.md)
@@ -258,7 +258,7 @@ Once you complete the tutorials, continue learning with:
 Demonstrate your RevitPy expertise with our certification program:
 
 - **🎓 RevitPy Developer** - Complete Individual Developer Track
-- **👥 RevitPy Team Lead** - Complete Team Development Track  
+- **👥 RevitPy Team Lead** - Complete Team Development Track
 - **🏢 RevitPy Enterprise Architect** - Complete Enterprise Track
 - **🔧 RevitPy Extension Developer** - Advanced extension development
 
@@ -271,7 +271,7 @@ Ready to start your RevitPy journey? Begin with [Your First Script](first-script
 ## Recent Updates
 
 !!! tip "New in Tutorial Series v2.0"
-    
+
     **January 2024**
     - ✨ Interactive code examples with live preview
     - 📱 Mobile-optimized tutorial format

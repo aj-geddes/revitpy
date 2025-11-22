@@ -7,7 +7,7 @@ Welcome to RevitPy Package Manager! This section will get you up and running qui
 Follow these guides in order for the smoothest experience:
 
 1. **[Installation](installation.md)** - Install RevitPy Package Manager and set up your environment
-2. **[Quick Start](quickstart.md)** - Create and install your first package in under 5 minutes  
+2. **[Quick Start](quickstart.md)** - Create and install your first package in under 5 minutes
 3. **[First Extension](first-extension.md)** - Build a complete Revit extension with UI
 4. **[Development Setup](development-setup.md)** - Configure your development environment for productivity
 

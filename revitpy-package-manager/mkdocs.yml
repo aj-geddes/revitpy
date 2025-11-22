@@ -16,7 +16,7 @@ theme:
   name: material
   custom_dir: docs/overrides
   language: en
-  
+
   # Colors and appearance
   palette:
     # Palette toggle for light mode
@@ -33,17 +33,17 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-  
+
   # Fonts
   font:
     text: Roboto
     code: Roboto Mono
-  
+
   # Icons and logos
   icon:
     repo: fontawesome/brands/github
     logo: material/package-variant
-  
+
   # Features
   features:
     - announce.dismiss

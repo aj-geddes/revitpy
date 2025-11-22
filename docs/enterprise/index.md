@@ -23,9 +23,9 @@ Get RevitPy running in your enterprise environment quickly:
 -   :material-numeric-1-box:{ .lg .middle } __Infrastructure Planning__
 
     ---
-    
+
     **Time:** 10 minutes
-    
+
     Plan your deployment architecture and resource requirements.
 
     [:octicons-arrow-right-24: Deployment Planning](deployment.md#planning)
@@ -33,9 +33,9 @@ Get RevitPy running in your enterprise environment quickly:
 -   :material-numeric-2-box:{ .lg .middle } __Security Configuration__
 
     ---
-    
+
     **Time:** 10 minutes
-    
+
     Configure enterprise security policies and access controls.
 
     [:octicons-arrow-right-24: Security Setup](security.md#quick-setup)
@@ -43,9 +43,9 @@ Get RevitPy running in your enterprise environment quickly:
 -   :material-numeric-3-box:{ .lg .middle } __Mass Deployment__
 
     ---
-    
+
     **Time:** 10 minutes
-    
+
     Deploy to workstations using Group Policy or SCCM.
 
     [:octicons-arrow-right-24: Mass Deployment](deployment.md#group-policy)
@@ -65,20 +65,20 @@ graph TB
             API2[RevitPy API Server 2]
             API3[RevitPy API Server N]
         end
-        
+
         subgraph "Package Management"
             Registry[Package Registry]
             Scanner[Security Scanner]
             Signer[Package Signer]
         end
-        
+
         subgraph "Data Tier"
             DB[(Primary Database)]
             DBR[(Read Replica)]
             Cache[(Redis Cache)]
             Storage[(S3 Storage)]
         end
-        
+
         subgraph "Monitoring & Operations"
             Monitor[Monitoring Stack]
             Logs[Log Aggregation]
@@ -86,44 +86,44 @@ graph TB
             Backup[Backup System]
         end
     end
-    
+
     subgraph "Client Workstations"
         Revit1[Revit + RevitPy]
         Revit2[Revit + RevitPy]
         RevitN[Revit + RevitPy]
-        
+
         VS1[VS Code + Extension]
         VS2[VS Code + Extension]
         VSN[VS Code + Extension]
     end
-    
+
     subgraph "Management & Security"
         Admin[Admin Console]
         LDAP[LDAP/AD Integration]
         PKI[PKI Infrastructure]
         Compliance[Compliance Dashboard]
     end
-    
+
     LB --> API1
     LB --> API2
     LB --> API3
-    
+
     API1 --> DB
     API2 --> DBR
     API3 --> Cache
-    
+
     Registry --> Storage
     Scanner --> Registry
     Signer --> PKI
-    
+
     Revit1 --> LB
     Revit2 --> LB
     RevitN --> LB
-    
+
     VS1 --> LB
     VS2 --> LB
     VSN --> LB
-    
+
     Admin --> Monitor
     LDAP --> API1
     Compliance --> Logs
@@ -155,31 +155,31 @@ graph LR
         Data[Data Security]
         Infra[Infrastructure Security]
     end
-    
+
     subgraph "Client Security"
         Auth[Authentication]
         Authz[Authorization]
         Cert[Client Certificates]
     end
-    
+
     subgraph "Transport Security"
         TLS[TLS 1.3]
         MTLS[Mutual TLS]
         VPN[VPN Integration]
     end
-    
+
     subgraph "Application Security"
         Sign[Package Signing]
         Scan[Vulnerability Scanning]
         Policy[Policy Enforcement]
     end
-    
+
     subgraph "Data Security"
         Encrypt[Encryption at Rest]
         Backup[Encrypted Backups]
         Key[Key Management]
     end
-    
+
     subgraph "Infrastructure Security"
         Network[Network Segmentation]
         Firewall[WAF Protection]
@@ -269,12 +269,12 @@ resources:
     cpu: "2000m"
     memory: "4Gi"
     replicas: 5
-  
+
   database:
-    cpu: "4000m" 
+    cpu: "4000m"
     memory: "16Gi"
     storage: "1Ti"
-  
+
   cache:
     cpu: "1000m"
     memory: "8Gi"
@@ -308,7 +308,7 @@ report = audit.generate_report(
     report_type="SOC2",
     include_sections=[
         "access_controls",
-        "data_protection", 
+        "data_protection",
         "availability",
         "confidentiality"
     ]
@@ -328,12 +328,12 @@ policies:
     vulnerability_threshold: "medium"
     auto_update: false
     approval_required: true
-  
+
   access_control:
     mfa_required: true
     session_timeout: 28800  # 8 hours
     ip_whitelist_enabled: true
-    
+
   data_governance:
     encryption_required: true
     backup_retention: 2555  # 7 years
@@ -345,7 +345,7 @@ policies:
 ### Large Architecture Firm
 
 **Challenge**: 500-person firm with global offices needs standardized Revit automation
-**Solution**: 
+**Solution**:
 - Centralized package registry with regional CDN
 - LDAP integration for single sign-on
 - Automated deployment via Group Policy
@@ -403,7 +403,7 @@ policies:
 - **[Incident Response](security.md#incident-response)**: Security incident handling
 - **[Penetration Testing](security.md#pen-testing)**: Security testing procedures
 
-### for Development Teams  
+### for Development Teams
 - **[Enterprise Development](../guides/enterprise-development.md)**: Development in enterprise environments
 - **[Package Development](../tutorials/package-development.md)**: Creating enterprise-ready packages
 - **[Testing Strategies](../guides/testing-strategies.md)**: Enterprise testing approaches
@@ -416,7 +416,7 @@ policies:
 **RevitPy Certified Administrator** - 16-hour certification program covering:
 
 - **Module 1**: Enterprise Architecture (4 hours)
-- **Module 2**: Security and Compliance (4 hours)  
+- **Module 2**: Security and Compliance (4 hours)
 - **Module 3**: Deployment and Configuration (4 hours)
 - **Module 4**: Operations and Troubleshooting (4 hours)
 
@@ -469,7 +469,7 @@ policies:
 - Security hardening and compliance
 - Integration with existing systems
 
-**Migration Services** 
+**Migration Services**
 - PyRevit to RevitPy migration
 - Legacy system modernization
 - Data migration and validation
@@ -530,7 +530,7 @@ Ready to get started? [Contact our enterprise team](mailto:enterprise@revitpy.de
 !!! tip "Enterprise Quick Links"
 
     - 🚀 [30-Minute Quick Start](deployment.md#quick-start)
-    - 🔒 [Security Configuration](security.md)  
+    - 🔒 [Security Configuration](security.md)
     - 📊 [Monitoring Setup](monitoring.md)
     - 📋 [Compliance Guide](compliance.md)
     - 💼 [Professional Services](mailto:enterprise@revitpy.dev)

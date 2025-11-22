@@ -12,24 +12,24 @@ export interface DevServerConfig {
   host: string;
   port: number;
   websocketPort: number;
-  
+
   // Paths
   projectRoot: string;
   watchPaths: string[];
   buildOutputPath: string;
-  
+
   // Performance
   debounceMs: number;
   maxReloadTime: number;
   parallelProcesses: number;
-  
+
   // Features
   hotReload: HotReloadConfig;
   moduleReloader: ModuleReloaderConfig;
   uiReload: UIReloadConfig;
   errorRecovery: ErrorRecoveryConfig;
   performance: PerformanceConfig;
-  
+
   // Integrations
   revit: RevitIntegrationConfig;
   vscode: VSCodeIntegrationConfig;
@@ -217,9 +217,9 @@ export interface WebSocketMessage {
   clientId?: string;
 }
 
-export type MessageType = 
+export type MessageType =
   | 'file-changed'
-  | 'build-start' 
+  | 'build-start'
   | 'build-complete'
   | 'build-error'
   | 'module-reload'
@@ -245,7 +245,7 @@ export interface Client {
 
 export type ClientType = 'revit' | 'vscode' | 'webview' | 'browser' | 'cli';
 
-export type ClientCapability = 
+export type ClientCapability =
   | 'python-execution'
   | 'ui-rendering'
   | 'file-operations'
@@ -318,7 +318,7 @@ export interface RecoveryAction {
   rollback?: () => Promise<void>;
 }
 
-export type RecoveryType = 
+export type RecoveryType =
   | 'reload-module'
   | 'restart-server'
   | 'clear-cache'

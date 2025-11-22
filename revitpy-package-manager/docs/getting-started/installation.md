@@ -13,7 +13,7 @@ This guide will help you install RevitPy Package Manager and get it configured f
 
 ### Supported Revit Versions
 - Autodesk Revit 2021 ✅
-- Autodesk Revit 2022 ✅ 
+- Autodesk Revit 2022 ✅
 - Autodesk Revit 2023 ✅
 - Autodesk Revit 2024 ✅
 - Autodesk Revit 2025 ✅
@@ -27,7 +27,7 @@ This guide will help you install RevitPy Package Manager and get it configured f
     ```bash
     # Install RevitPy Package Manager
     pip install revitpy-package-manager
-    
+
     # Verify installation
     revitpy-install --version
     ```
@@ -40,10 +40,10 @@ This guide will help you install RevitPy Package Manager and get it configured f
     # Clone the repository
     git clone https://github.com/highvelocitysolutions/revitpy.git
     cd revitpy/revitpy-package-manager
-    
+
     # Install in development mode
     pip install -e .
-    
+
     # Verify installation
     revitpy-install --version
     ```
@@ -157,7 +157,7 @@ Test all CLI commands are available:
 # Package manager
 revitpy-install --help
 
-# Package builder  
+# Package builder
 revitpy-build --help
 
 # Registry server (for development)
@@ -173,15 +173,15 @@ Test Python integration:
 try:
     import revitpy_package_manager
     print(f"✅ RevitPy Package Manager v{revitpy_package_manager.__version__}")
-    
+
     from revitpy_package_manager.installer import resolver
     print("✅ Dependency resolver available")
-    
-    from revitpy_package_manager.builder import validator  
+
+    from revitpy_package_manager.builder import validator
     print("✅ Package validator available")
-    
+
     print("🎉 Installation successful!")
-    
+
 except ImportError as e:
     print(f"❌ Installation issue: {e}")
 ```
@@ -209,7 +209,7 @@ revitpy-install search revitpy
 
 !!! warning "Python 3.11+ Required"
     RevitPy requires Python 3.11 or later. Check your version:
-    
+
     ```bash
     python --version  # Should show 3.11.x or higher
     ```
@@ -266,7 +266,7 @@ If you can't connect to the registry:
 
 ```toml
 [network]
-proxy_http = "http://proxy.company.com:8080"  
+proxy_http = "http://proxy.company.com:8080"
 proxy_https = "https://proxy.company.com:8080"
 ```
 

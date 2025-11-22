@@ -318,13 +318,13 @@ sequenceDiagram
 
     FileSystem->>HotReload: File Changed
     HotReload->>HotReload: Build & Process
-    
+
     par Notify All Clients
         HotReload->>Dashboard: Hot Reload Event
         HotReload->>VSCode: File Change Event
         HotReload->>WebHost: Update Panel
     end
-    
+
     par Update UIs
         Dashboard->>Dashboard: Refresh UI
         VSCode->>VSCode: Update IntelliSense
@@ -504,7 +504,7 @@ class ErrorBoundary extends React.Component {
       sessionId: getSessionId(),
       url: window.location.href
     });
-    
+
     // Send to error reporting service
     errorReporter.captureException(error, {
       tags: { boundary: 'react' },
@@ -569,12 +569,12 @@ services:
       - VITE_HOT_RELOAD=true
     volumes:
       - ./apps/dashboard/src:/app/src
-  
+
   package-registry:
     build: ./apps/package-registry
     ports: ['3001:3001']
     depends_on: [postgres, redis]
-  
+
   hot-reload-server:
     build: ./src/RevitPy.HotReload
     ports: ['3002:3002']

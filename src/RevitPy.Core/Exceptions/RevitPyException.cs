@@ -39,8 +39,8 @@ public class RevitPyException : Exception
 public class PythonInitializationException : RevitPyException
 {
     public PythonInitializationException(string message) : base(message, "PYTHON_INIT_FAILED") { }
-    
-    public PythonInitializationException(string message, Exception innerException) 
+
+    public PythonInitializationException(string message, Exception innerException)
         : base(message, innerException)
     {
         ErrorCode = "PYTHON_INIT_FAILED";
@@ -64,14 +64,14 @@ public class PythonExecutionException : RevitPyException
 
     public PythonExecutionException(string message) : base(message, "PYTHON_EXECUTION_FAILED") { }
 
-    public PythonExecutionException(string message, string pythonErrorType, string pythonStackTrace) 
+    public PythonExecutionException(string message, string pythonErrorType, string pythonStackTrace)
         : base(message, "PYTHON_EXECUTION_FAILED")
     {
         PythonErrorType = pythonErrorType;
         PythonStackTrace = pythonStackTrace;
     }
 
-    public PythonExecutionException(string message, Exception innerException) 
+    public PythonExecutionException(string message, Exception innerException)
         : base(message, innerException)
     {
         ErrorCode = "PYTHON_EXECUTION_FAILED";
@@ -95,14 +95,14 @@ public class RevitApiException : RevitPyException
 
     public RevitApiException(string message) : base(message, "REVIT_API_FAILED") { }
 
-    public RevitApiException(string message, string revitErrorMessage, string revitErrorSeverity) 
+    public RevitApiException(string message, string revitErrorMessage, string revitErrorSeverity)
         : base(message, "REVIT_API_FAILED")
     {
         RevitErrorMessage = revitErrorMessage;
         RevitErrorSeverity = revitErrorSeverity;
     }
 
-    public RevitApiException(string message, Exception innerException) 
+    public RevitApiException(string message, Exception innerException)
         : base(message, innerException)
     {
         ErrorCode = "REVIT_API_FAILED";
@@ -126,14 +126,14 @@ public class ExtensionLoadException : RevitPyException
 
     public ExtensionLoadException(string message) : base(message, "EXTENSION_LOAD_FAILED") { }
 
-    public ExtensionLoadException(string message, string extensionPath, string extensionName) 
+    public ExtensionLoadException(string message, string extensionPath, string extensionName)
         : base(message, "EXTENSION_LOAD_FAILED")
     {
         ExtensionPath = extensionPath;
         ExtensionName = extensionName;
     }
 
-    public ExtensionLoadException(string message, Exception innerException) 
+    public ExtensionLoadException(string message, Exception innerException)
         : base(message, innerException)
     {
         ErrorCode = "EXTENSION_LOAD_FAILED";
@@ -152,13 +152,13 @@ public class ConfigurationException : RevitPyException
 
     public ConfigurationException(string message) : base(message, "CONFIGURATION_INVALID") { }
 
-    public ConfigurationException(string message, string configurationSection) 
+    public ConfigurationException(string message, string configurationSection)
         : base(message, "CONFIGURATION_INVALID")
     {
         ConfigurationSection = configurationSection;
     }
 
-    public ConfigurationException(string message, Exception innerException) 
+    public ConfigurationException(string message, Exception innerException)
         : base(message, innerException)
     {
         ErrorCode = "CONFIGURATION_INVALID";
@@ -182,14 +182,14 @@ public class SecurityException : RevitPyException
 
     public SecurityException(string message) : base(message, "SECURITY_VIOLATION") { }
 
-    public SecurityException(string message, string violationType, string resource) 
+    public SecurityException(string message, string violationType, string resource)
         : base(message, "SECURITY_VIOLATION")
     {
         ViolationType = violationType;
         Resource = resource;
     }
 
-    public SecurityException(string message, Exception innerException) 
+    public SecurityException(string message, Exception innerException)
         : base(message, innerException)
     {
         ErrorCode = "SECURITY_VIOLATION";

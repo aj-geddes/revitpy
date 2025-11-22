@@ -56,7 +56,7 @@ All notable changes to the RevitPy VS Code extension will be documented in this 
 ### Technical Implementation
 - TypeScript-based extension with strict type checking
 - Language Server Protocol (LSP) implementation
-- Debug Adapter Protocol (DAP) support  
+- Debug Adapter Protocol (DAP) support
 - WebSocket communication with Revit
 - Efficient caching and memory management
 - Comprehensive error handling and logging

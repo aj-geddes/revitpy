@@ -102,7 +102,7 @@ all_params = param_manager.get_all_parameters(element)
 
 # Get specific parameters
 specific_params = param_manager.get_parameters(
-    element, 
+    element,
     ["Height", "Width", "Area", "Type Mark"]
 )
 
@@ -182,7 +182,7 @@ import_results = importer.import_from_csv(
     "updated_door_parameters.csv",
     mapping={
         "Element ID": "id",
-        "Door Type": "Type Mark", 
+        "Door Type": "Type Mark",
         "Door Width": "Width",
         "Door Height": "Height"
     },
@@ -200,7 +200,7 @@ shared_mgr = SharedParameterManager()
 # Create new shared parameter
 shared_param = shared_mgr.create_shared_parameter(
     name="Custom Rating",
-    group="Analysis", 
+    group="Analysis",
     parameter_type="Text",
     categories=["Walls", "Floors"]
 )
@@ -279,7 +279,7 @@ Element ID,Category,Type Mark,Width,Height,Area,Comments
   "mappings": {
     "external_name": "revit_parameter_name",
     "Wall Type": "Type Mark",
-    "Wall Height": "Height", 
+    "Wall Height": "Height",
     "Wall Width": "Width"
   },
   "validation": {
@@ -315,7 +315,7 @@ import_export:
     validation: "Validation"
     mapping: "Mapping"
   backup_before_import: true
-  
+
 # Validation settings
 validation:
   strict_mode: false
@@ -330,17 +330,17 @@ parameter_rules:
     type: "string"
     required: true
     pattern: "^[A-Z]{1,2}-\\d{3}$"
-    
+
   Height:
     type: "double"
     min_value: 0
     max_value: 50
     units: "feet"
-    
+
   Fire Rating:
     type: "string"
     choices: ["Non-Rated", "1 Hour", "2 Hour", "3 Hour"]
-    
+
   Area:
     type: "double"
     min_value: 0
@@ -416,7 +416,7 @@ pytest tests/ --cov=src --cov-report=html
 
 After mastering parameter management, explore:
 - **Geometry Analysis Extension** for advanced geometric operations
-- **Data Export/Import Tool** for comprehensive data workflows  
+- **Data Export/Import Tool** for comprehensive data workflows
 - **Model Validation Suite** for automated quality control
 - **WebView2 UI Panel** for interactive parameter management interfaces
 

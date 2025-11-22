@@ -138,7 +138,7 @@ server {
     location / {
         root /var/www/revitpy/dashboard/dist;
         try_files $uri $uri/ /index.html;
-        
+
         # Enable gzip compression
         gzip on;
         gzip_types text/css application/javascript application/json image/svg+xml;
@@ -620,28 +620,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
         cache: 'npm'
-    
+
     - name: Install dependencies
       run: npm ci
-    
+
     - name: Run linting
       run: npm run lint
-    
+
     - name: Run type checking
       run: npm run type-check
-    
+
     - name: Run unit tests
       run: npm run test
-    
+
     - name: Run integration tests
       run: npm run test:integration
-    
+
     - name: Run E2E tests
       run: npm run test:e2e
 
@@ -651,20 +651,20 @@ jobs:
     strategy:
       matrix:
         app: [dashboard, package-registry]
-    
+
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Setup Docker Buildx
       uses: docker/setup-buildx-action@v2
-    
+
     - name: Log in to Container Registry
       uses: docker/login-action@v2
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v4
@@ -675,7 +675,7 @@ jobs:
           type=ref,event=pr
           type=sha,prefix=sha-
           type=raw,value=latest,enable={{is_default_branch}}
-    
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v4
       with:
@@ -690,20 +690,20 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Setup kubectl
       uses: azure/setup-kubectl@v3
       with:
         version: 'v1.24.0'
-    
+
     - name: Setup Kustomize
       uses: imranismail/setup-kustomize@v1
       with:
         kustomize-version: '4.5.7'
-    
+
     - name: Deploy to staging
       run: |
         cd k8s/staging
@@ -712,13 +712,13 @@ jobs:
         kubectl apply -k .
       env:
         KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
-    
+
     - name: Wait for deployment
       run: kubectl rollout status deployment/dashboard deployment/package-registry -n revitpy-devtools-staging
-    
+
     - name: Run smoke tests
       run: npm run test:smoke -- --env staging
-    
+
     - name: Deploy to production
       if: success()
       run: |
@@ -753,10 +753,10 @@ app.get('/health', async (req, res) => {
   try {
     // Check database connection
     await db.raw('SELECT 1');
-    
+
     // Check Redis connection
     await redis.ping();
-    
+
     res.status(200).json({
       status: 'healthy',
       checks: {
@@ -787,12 +787,12 @@ scrape_configs:
     static_configs:
       - targets: ['dashboard:80']
     metrics_path: '/metrics'
-    
+
   - job_name: 'revitpy-package-registry'
     static_configs:
       - targets: ['package-registry:3001']
     metrics_path: '/metrics'
-    
+
   - job_name: 'revitpy-hot-reload'
     static_configs:
       - targets: ['hot-reload:3002']

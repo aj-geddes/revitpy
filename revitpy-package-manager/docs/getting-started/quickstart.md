@@ -65,22 +65,22 @@ from revitpy.geometry import Point3D, Vector3D
 
 def create_point_grid(count_x: int = 5, count_y: int = 5, spacing: float = 10.0):
     """Create a grid of points in 3D space.
-    
+
     Args:
         count_x: Number of points in X direction
-        count_y: Number of points in Y direction  
+        count_y: Number of points in Y direction
         spacing: Distance between points
-        
+
     Returns:
         List of Point3D objects
     """
     points = []
-    
+
     for x in range(count_x):
         for y in range(count_y):
             point = Point3D(x * spacing, y * spacing, 0)
             points.append(point)
-    
+
     return points
 
 def greet_revit():
@@ -121,7 +121,7 @@ points = create_point_grid(2, 2, 100.0)
 print(f"Generated {len(points)} points for Revit model")
 
 # In a real Revit script, you'd create model geometry here
-# For now, just print the point coordinates  
+# For now, just print the point coordinates
 for i, point in enumerate(points):
     print(f"Point {i+1}: ({point.x}, {point.y}, {point.z})")
 ```
@@ -130,10 +130,10 @@ for i, point in enumerate(points):
 
 Congratulations! In 5 minutes you:
 
-✅ **Created a virtual environment** for isolated package management  
-✅ **Installed a package** from the RevitPy registry  
-✅ **Built your first package** with proper structure and metadata  
-✅ **Tested the package** works correctly  
+✅ **Created a virtual environment** for isolated package management
+✅ **Installed a package** from the RevitPy registry
+✅ **Built your first package** with proper structure and metadata
+✅ **Tested the package** works correctly
 ✅ **Used it in a Revit context** (simulated)
 
 ## 📚 Common Commands Reference
@@ -148,7 +148,7 @@ revitpy-install env list
 # Create new environment
 revitpy-install env create PROJECT_NAME --revit-version YEAR
 
-# Activate environment  
+# Activate environment
 revitpy-install env activate PROJECT_NAME
 
 # Delete environment
@@ -202,7 +202,7 @@ Creates a simple script package with:
 - Basic configuration
 - Simple tests
 
-### UI Extension Package  
+### UI Extension Package
 ```bash
 revitpy-build init --template ui-extension --name my-extension
 ```
@@ -273,7 +273,7 @@ revitpy-install search PACKAGE_NAME
 ```
 
 ### Import Errors
-```bash  
+```bash
 # Verify environment is activated
 revitpy-install env current
 
@@ -315,7 +315,7 @@ revitpy-build package --source .
 Now that you've mastered the basics:
 
 1. **[Build Your First Extension](first-extension.md)** - Create a complete Revit extension with UI
-2. **[Development Setup](development-setup.md)** - Configure your IDE for maximum productivity  
+2. **[Development Setup](development-setup.md)** - Configure your IDE for maximum productivity
 3. **[Basic Scripting Tutorial](../tutorials/basic-scripting.md)** - Deep dive into RevitPy scripting
 4. **[Package Management Tutorial](../tutorials/package-management.md)** - Advanced package management techniques
 

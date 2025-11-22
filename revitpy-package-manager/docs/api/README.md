@@ -132,7 +132,7 @@ extra_features = ["matplotlib>=3.5.0"]
 
 The package manager handles complex version compatibility:
 
-- **Python Version**: Supports Python 3.11+ 
+- **Python Version**: Supports Python 3.11+
 - **Revit Version**: Per-package Revit version compatibility
 - **Dependency Constraints**: Full PEP 508 version specifiers
 - **Optional Dependencies**: Extra features and development dependencies

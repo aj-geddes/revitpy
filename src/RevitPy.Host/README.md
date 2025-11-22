@@ -59,7 +59,7 @@ Automatic monitoring of:
 
 Support for multiple extension types:
 - **Python Scripts (.py)** - Direct Python code execution
-- **Compiled Packages (.rpx)** - RevitPy extension packages  
+- **Compiled Packages (.rpx)** - RevitPy extension packages
 - **Native Libraries (.dll)** - .NET assemblies
 
 Extension features:

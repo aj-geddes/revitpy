@@ -113,7 +113,7 @@ def list_all_walls():
     """List all walls in the active document."""
     with RevitContext() as context:
         walls = context.elements.of_category('Walls')
-        
+
         for wall in walls:
             print(f"Wall ID: {wall.Id}")
             print(f"Wall Name: {wall.Name}")
@@ -127,13 +127,13 @@ def update_wall_comments():
     """Update comments for all walls."""
     with RevitContext() as context:
         walls = context.elements.of_category('Walls')
-        
+
         with context.transaction("Update Wall Comments") as txn:
             for wall in walls:
                 height = wall.get_parameter('Height').AsDouble()
                 comment = f"Height: {height:.1f} ft"
                 wall.set_parameter('Comments', comment)
-            
+
             txn.commit()
 ```
 
@@ -146,15 +146,15 @@ def create_wall(start_point, end_point, height):
             # Get wall type
             wall_types = context.elements.of_category('WallTypes')
             wall_type = wall_types.first()
-            
+
             # Create wall using Revit API
             from Autodesk.Revit.DB import Wall, Line, XYZ
-            
+
             line = Line.CreateBound(
                 XYZ(start_point[0], start_point[1], 0),
                 XYZ(end_point[0], end_point[1], 0)
             )
-            
+
             wall = Wall.Create(
                 context.get_active_document(),
                 line,
@@ -165,7 +165,7 @@ def create_wall(start_point, end_point, height):
                 False,
                 False
             )
-            
+
             txn.commit()
             return context.wrap_element(wall)
 ```
@@ -231,7 +231,7 @@ def process_elements_efficiently():
     with RevitContext() as context:
         # Cache wall types once
         wall_types = {wt.Name: wt for wt in context.elements.of_category('WallTypes')}
-        
+
         for wall in context.elements.of_category('Walls'):
             wall_type_name = wall.WallType.Name
             wall_type = wall_types.get(wall_type_name)  # Fast lookup
@@ -271,6 +271,6 @@ for thread in threads:
 ## Next Steps
 
 - **[ORM Layer](orm.md)**: Learn about the object-relational mapping capabilities
-- **[Element Sets](element-sets.md)**: Work with collections of elements efficiently  
+- **[Element Sets](element-sets.md)**: Work with collections of elements efficiently
 - **[Transaction Management](transaction-api.md)**: Master transaction patterns
 - **[Error Handling](../guides/error-handling.md)**: Implement robust error handling

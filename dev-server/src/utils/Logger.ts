@@ -13,11 +13,11 @@ export class Logger {
   static create(name: string, monitoring: boolean = true): pino.Logger {
     const logLevel = process.env.LOG_LEVEL || 'info';
     const isDevelopment = process.env.NODE_ENV !== 'production';
-    
+
     const options: pino.LoggerOptions = {
       name,
       level: logLevel,
-      
+
       // Transport for pretty printing in development
       ...(isDevelopment && {
         transport: {
@@ -32,7 +32,7 @@ export class Logger {
           }
         }
       }),
-      
+
       // Base configuration
       formatters: {
         level: (label) => {
@@ -46,7 +46,7 @@ export class Logger {
           return obj;
         }
       },
-      
+
       // Custom serializers
       serializers: {
         error: (error: Error) => ({
@@ -55,7 +55,7 @@ export class Logger {
           stack: error.stack,
           ...(error.cause && { cause: error.cause })
         }),
-        
+
         // Serialize performance metrics
         metrics: (metrics: any) => ({
           memory: metrics.memoryUsage && {
@@ -66,7 +66,7 @@ export class Logger {
           cpu: metrics.cpuUsage && `${metrics.cpuUsage.percent?.toFixed(1)}%`,
           duration: metrics.buildTime && `${Math.round(metrics.buildTime)}ms`
         }),
-        
+
         // Serialize file changes
         fileChange: (change: any) => ({
           path: change.path,
@@ -74,20 +74,20 @@ export class Logger {
           size: change.size && `${Math.round(change.size / 1024)}KB`,
           hash: change.hash && change.hash.substring(0, 8)
         }),
-        
+
         // Serialize client information
         client: (client: any) => ({
           id: client.id,
           type: client.type,
-          connected: client.connectedAt && 
+          connected: client.connectedAt &&
             `${Math.round((Date.now() - client.connectedAt.getTime()) / 1000)}s ago`,
           capabilities: client.capabilities
         })
       },
-      
+
       // Timestamp
       timestamp: pino.stdTimeFunctions.isoTime,
-      
+
       // Additional base fields
       base: {
         pid: process.pid,
@@ -230,11 +230,11 @@ export class PerformanceTimer {
   between(start: string, end: string): number {
     const startTime = this.marks.get(start);
     const endTime = this.marks.get(end);
-    
+
     if (!startTime || !endTime) {
       throw new Error(`Mark not found: ${!startTime ? start : end}`);
     }
-    
+
     return Math.round(endTime - startTime);
   }
 
@@ -243,11 +243,11 @@ export class PerformanceTimer {
    */
   getAllMarks(): Record<string, number> {
     const result: Record<string, number> = {};
-    
+
     for (const [label, time] of this.marks) {
       result[label] = Math.round(time - this.startTime);
     }
-    
+
     return result;
   }
 
@@ -257,7 +257,7 @@ export class PerformanceTimer {
   log(logger: pino.Logger, level: pino.Level = 'debug'): void {
     const duration = this.end();
     const marks = this.getAllMarks();
-    
+
     logger[level]({
       timer: {
         name: this.name,
@@ -304,7 +304,7 @@ export class PerformanceProfiler {
   end(): PerformanceReport {
     const endTime = performance.now();
     const endMemory = process.memoryUsage();
-    
+
     const totalDuration = Math.round(endTime - this.startTime);
     const memoryDelta = {
       rss: endMemory.rss - this.startMemory.rss,
@@ -329,7 +329,7 @@ export class PerformanceProfiler {
         duration: Math.round(measurement.time - previousTime),
         memoryDelta: measurement.memory.heapUsed - previousMemory
       });
-      
+
       previousTime = measurement.time;
       previousMemory = measurement.memory.heapUsed;
     }
@@ -340,7 +340,7 @@ export class PerformanceProfiler {
       memoryDelta,
       segments,
       summary: {
-        avgSegmentDuration: segments.length > 0 ? 
+        avgSegmentDuration: segments.length > 0 ?
           Math.round(segments.reduce((sum, s) => sum + s.duration, 0) / segments.length) : 0,
         maxMemoryUsage: Math.max(...this.measurements.map(m => m.memory.heapUsed)),
         minMemoryUsage: Math.min(...this.measurements.map(m => m.memory.heapUsed))
@@ -353,7 +353,7 @@ export class PerformanceProfiler {
    */
   log(logger: pino.Logger, level: pino.Level = 'debug'): PerformanceReport {
     const report = this.end();
-    
+
     logger[level]({
       profiler: {
         name: report.name,
@@ -366,7 +366,7 @@ export class PerformanceProfiler {
         summary: report.summary
       }
     }, `Profile ${report.name}: ${report.totalDuration}ms`);
-    
+
     return report;
   }
 }

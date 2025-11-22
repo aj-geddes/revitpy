@@ -7,7 +7,7 @@ revitpy:
   installation_path: "C:\\Program Files\\RevitPy"
   log_level: "INFO"
   enable_telemetry: false
-  
+
   # Host service configuration
   host_service:
     port: 8080
@@ -18,7 +18,7 @@ revitpy:
       - "http://localhost:8080"
     max_connections: 100
     timeout_seconds: 300
-  
+
   # Python runtime configuration
   python:
     runtime_path: ""  # Auto-detected
@@ -31,7 +31,7 @@ revitpy:
       - "numpy>=1.24.0"
       - "pandas>=2.0.0"
       - "pydantic>=2.0.0"
-    
+
   # Revit integration settings
   revit:
     supported_versions: ["2022", "2023", "2024", "2025"]
@@ -42,7 +42,7 @@ revitpy:
       "2023": "%PROGRAMDATA%\\Autodesk\\Revit\\Addins\\2023"
       "2024": "%PROGRAMDATA%\\Autodesk\\Revit\\Addins\\2024"
       "2025": "%PROGRAMDATA%\\Autodesk\\Revit\\Addins\\2025"
-  
+
   # Security and compliance settings
   security:
     enable_code_signing: true
@@ -53,7 +53,7 @@ revitpy:
     sandbox_mode: true
     enforce_ssl_for_api: false
     api_key_required: false
-  
+
   # Performance and optimization
   performance:
     max_concurrent_operations: 4
@@ -61,7 +61,7 @@ revitpy:
     enable_caching: true
     cache_size_mb: 256
     gc_collection_interval: 300
-    
+
   # Logging configuration
   logging:
     level: "INFO"
@@ -73,7 +73,7 @@ revitpy:
     console:
       enabled: true
       format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  
+
   # Development and debugging
   development:
     enable_hot_reload: false
@@ -89,19 +89,19 @@ enterprise:
   group_policy:
     enforce_settings: false
     locked_settings: []
-    
+
   # Network and proxy settings
   network:
     proxy_url: ""
     use_system_proxy: true
     bypass_proxy_for_local: true
-    
+
   # License and compliance
   licensing:
     license_server_url: ""
     offline_license_file: ""
     usage_reporting_url: ""
-    
+
   # Update and deployment
   updates:
     auto_update: true

@@ -1,10 +1,8 @@
 """Git repository management utilities."""
 
-import subprocess
 from pathlib import Path
-from typing import List, Optional
 
-from git import Repo, InvalidGitRepositoryError
+from git import InvalidGitRepositoryError, Repo
 from git.exc import GitCommandError
 
 from ..core.exceptions import CommandError
@@ -15,23 +13,23 @@ logger = get_logger(__name__)
 
 class GitManager:
     """Git repository management utilities."""
-    
+
     def __init__(self, repo_path: Path) -> None:
         """Initialize Git manager.
-        
+
         Args:
             repo_path: Path to repository directory
         """
         self.repo_path = repo_path
-        self._repo: Optional[Repo] = None
-    
+        self._repo: Repo | None = None
+
     @property
     def repo(self) -> Repo:
         """Get Git repository instance.
-        
+
         Returns:
             Git repository instance
-            
+
         Raises:
             CommandError: If not a valid Git repository
         """
@@ -42,13 +40,13 @@ class GitManager:
                 raise CommandError(
                     "git",
                     f"Not a git repository: {self.repo_path}",
-                    suggestion="Run 'git init' to initialize a repository"
+                    suggestion="Run 'git init' to initialize a repository",
                 ) from e
         return self._repo
-    
+
     def init(self) -> None:
         """Initialize a new Git repository.
-        
+
         Raises:
             CommandError: If initialization fails
         """
@@ -57,10 +55,10 @@ class GitManager:
             logger.info(f"Initialized git repository at {self.repo_path}")
         except Exception as e:
             raise CommandError("git init", str(e)) from e
-    
+
     def is_git_repository(self) -> bool:
         """Check if directory is a Git repository.
-        
+
         Returns:
             True if directory is a Git repository
         """
@@ -69,10 +67,10 @@ class GitManager:
             return True
         except InvalidGitRepositoryError:
             return False
-    
+
     def add_all(self) -> None:
         """Add all files to Git staging area.
-        
+
         Raises:
             CommandError: If add operation fails
         """
@@ -81,13 +79,13 @@ class GitManager:
             logger.debug("Added all files to git staging area")
         except GitCommandError as e:
             raise CommandError("git add", str(e)) from e
-    
-    def add(self, files: List[str]) -> None:
+
+    def add(self, files: list[str]) -> None:
         """Add specific files to Git staging area.
-        
+
         Args:
             files: List of file paths to add
-            
+
         Raises:
             CommandError: If add operation fails
         """
@@ -96,14 +94,14 @@ class GitManager:
             logger.debug(f"Added {len(files)} files to git staging area")
         except Exception as e:
             raise CommandError("git add", str(e)) from e
-    
-    def commit(self, message: str, author: Optional[str] = None) -> None:
+
+    def commit(self, message: str, author: str | None = None) -> None:
         """Create a Git commit.
-        
+
         Args:
             message: Commit message
             author: Optional commit author
-            
+
         Raises:
             CommandError: If commit fails
         """
@@ -111,15 +109,15 @@ class GitManager:
             kwargs = {}
             if author:
                 kwargs["author"] = author
-            
+
             self.repo.index.commit(message, **kwargs)
             logger.info(f"Created commit: {message}")
         except Exception as e:
             raise CommandError("git commit", str(e)) from e
-    
+
     def get_status(self) -> dict:
         """Get Git repository status.
-        
+
         Returns:
             Dictionary with repository status information
         """
@@ -135,13 +133,13 @@ class GitManager:
         except Exception as e:
             logger.warning(f"Failed to get git status: {e}")
             return {}
-    
-    def get_remote_url(self, remote: str = "origin") -> Optional[str]:
+
+    def get_remote_url(self, remote: str = "origin") -> str | None:
         """Get remote repository URL.
-        
+
         Args:
             remote: Remote name (default: origin)
-            
+
         Returns:
             Remote URL or None if not found
         """
@@ -149,10 +147,10 @@ class GitManager:
             return self.repo.remote(remote).url
         except Exception:
             return None
-    
+
     def has_commits(self) -> bool:
         """Check if repository has any commits.
-        
+
         Returns:
             True if repository has commits
         """
@@ -161,10 +159,10 @@ class GitManager:
             return True
         except Exception:
             return False
-    
-    def get_current_branch(self) -> Optional[str]:
+
+    def get_current_branch(self) -> str | None:
         """Get current branch name.
-        
+
         Returns:
             Current branch name or None if detached HEAD
         """
@@ -172,13 +170,13 @@ class GitManager:
             return self.repo.active_branch.name
         except Exception:
             return None
-    
+
     def create_branch(self, branch_name: str) -> None:
         """Create a new branch.
-        
+
         Args:
             branch_name: Name of the new branch
-            
+
         Raises:
             CommandError: If branch creation fails
         """
@@ -187,13 +185,13 @@ class GitManager:
             logger.info(f"Created branch: {branch_name}")
         except Exception as e:
             raise CommandError("git branch", str(e)) from e
-    
+
     def checkout_branch(self, branch_name: str) -> None:
         """Checkout a branch.
-        
+
         Args:
             branch_name: Name of branch to checkout
-            
+
         Raises:
             CommandError: If checkout fails
         """
@@ -202,14 +200,14 @@ class GitManager:
             logger.info(f"Checked out branch: {branch_name}")
         except Exception as e:
             raise CommandError("git checkout", str(e)) from e
-    
-    def tag(self, tag_name: str, message: Optional[str] = None) -> None:
+
+    def tag(self, tag_name: str, message: str | None = None) -> None:
         """Create a Git tag.
-        
+
         Args:
             tag_name: Name of the tag
             message: Optional tag message
-            
+
         Raises:
             CommandError: If tagging fails
         """
@@ -223,17 +221,19 @@ class GitManager:
             raise CommandError("git tag", str(e)) from e
 
 
-def clone_repository(url: str, destination: Path, branch: Optional[str] = None) -> GitManager:
+def clone_repository(
+    url: str, destination: Path, branch: str | None = None
+) -> GitManager:
     """Clone a Git repository.
-    
+
     Args:
         url: Repository URL
         destination: Destination directory
         branch: Optional branch to clone
-        
+
     Returns:
         GitManager instance for cloned repository
-        
+
     Raises:
         CommandError: If cloning fails
     """
@@ -241,21 +241,21 @@ def clone_repository(url: str, destination: Path, branch: Optional[str] = None) 
         kwargs = {}
         if branch:
             kwargs["branch"] = branch
-        
+
         repo = Repo.clone_from(url, destination, **kwargs)
         logger.info(f"Cloned repository from {url} to {destination}")
         return GitManager(destination)
-        
+
     except Exception as e:
         raise CommandError("git clone", str(e)) from e
 
 
 def is_git_url(url: str) -> bool:
     """Check if URL is a Git repository URL.
-    
+
     Args:
         url: URL to check
-        
+
     Returns:
         True if URL appears to be a Git repository
     """
@@ -267,5 +267,5 @@ def is_git_url(url: str) -> bool:
         "git://",
         "ssh://git",
     ]
-    
+
     return any(indicator in url.lower() for indicator in git_indicators)

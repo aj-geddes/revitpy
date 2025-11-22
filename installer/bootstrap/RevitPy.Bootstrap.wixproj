@@ -44,7 +44,7 @@
 
   <!-- Build Dependencies -->
   <Target Name="BuildMainInstaller" BeforeTargets="Build">
-    <MSBuild Projects="..\RevitPy.Installer.wixproj" 
+    <MSBuild Projects="..\RevitPy.Installer.wixproj"
              Properties="Configuration=$(Configuration);Platform=$(Platform)" />
   </Target>
 
@@ -63,10 +63,10 @@
     </ItemGroup>
 
     <MakeDir Directories="downloads" Condition="!Exists('downloads')" />
-    
+
     <!-- Download files if they don't exist -->
-    <DownloadFile SourceUrl="%(PrerequisiteUrls.Identity)" 
-                  DestinationFolder="%(PrerequisiteUrls.LocalFile)" 
+    <DownloadFile SourceUrl="%(PrerequisiteUrls.Identity)"
+                  DestinationFolder="%(PrerequisiteUrls.LocalFile)"
                   Condition="!Exists('%(PrerequisiteUrls.LocalFile)')" />
   </Target>
 

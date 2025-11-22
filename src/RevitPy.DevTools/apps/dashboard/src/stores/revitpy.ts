@@ -15,24 +15,24 @@ interface RevitPyState {
   connectionStatus: ConnectionStatus;
   runtimeStatus: RuntimeStatus;
   runtime: RevitPyRuntime | null;
-  
+
   // Environment
   environments: RevitPyEnvironment[];
   activeEnvironment: string | null;
-  
+
   // Performance
   performanceMetrics: PerformanceMetrics | null;
-  
+
   // Projects
   projects: ProjectInfo[];
   activeProject: string | null;
-  
+
   // Packages
   installedPackages: InstalledPackage[];
-  
+
   // UI State
   sidebarCollapsed: boolean;
-  
+
   // Actions
   setConnectionStatus: (status: ConnectionStatus) => void;
   setRuntimeStatus: (status: RuntimeStatus) => void;
@@ -70,12 +70,12 @@ export const useRevitPyStore = create<RevitPyState>()(
     setConnectionStatus: (status) => set({ connectionStatus: status }),
     setRuntimeStatus: (status) => set({ runtimeStatus: status }),
     setRuntime: (runtime) => set({ runtime }),
-    
+
     setEnvironments: (environments) => set({ environments }),
     setActiveEnvironment: (id) => set({ activeEnvironment: id }),
-    
+
     setPerformanceMetrics: (metrics) => set({ performanceMetrics: metrics }),
-    
+
     setProjects: (projects) => set({ projects }),
     setActiveProject: (id) => set({ activeProject: id }),
     addProject: (project) => set((state) => ({
@@ -88,20 +88,20 @@ export const useRevitPyStore = create<RevitPyState>()(
       projects: state.projects.filter(p => p.id !== id),
       activeProject: state.activeProject === id ? null : state.activeProject
     })),
-    
+
     setInstalledPackages: (packages) => set({ installedPackages: packages }),
     addPackage: (pkg) => set((state) => ({
       installedPackages: [...state.installedPackages, pkg]
     })),
     updatePackage: (id, updates) => set((state) => ({
-      installedPackages: state.installedPackages.map(p => 
+      installedPackages: state.installedPackages.map(p =>
         p.id === id ? { ...p, ...updates } : p
       )
     })),
     removePackage: (id) => set((state) => ({
       installedPackages: state.installedPackages.filter(p => p.id !== id)
     })),
-    
+
     setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   }))
 );

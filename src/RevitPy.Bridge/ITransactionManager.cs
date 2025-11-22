@@ -28,7 +28,7 @@ public interface ITransactionManager
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Transaction scope</returns>
     Task<ITransactionScope> BeginTransactionAsync(
-        string name, 
+        string name,
         object? document = null,
         CancellationToken cancellationToken = default);
 

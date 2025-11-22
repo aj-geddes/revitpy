@@ -60,9 +60,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate(): Thenable<void> | undefined {
     logger?.info('RevitPy extension is being deactivated');
-    
+
     connectionManager?.disconnect();
-    
+
     if (!client) {
         return undefined;
     }
@@ -71,7 +71,7 @@ export function deactivate(): Thenable<void> | undefined {
 
 async function startLanguageServer(context: vscode.ExtensionContext) {
     const serverModule = context.asAbsolutePath(path.join('out', 'server', 'server.js'));
-    
+
     const serverOptions: ServerOptions = {
         run: { module: serverModule, transport: TransportKind.ipc },
         debug: {
@@ -115,17 +115,17 @@ function registerCommands(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('revitpy.createProject', () => {
             projectManager.createProject();
         }),
-        
+
         vscode.commands.registerCommand('revitpy.connectToRevit', async () => {
             await connectionManager.connect();
             statusBar.updateConnectionStatus(connectionManager.isConnected());
         }),
-        
+
         vscode.commands.registerCommand('revitpy.disconnectFromRevit', async () => {
             await connectionManager.disconnect();
             statusBar.updateConnectionStatus(connectionManager.isConnected());
         }),
-        
+
         vscode.commands.registerCommand('revitpy.runScript', async (uri?: vscode.Uri) => {
             const scriptPath = uri?.fsPath || vscode.window.activeTextEditor?.document.fileName;
             if (scriptPath && connectionManager.isConnected()) {
@@ -134,7 +134,7 @@ function registerCommands(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage('Not connected to Revit or no script selected');
             }
         }),
-        
+
         vscode.commands.registerCommand('revitpy.debugScript', async (uri?: vscode.Uri) => {
             const scriptPath = uri?.fsPath || vscode.window.activeTextEditor?.document.fileName;
             if (scriptPath) {
@@ -143,15 +143,15 @@ function registerCommands(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage('No script selected for debugging');
             }
         }),
-        
+
         vscode.commands.registerCommand('revitpy.openPackageManager', () => {
             packageManager.openPackageManager();
         }),
-        
+
         vscode.commands.registerCommand('revitpy.refreshPackages', async () => {
             await packageManager.refreshPackages();
         }),
-        
+
         vscode.commands.registerCommand('revitpy.generateStubs', async () => {
             await connectionManager.generateStubs();
         })

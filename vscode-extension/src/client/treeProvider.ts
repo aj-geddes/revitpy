@@ -52,7 +52,7 @@ export class RevitPyTreeProvider implements vscode.TreeDataProvider<TreeItem> {
         const items: TreeItem[] = [];
 
         const connection = connectionManager.getConnection();
-        
+
         // Connection status
         const statusItem = new TreeItem(
             connection.isConnected ? 'Connected' : 'Disconnected',
@@ -72,7 +72,7 @@ export class RevitPyTreeProvider implements vscode.TreeDataProvider<TreeItem> {
             // Connection details
             const detailsItem = new TreeItem('Details', vscode.TreeItemCollapsibleState.Expanded);
             detailsItem.iconPath = new vscode.ThemeIcon('info');
-            
+
             detailsItem.getChildren = async () => {
                 const details: TreeItem[] = [];
 
@@ -112,7 +112,7 @@ export class RevitPyTreeProvider implements vscode.TreeDataProvider<TreeItem> {
             // Actions
             const actionsItem = new TreeItem('Actions', vscode.TreeItemCollapsibleState.Expanded);
             actionsItem.iconPath = new vscode.ThemeIcon('tools');
-            
+
             actionsItem.getChildren = async () => {
                 const actions: TreeItem[] = [];
 

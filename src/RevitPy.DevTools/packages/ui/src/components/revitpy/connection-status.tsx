@@ -42,17 +42,17 @@ export interface ConnectionStatusProps
 }
 
 const ConnectionStatus = React.forwardRef<HTMLDivElement, ConnectionStatusProps>(
-  ({ 
-    className, 
-    status, 
+  ({
+    className,
+    status,
     size,
-    revitVersion, 
-    lastConnection, 
-    onConnect, 
-    onDisconnect, 
+    revitVersion,
+    lastConnection,
+    onConnect,
+    onDisconnect,
     showActions = true,
     detailed = false,
-    ...props 
+    ...props
   }, ref) => {
     const getStatusIcon = () => {
       switch (status) {

@@ -163,13 +163,13 @@ public class PythonInterpreter : IPythonInterpreter
                 {
                     result.Success = false;
                     result.Exception = new PythonExecutionException(
-                        pyEx.Message, 
-                        pyEx.Type?.Name ?? "Unknown", 
+                        pyEx.Message,
+                        pyEx.Type?.Name ?? "Unknown",
                         pyEx.StackTrace ?? string.Empty);
                     result.PythonStackTrace = pyEx.StackTrace;
                     result.StandardError = _stderrBuffer.ToString();
 
-                    _logger.LogWarning("Python execution failed in interpreter {InterpreterId}: {Error}", 
+                    _logger.LogWarning("Python execution failed in interpreter {InterpreterId}: {Error}",
                         _id, pyEx.Message);
                 }
                 finally
@@ -250,7 +250,7 @@ public class PythonInterpreter : IPythonInterpreter
 
                     // Evaluate the expression
                     using var pyResult = scope.Eval(expression);
-                    
+
                     if (pyResult.IsNone())
                         return default(T);
 
@@ -264,9 +264,9 @@ public class PythonInterpreter : IPythonInterpreter
         }
         catch (PythonException pyEx)
         {
-            _logger.LogWarning("Python evaluation failed in interpreter {InterpreterId}: {Error}", 
+            _logger.LogWarning("Python evaluation failed in interpreter {InterpreterId}: {Error}",
                 _id, pyEx.Message);
-            throw new PythonExecutionException(pyEx.Message, pyEx.Type?.Name ?? "Unknown", 
+            throw new PythonExecutionException(pyEx.Message, pyEx.Type?.Name ?? "Unknown",
                 pyEx.StackTrace ?? string.Empty);
         }
         finally
@@ -427,10 +427,10 @@ public class PythonInterpreter : IPythonInterpreter
                 try
                 {
                     using var scope = Py.CreateScope();
-                    
+
                     // Get memory information using Python's gc module
                     scope.Exec("import gc, sys");
-                    
+
                     var objCount = scope.Eval("len(gc.get_objects())");
                     memoryInfo.ObjectCount = objCount.AsManagedObject(typeof(long)) as long? ?? 0;
 
@@ -440,7 +440,7 @@ public class PythonInterpreter : IPythonInterpreter
                     // Get GC stats
                     scope.Exec("gc_stats = gc.get_stats()");
                     var gcStats = scope.Get("gc_stats");
-                    
+
                     if (gcStats != null)
                     {
                         using var pyList = gcStats.AsPyList();
@@ -463,7 +463,7 @@ public class PythonInterpreter : IPythonInterpreter
         }
         catch (Exception ex)
         {
-            _logger.LogWarning("Failed to get memory info for interpreter {InterpreterId}: {Error}", 
+            _logger.LogWarning("Failed to get memory info for interpreter {InterpreterId}: {Error}",
                 _id, ex.Message);
         }
 
@@ -552,7 +552,7 @@ public class PythonInterpreter : IPythonInterpreter
         }
         catch (Exception ex)
         {
-            _logger.LogWarning("Failed to add path {Path} to interpreter {InterpreterId}: {Error}", 
+            _logger.LogWarning("Failed to add path {Path} to interpreter {InterpreterId}: {Error}",
                 path, _id, ex.Message);
         }
     }

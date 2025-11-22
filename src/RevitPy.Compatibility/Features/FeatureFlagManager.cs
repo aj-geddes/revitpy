@@ -18,7 +18,7 @@ namespace RevitPy.Compatibility.Features
         private readonly FeatureFlagOptions _options;
         private readonly ConcurrentDictionary<string, FeatureConfiguration> _features;
         private RevitVersionInfo _currentVersion;
-        
+
         public FeatureFlagManager(
             ILogger<FeatureFlagManager> logger,
             IRevitVersionManager versionManager,
@@ -28,20 +28,20 @@ namespace RevitPy.Compatibility.Features
             _versionManager = versionManager;
             _options = options.Value;
             _features = new ConcurrentDictionary<string, FeatureConfiguration>();
-            
+
             InitializeBuiltInFeatures();
         }
-        
+
         public bool IsFeatureEnabled(string featureName)
         {
             if (_currentVersion == null)
             {
                 _currentVersion = _versionManager.DetectRevitVersionAsync().GetAwaiter().GetResult();
             }
-            
+
             return IsFeatureEnabled(featureName, _currentVersion.Version);
         }
-        
+
         public bool IsFeatureEnabled(string featureName, RevitVersion version)
         {
             if (!_features.TryGetValue(featureName, out var feature))
@@ -49,7 +49,7 @@ namespace RevitPy.Compatibility.Features
                 _logger.LogWarning("Feature {FeatureName} not found", featureName);
                 return false;
             }
-            
+
             try
             {
                 // Check basic version compatibility
@@ -58,7 +58,7 @@ namespace RevitPy.Compatibility.Features
                     _logger.LogDebug("Feature {FeatureName} not available in version {Version}", featureName, version);
                     return false;
                 }
-                
+
                 // Check if feature is deprecated
                 if (feature.IsDeprecated)
                 {
@@ -68,27 +68,27 @@ namespace RevitPy.Compatibility.Features
                         return false;
                     }
                 }
-                
+
                 // Check experimental feature settings
                 if (feature.IsExperimental && !_options.EnableExperimentalFeatures)
                 {
                     _logger.LogDebug("Experimental feature {FeatureName} disabled by configuration", featureName);
                     return false;
                 }
-                
+
                 // Check license requirements
                 if (feature.RequiresLicense && !_options.LicensedFeatures.Contains(featureName))
                 {
                     _logger.LogDebug("Feature {FeatureName} requires license", featureName);
                     return false;
                 }
-                
+
                 // Check version-specific overrides
                 if (feature.VersionConfigurations.TryGetValue(version, out var versionConfig))
                 {
                     return versionConfig.IsEnabled;
                 }
-                
+
                 return true;
             }
             catch (Exception ex)
@@ -97,45 +97,45 @@ namespace RevitPy.Compatibility.Features
                 return false;
             }
         }
-        
+
         public FeatureConfiguration GetFeatureConfiguration(string featureName)
         {
             if (_currentVersion == null)
             {
                 _currentVersion = _versionManager.DetectRevitVersionAsync().GetAwaiter().GetResult();
             }
-            
+
             return GetFeatureConfiguration(featureName, _currentVersion.Version);
         }
-        
+
         public FeatureConfiguration GetFeatureConfiguration(string featureName, RevitVersion version)
         {
             if (_features.TryGetValue(featureName, out var feature))
             {
                 // Clone the configuration and apply version-specific settings
                 var config = CloneFeatureConfiguration(feature);
-                
+
                 if (feature.VersionConfigurations.TryGetValue(version, out var versionConfig))
                 {
                     ApplyVersionSpecificConfiguration(config, versionConfig);
                 }
-                
+
                 return config;
             }
-            
+
             return null;
         }
-        
+
         public IEnumerable<FeatureConfiguration> GetAvailableFeatures()
         {
             if (_currentVersion == null)
             {
                 _currentVersion = _versionManager.DetectRevitVersionAsync().GetAwaiter().GetResult();
             }
-            
+
             return GetAvailableFeatures(_currentVersion.Version);
         }
-        
+
         public IEnumerable<FeatureConfiguration> GetAvailableFeatures(RevitVersion version)
         {
             return _features.Values
@@ -144,25 +144,25 @@ namespace RevitPy.Compatibility.Features
                 .Where(f => f != null)
                 .ToList();
         }
-        
+
         public void RegisterFeature(FeatureConfiguration feature)
         {
             if (feature == null)
                 throw new ArgumentNullException(nameof(feature));
-                
+
             if (string.IsNullOrEmpty(feature.Name))
                 throw new ArgumentException("Feature name cannot be null or empty", nameof(feature));
-            
+
             _features.AddOrUpdate(feature.Name, feature, (key, existing) =>
             {
                 _logger.LogInformation("Updating existing feature configuration for {FeatureName}", feature.Name);
                 return feature;
             });
-            
-            _logger.LogInformation("Registered feature {FeatureName} (Category: {Category}, MinVersion: {MinVersion})", 
+
+            _logger.LogInformation("Registered feature {FeatureName} (Category: {Category}, MinVersion: {MinVersion})",
                 feature.Name, feature.Category, feature.MinimumVersion);
         }
-        
+
         public void UpdateFeatureAvailability(string featureName, bool isEnabled, RevitVersion? version = null)
         {
             if (!_features.TryGetValue(featureName, out var feature))
@@ -170,7 +170,7 @@ namespace RevitPy.Compatibility.Features
                 _logger.LogWarning("Cannot update availability for unknown feature: {FeatureName}", featureName);
                 return;
             }
-            
+
             if (version.HasValue)
             {
                 // Update version-specific configuration
@@ -178,9 +178,9 @@ namespace RevitPy.Compatibility.Features
                 {
                     feature.VersionConfigurations[version.Value] = new VersionSpecificConfiguration();
                 }
-                
+
                 feature.VersionConfigurations[version.Value].IsEnabled = isEnabled;
-                _logger.LogInformation("Updated feature {FeatureName} availability for version {Version}: {IsEnabled}", 
+                _logger.LogInformation("Updated feature {FeatureName} availability for version {Version}: {IsEnabled}",
                     featureName, version.Value, isEnabled);
             }
             else
@@ -190,12 +190,12 @@ namespace RevitPy.Compatibility.Features
                 {
                     versionConfig.IsEnabled = isEnabled;
                 }
-                
-                _logger.LogInformation("Updated feature {FeatureName} availability for all versions: {IsEnabled}", 
+
+                _logger.LogInformation("Updated feature {FeatureName} availability for all versions: {IsEnabled}",
                     featureName, isEnabled);
             }
         }
-        
+
         public FeatureCompatibilityMatrix GetCompatibilityMatrix()
         {
             var matrix = new FeatureCompatibilityMatrix
@@ -203,11 +203,11 @@ namespace RevitPy.Compatibility.Features
                 GeneratedBy = "FeatureFlagManager",
                 GeneratedAt = DateTime.UtcNow
             };
-            
+
             var versions = Enum.GetValues<RevitVersion>()
                 .Where(v => v != RevitVersion.Unknown && v != RevitVersion.Future)
                 .ToList();
-            
+
             foreach (var feature in _features.Values)
             {
                 foreach (var version in versions)
@@ -216,10 +216,10 @@ namespace RevitPy.Compatibility.Features
                     matrix.AddFeature(feature.Name, version, availability);
                 }
             }
-            
+
             return matrix;
         }
-        
+
         public async Task<FeatureValidationResult> ValidateFeatureDependenciesAsync(string featureName, RevitVersion version)
         {
             var result = new FeatureValidationResult
@@ -228,7 +228,7 @@ namespace RevitPy.Compatibility.Features
                 Version = version,
                 IsValid = true
             };
-            
+
             if (!_features.TryGetValue(featureName, out var feature))
             {
                 result.IsValid = false;
@@ -240,7 +240,7 @@ namespace RevitPy.Compatibility.Features
                 });
                 return result;
             }
-            
+
             try
             {
                 // Validate version compatibility
@@ -255,7 +255,7 @@ namespace RevitPy.Compatibility.Features
                         Resolution = $"Minimum version required: {feature.MinimumVersion}"
                     });
                 }
-                
+
                 // Validate dependencies
                 foreach (var dependency in feature.Dependencies)
                 {
@@ -271,7 +271,7 @@ namespace RevitPy.Compatibility.Features
                         });
                     }
                 }
-                
+
                 // Check for conflicts
                 foreach (var conflict in feature.ConflictsWith)
                 {
@@ -287,7 +287,7 @@ namespace RevitPy.Compatibility.Features
                         });
                     }
                 }
-                
+
                 // Check deprecation status
                 if (feature.IsDeprecated)
                 {
@@ -297,13 +297,13 @@ namespace RevitPy.Compatibility.Features
                         result.Recommendations.Add($"Consider migrating to '{feature.ReplacementFeature}'");
                     }
                 }
-                
+
                 // Check experimental status
                 if (feature.IsExperimental)
                 {
                     result.Warnings.Add($"Feature '{featureName}' is experimental and may be unstable");
                 }
-                
+
                 // Performance recommendations
                 if (feature.PerformanceProfile != null)
                 {
@@ -311,13 +311,13 @@ namespace RevitPy.Compatibility.Features
                     {
                         result.Recommendations.Add("Monitor memory usage when using this feature");
                     }
-                    
+
                     if (feature.PerformanceProfile.CPUImpact >= PerformanceImpact.High)
                     {
                         result.Recommendations.Add("Consider using this feature in background processes");
                     }
                 }
-                
+
                 result.IsValid = !result.Issues.Any(i => i.Severity >= ValidationIssueSeverity.Error);
             }
             catch (Exception ex)
@@ -331,29 +331,29 @@ namespace RevitPy.Compatibility.Features
                     Component = "ValidationProcess"
                 });
             }
-            
+
             return result;
         }
-        
+
         private void InitializeBuiltInFeatures()
         {
             _logger.LogInformation("Initializing built-in feature configurations");
-            
+
             // Core API Features (available in all supported versions)
             RegisterCoreFeatures();
-            
+
             // Version-specific features
             RegisterVersionSpecificFeatures();
-            
+
             // RevitPy-specific features
             RegisterRevitPyFeatures();
-            
+
             // Experimental features
             RegisterExperimentalFeatures();
-            
+
             _logger.LogInformation("Initialized {FeatureCount} built-in features", _features.Count);
         }
-        
+
         private void RegisterCoreFeatures()
         {
             var coreFeatures = new[]
@@ -395,13 +395,13 @@ namespace RevitPy.Compatibility.Features
                     Stability = FeatureStability.Stable
                 }
             };
-            
+
             foreach (var feature in coreFeatures)
             {
                 RegisterFeature(feature);
             }
         }
-        
+
         private void RegisterVersionSpecificFeatures()
         {
             // Revit 2023+ features
@@ -415,7 +415,7 @@ namespace RevitPy.Compatibility.Features
                 Stability = FeatureStability.Stable,
                 Dependencies = new[] { FeatureFlags.TRANSACTION_MANAGEMENT }
             });
-            
+
             // Revit 2024+ features
             RegisterFeature(new FeatureConfiguration
             {
@@ -427,7 +427,7 @@ namespace RevitPy.Compatibility.Features
                 Stability = FeatureStability.Stable,
                 RequiresLicense = true
             });
-            
+
             // Revit 2025+ features
             RegisterFeature(new FeatureConfiguration
             {
@@ -440,7 +440,7 @@ namespace RevitPy.Compatibility.Features
                 IsExperimental = true
             });
         }
-        
+
         private void RegisterRevitPyFeatures()
         {
             var revitPyFeatures = new[]
@@ -474,13 +474,13 @@ namespace RevitPy.Compatibility.Features
                     Stability = FeatureStability.Stable
                 }
             };
-            
+
             foreach (var feature in revitPyFeatures)
             {
                 RegisterFeature(feature);
             }
         }
-        
+
         private void RegisterExperimentalFeatures()
         {
             var experimentalFeatures = new[]
@@ -508,34 +508,34 @@ namespace RevitPy.Compatibility.Features
                     RequiresLicense = true
                 }
             };
-            
+
             foreach (var feature in experimentalFeatures)
             {
                 RegisterFeature(feature);
             }
         }
-        
+
         private FeatureAvailability DetermineFeatureAvailability(FeatureConfiguration feature, RevitVersion version)
         {
             if (!feature.IsAvailableInVersion(version))
                 return FeatureAvailability.NotAvailable;
-                
+
             if (feature.IsDeprecated)
                 return FeatureAvailability.Deprecated;
-                
+
             if (feature.RequiresLicense)
                 return FeatureAvailability.RequiresLicense;
-                
+
             if (feature.IsExperimental)
                 return FeatureAvailability.Experimental;
-                
+
             if (feature.VersionConfigurations.TryGetValue(version, out var versionConfig) &&
                 versionConfig.KnownIssues.Any())
                 return FeatureAvailability.AvailableWithLimitations;
-                
+
             return FeatureAvailability.Available;
         }
-        
+
         private FeatureConfiguration CloneFeatureConfiguration(FeatureConfiguration original)
         {
             // Simple clone - in production you might want to use a serialization-based approach
@@ -559,7 +559,7 @@ namespace RevitPy.Compatibility.Features
                 ReplacementFeature = original.ReplacementFeature
             };
         }
-        
+
         private void ApplyVersionSpecificConfiguration(FeatureConfiguration config, VersionSpecificConfiguration versionConfig)
         {
             // Apply version-specific overrides to the configuration
@@ -567,19 +567,19 @@ namespace RevitPy.Compatibility.Features
             {
                 config.Metadata["AlternativeImplementation"] = versionConfig.AlternativeImplementation;
             }
-            
+
             foreach (var setting in versionConfig.Settings)
             {
                 config.Metadata[setting.Key] = setting.Value;
             }
-            
+
             if (versionConfig.Performance != null)
             {
                 config.Metadata["VersionPerformance"] = versionConfig.Performance;
             }
         }
     }
-    
+
     /// <summary>
     /// Configuration options for feature flag management
     /// </summary>

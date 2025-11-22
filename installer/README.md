@@ -5,11 +5,11 @@ A comprehensive, professional-grade MSI installer system for RevitPy built with 
 ## Features
 
 ### 🚀 Automatic Revit Detection
-- Detects all installed Revit versions (2022-2025+) 
+- Detects all installed Revit versions (2022-2025+)
 - 100% success rate for Revit version identification
 - Selective add-in deployment per version
 
-### 🐍 Python Runtime Management  
+### 🐍 Python Runtime Management
 - Detects existing Python 3.11+ installations
 - Bundles and installs Python runtime when needed
 - Manages virtual environments and dependencies
@@ -123,7 +123,7 @@ msiexec /i RevitPy-1.0.0.msi TRANSFORMS=Enterprise-Silent.mst /quiet
 
 ### Main MSI Package (`RevitPy-1.0.0.msi`)
 - Core RevitPy assemblies and binaries
-- Configuration files and templates  
+- Configuration files and templates
 - Windows service installation
 - Registry configuration
 - Revit add-in deployment
@@ -136,7 +136,7 @@ msiexec /i RevitPy-1.0.0.msi TRANSFORMS=Enterprise-Silent.mst /quiet
 
 ### Custom Actions Assembly
 - Revit version detection logic
-- Python installation validation  
+- Python installation validation
 - Registry configuration management
 - Service lifecycle management
 - Add-in deployment automation
@@ -158,7 +158,7 @@ msiexec /i RevitPy-1.0.0.msi TRANSFORMS=Enterprise-Silent.mst /quiet
 #### Available Transforms:
 - **Enterprise-Silent.mst**: Silent enterprise deployment
 - **Developer-Workstation.mst**: Full development installation
-- **Revit2024-Only.mst**: Targeted Revit 2024 deployment  
+- **Revit2024-Only.mst**: Targeted Revit 2024 deployment
 - **Minimal-Installation.mst**: Core components only
 
 ### PowerShell Deployment
@@ -244,7 +244,7 @@ msiexec /i RevitPy-1.0.0.msi TRANSFORMS=Enterprise.mst /quiet /log install.log
 
 ### Supported Revit Versions:
 - Autodesk Revit 2022
-- Autodesk Revit 2023  
+- Autodesk Revit 2023
 - Autodesk Revit 2024
 - Autodesk Revit 2025
 - Future Revit versions (auto-detection)
@@ -293,12 +293,12 @@ msiexec /i RevitPy-1.0.0.msi /l*v install.log
 3. Validate assembly references
 4. Review installation logs
 
-#### Service Not Starting  
+#### Service Not Starting
 ```powershell
 # Check service status
 Get-Service -Name "RevitPyHost"
 
-# View service logs  
+# View service logs
 Get-EventLog -LogName Application -Source "RevitPy Host Service"
 ```
 
@@ -313,7 +313,7 @@ Get-ChildItem Env: | Where-Object { $_.Name -like "*REVITPY*" }
 
 ### Log Locations:
 - Installation: `%TEMP%\RevitPy-Install-*.log`
-- Application: `%PROGRAMDATA%\RevitPy\logs\revitpy.log`  
+- Application: `%PROGRAMDATA%\RevitPy\logs\revitpy.log`
 - Service: Windows Event Log (Application)
 - Deployment: Script-specified locations
 
@@ -349,5 +349,5 @@ This installer system is part of the RevitPy project and follows the same MIT li
 
 ---
 
-**RevitPy Enterprise Installer System v1.0.0**  
+**RevitPy Enterprise Installer System v1.0.0**
 Built with ❤️ for the Revit development community

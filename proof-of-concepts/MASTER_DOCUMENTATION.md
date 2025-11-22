@@ -29,7 +29,7 @@ Replace $75K+ energy analysis software with advanced machine learning models tha
 
 ### Key Capabilities (IMPOSSIBLE in PyRevit)
 - **Machine Learning**: scikit-learn models for energy prediction
-- **Advanced Optimization**: SciPy algorithms for HVAC optimization  
+- **Advanced Optimization**: SciPy algorithms for HVAC optimization
 - **Interactive Visualizations**: Plotly dashboards with real-time updates
 - **Async Data Processing**: Concurrent building system monitoring
 
@@ -264,7 +264,7 @@ PyRevit → Extract Data → RevitPy → Advanced Processing → Results → Imp
 Each POC follows this integration pattern:
 
 1. **PyRevit Data Export**: Extract Revit data with PyRevit scripts
-2. **RevitPy Processing**: Advanced analysis with modern Python libraries  
+2. **RevitPy Processing**: Advanced analysis with modern Python libraries
 3. **Result Generation**: Create comprehensive analysis results
 4. **PyRevit Import**: Import results back to update Revit model
 
@@ -306,7 +306,7 @@ cd ../computer-vision-progress && pip install -r requirements.txt
 # Energy Analytics Demo
 python energy-analytics/examples/advanced_energy_analytics_demo.py
 
-# ML Space Planning Demo  
+# ML Space Planning Demo
 python ml-space-planning/examples/ml_space_optimization_demo.py
 
 # IoT Integration Demo

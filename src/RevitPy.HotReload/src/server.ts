@@ -78,7 +78,7 @@ export class HotReloadServer {
   }
 
   private setupWebSocket(): void {
-    this.wss = new WebSocketServer({ 
+    this.wss = new WebSocketServer({
       server: this.server,
       path: '/ws'
     });
@@ -137,11 +137,11 @@ export class HotReloadServer {
     // File change events
     this.fileWatcher.on('change', async (filePath: string, changeType: string) => {
       console.log(chalk.blue(`File ${changeType}: ${filePath}`));
-      
+
       try {
         // Determine what needs to be rebuilt
         const shouldRebuild = this.shouldTriggerRebuild(filePath, changeType);
-        
+
         if (shouldRebuild) {
           const buildResult = await this.buildSystem.build();
           await this.handleBuildResult(filePath, changeType, buildResult);
@@ -293,13 +293,13 @@ export class HotReloadServer {
       });
 
       this.isRunning = true;
-      
+
       console.log(chalk.green(`
 🚀 RevitPy Hot Reload Server running!
-   
+
    Local:    http://${this.config.host}:${this.config.port}
    WebSocket: ws://${this.config.host}:${this.config.port}/ws
-   
+
    Hot reload: ${this.config.hotReload?.enabled ? '✅' : '❌'}
    Revit integration: ${this.config.revit?.enabled ? '✅' : '❌'}
       `));
@@ -335,8 +335,8 @@ export class HotReloadServer {
   }
 
   private async handleWebSocketMessage(
-    ws: import('ws').WebSocket, 
-    message: any, 
+    ws: import('ws').WebSocket,
+    message: any,
     clientId: string
   ): Promise<void> {
     switch (message.type) {
@@ -364,7 +364,7 @@ export class HotReloadServer {
       case 'revit-command':
         try {
           const result = await this.revitConnector.sendCommand(
-            message.command, 
+            message.command,
             message.data
           );
           ws.send(JSON.stringify({
@@ -393,14 +393,14 @@ export class HotReloadServer {
   }
 
   private async handleBuildResult(
-    filePath: string, 
-    changeType: string, 
+    filePath: string,
+    changeType: string,
     result: BuildResult
   ): Promise<void> {
     if (result.success) {
       // Determine hot reload strategy
       const reloadType = this.getReloadType(filePath, changeType);
-      
+
       await this.notifyClients({
         type: 'hot-reload',
         file: filePath,
@@ -453,7 +453,7 @@ export class HotReloadServer {
     }
 
     // JavaScript/TypeScript in development can use hot reload
-    if ((filePath.endsWith('.js') || filePath.endsWith('.ts')) && 
+    if ((filePath.endsWith('.js') || filePath.endsWith('.ts')) &&
         !filePath.includes('.config.')) {
       return 'hot';
     }

@@ -12,11 +12,11 @@ import { createHash } from 'crypto';
 import path from 'path';
 import pino from 'pino';
 
-import type { 
-  DevServerConfig, 
-  PythonModule, 
-  ModuleReloadResult, 
-  ReloadError 
+import type {
+  DevServerConfig,
+  PythonModule,
+  ModuleReloadResult,
+  ReloadError
 } from '../types/index.js';
 
 interface ModuleDependency {
@@ -60,7 +60,7 @@ export class ModuleReloaderService extends EventEmitter {
   private reloadQueue: string[] = [];
   private isProcessingQueue = false;
   private moduleHashes = new Map<string, string>();
-  
+
   // Performance optimization
   private maxProcesses = 3;
   private processTimeout = 10000; // 10 seconds
@@ -71,10 +71,10 @@ export class ModuleReloaderService extends EventEmitter {
     super();
     this.config = config;
     this.logger = logger || pino({ name: 'ModuleReloader' });
-    
+
     this.statePreservationEnabled = config.moduleReloader.statePreservation;
     this.dependencyTrackingEnabled = config.moduleReloader.dependencyTracking;
-    
+
     this.logger.info('Python module reloader initialized', {
       statePreservation: this.statePreservationEnabled,
       dependencyTracking: this.dependencyTrackingEnabled,
@@ -141,7 +141,7 @@ export class ModuleReloaderService extends EventEmitter {
   async reloadModule(modulePath: string): Promise<ModuleReloadResult> {
     const resolvedPath = path.resolve(modulePath);
     const startTime = performance.now();
-    
+
     this.logger.info('Reloading Python module', { path: resolvedPath });
 
     try {
@@ -204,7 +204,7 @@ export class ModuleReloaderService extends EventEmitter {
       }
 
       const totalDuration = Math.round(performance.now() - startTime);
-      
+
       const finalResult: ModuleReloadResult = {
         success: result.success,
         module: resolvedPath,
@@ -256,7 +256,7 @@ export class ModuleReloaderService extends EventEmitter {
   async reloadDependencies(modulePath: string): Promise<ModuleReloadResult[]> {
     const resolvedPath = path.resolve(modulePath);
     const dependencies = Array.from(this.dependencyGraph.get(resolvedPath) || []);
-    
+
     if (dependencies.length === 0) {
       return [];
     }
@@ -267,10 +267,10 @@ export class ModuleReloaderService extends EventEmitter {
     });
 
     const results: ModuleReloadResult[] = [];
-    
+
     // Reload dependencies in dependency order (topological sort)
     const sortedDeps = this.topologicalSort(dependencies);
-    
+
     for (const dep of sortedDeps) {
       try {
         const result = await this.reloadModule(dep);
@@ -293,7 +293,7 @@ export class ModuleReloaderService extends EventEmitter {
   preserveState(module: string, state: any): void {
     const resolvedPath = path.resolve(module);
     const checksum = this.calculateStateChecksum(state);
-    
+
     const snapshot: StateSnapshot = {
       module: resolvedPath,
       timestamp: Date.now(),
@@ -311,17 +311,17 @@ export class ModuleReloaderService extends EventEmitter {
   restoreState(module: string): any {
     const resolvedPath = path.resolve(module);
     const snapshot = this.stateSnapshots.get(resolvedPath);
-    
+
     if (!snapshot) {
       this.logger.debug('No preserved state found for module', { module: resolvedPath });
       return null;
     }
 
-    this.logger.debug('Module state restored', { 
-      module: resolvedPath, 
-      age: Date.now() - snapshot.timestamp 
+    this.logger.debug('Module state restored', {
+      module: resolvedPath,
+      age: Date.now() - snapshot.timestamp
     });
-    
+
     return snapshot.data;
   }
 
@@ -330,11 +330,11 @@ export class ModuleReloaderService extends EventEmitter {
    */
   getDependencyGraph(): Record<string, string[]> {
     const graph: Record<string, string[]> = {};
-    
+
     for (const [module, deps] of this.dependencyGraph) {
       graph[module] = Array.from(deps);
     }
-    
+
     return graph;
   }
 
@@ -344,12 +344,12 @@ export class ModuleReloaderService extends EventEmitter {
   async rebuildDependencyGraph(): Promise<void> {
     this.logger.info('Rebuilding dependency graph...');
     const startTime = performance.now();
-    
+
     this.dependencyGraph.clear();
     this.dependentGraph.clear();
-    
+
     await this.buildDependencyGraph();
-    
+
     const duration = Math.round(performance.now() - startTime);
     this.logger.info('Dependency graph rebuilt', {
       modules: this.dependencyGraph.size,
@@ -361,7 +361,7 @@ export class ModuleReloaderService extends EventEmitter {
 
   private async initializeProcessPool(): Promise<void> {
     const poolSize = Math.min(this.maxProcesses, 3);
-    
+
     for (let i = 0; i < poolSize; i++) {
       try {
         const process = await this.createPythonProcess();
@@ -381,7 +381,7 @@ export class ModuleReloaderService extends EventEmitter {
   private async createPythonProcess(): Promise<PythonProcess> {
     return new Promise((resolve, reject) => {
       const processId = `python_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // Start Python REPL process
       const pythonProcess = spawn('python', ['-i', '-u'], {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -433,7 +433,7 @@ export class ModuleReloaderService extends EventEmitter {
   private async getAvailablePythonProcess(): Promise<PythonProcess> {
     // Find available process
     let availableProcess = this.pythonProcessPool.find(proc => proc.ready && !proc.busy);
-    
+
     if (!availableProcess) {
       // Create new process if pool not at capacity
       if (this.pythonProcessPool.length < this.maxProcesses) {
@@ -469,7 +469,7 @@ export class ModuleReloaderService extends EventEmitter {
 
       process.process.on('exit', () => resolve());
       process.process.kill();
-      
+
       // Force kill after timeout
       setTimeout(() => {
         if (!process.process.killed) {
@@ -518,19 +518,19 @@ export class ModuleReloaderService extends EventEmitter {
 
   private async findPythonFiles(dirPath: string): Promise<string[]> {
     const files: string[] = [];
-    
+
     try {
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         const fullPath = path.join(dirPath, entry.name);
-        
+
         if (entry.isDirectory()) {
           // Skip common ignored directories
           if (['__pycache__', '.git', 'node_modules', 'venv', '.venv'].includes(entry.name)) {
             continue;
           }
-          
+
           const subFiles = await this.findPythonFiles(fullPath);
           files.push(...subFiles);
         } else if (entry.isFile() && entry.name.endsWith('.py')) {
@@ -543,7 +543,7 @@ export class ModuleReloaderService extends EventEmitter {
         error: error.message
       });
     }
-    
+
     return files;
   }
 
@@ -581,10 +581,10 @@ export class ModuleReloaderService extends EventEmitter {
   private async extractPythonDependencies(content: string, filePath: string): Promise<string[]> {
     const dependencies: string[] = [];
     const lines = content.split('\n');
-    
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      
+
       // Skip comments and empty lines
       if (line.startsWith('#') || line.length === 0) {
         continue;
@@ -624,7 +624,7 @@ export class ModuleReloaderService extends EventEmitter {
       const basePath = path.dirname(fromFile);
       const relativePath = moduleName.replace(/\./g, path.sep);
       const candidatePath = path.resolve(basePath, relativePath + '.py');
-      
+
       try {
         await fs.access(candidatePath);
         return candidatePath;
@@ -659,11 +659,11 @@ export class ModuleReloaderService extends EventEmitter {
     // Build dependency graph
     for (const [modulePath, module] of this.modules) {
       const deps = new Set<string>();
-      
+
       for (const dep of module.dependencies) {
         if (this.modules.has(dep)) {
           deps.add(dep);
-          
+
           // Build reverse dependency graph
           if (!this.dependentGraph.has(dep)) {
             this.dependentGraph.set(dep, new Set());
@@ -671,7 +671,7 @@ export class ModuleReloaderService extends EventEmitter {
           this.dependentGraph.get(dep)!.add(modulePath);
         }
       }
-      
+
       this.dependencyGraph.set(modulePath, deps);
     }
   }
@@ -685,7 +685,7 @@ export class ModuleReloaderService extends EventEmitter {
 
       const content = await fs.readFile(modulePath, 'utf-8');
       const newHash = createHash('md5').update(content).digest('hex');
-      
+
       return currentHash !== newHash;
     } catch (error) {
       this.logger.warn('Error checking module reload need', {
@@ -703,7 +703,7 @@ export class ModuleReloaderService extends EventEmitter {
 
     try {
       const pythonProcess = await this.getAvailablePythonProcess();
-      
+
       // Extract module state using Python introspection
       const extractScript = `
 import sys
@@ -723,7 +723,7 @@ try:
                         state[attr] = value
                 except:
                     pass
-        
+
         pickled = pickle.dumps(state)
         encoded = base64.b64encode(pickled).decode('ascii')
         print("STATE_EXTRACTED:" + encoded)
@@ -761,7 +761,7 @@ except Exception as e:
   }> {
     try {
       const pythonProcess = await this.getAvailablePythonProcess();
-      
+
       const reloadScript = `
 import sys
 import importlib
@@ -770,7 +770,7 @@ import importlib.util
 try:
     module_path = "${context.module}"
     module_name = "${path.basename(context.module, '.py')}"
-    
+
     # Load or reload the module
     if module_name in sys.modules:
         module = sys.modules[module_name]
@@ -785,7 +785,7 @@ try:
             print("LOAD_SUCCESS")
         else:
             print("RELOAD_ERROR:Unable to create module spec")
-            
+
 except Exception as e:
     print("RELOAD_ERROR:" + str(e))
 `;
@@ -838,26 +838,26 @@ except Exception as e:
     return new Promise((resolve, reject) => {
       let output = '';
       let errorOutput = '';
-      
+
       const timeout = setTimeout(() => {
         reject(new Error('Python code execution timeout'));
       }, this.processTimeout);
 
       const onData = (data: Buffer) => {
         output += data.toString();
-        
+
         // Check for completion markers
-        if (output.includes('\n>>> ') || 
-            output.includes('RELOAD_SUCCESS') || 
+        if (output.includes('\n>>> ') ||
+            output.includes('RELOAD_SUCCESS') ||
             output.includes('LOAD_SUCCESS') ||
             output.includes('RELOAD_ERROR:') ||
             output.includes('STATE_EXTRACTED:') ||
             output.includes('STATE_ERROR:')) {
-          
+
           clearTimeout(timeout);
           pythonProcess.process.stdout?.off('data', onData);
           pythonProcess.process.stderr?.off('data', onError);
-          
+
           // Extract the relevant part of output
           const lines = output.trim().split('\n');
           const lastLine = lines[lines.length - 1];
@@ -881,9 +881,9 @@ except Exception as e:
     try {
       const content = await fs.readFile(modulePath, 'utf-8');
       const newHash = createHash('md5').update(content).digest('hex');
-      
+
       this.moduleHashes.set(modulePath, newHash);
-      
+
       const module = this.modules.get(modulePath);
       if (module) {
         module.hash = newHash;
@@ -900,25 +900,25 @@ except Exception as e:
   private topologicalSort(modules: string[]): string[] {
     const visited = new Set<string>();
     const result: string[] = [];
-    
+
     const visit = (module: string) => {
       if (visited.has(module)) return;
       visited.add(module);
-      
+
       const deps = this.dependencyGraph.get(module) || new Set();
       for (const dep of deps) {
         if (modules.includes(dep)) {
           visit(dep);
         }
       }
-      
+
       result.push(module);
     };
-    
+
     for (const module of modules) {
       visit(module);
     }
-    
+
     return result;
   }
 

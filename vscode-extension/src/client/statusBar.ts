@@ -12,7 +12,7 @@ export class RevitPyStatusBar implements vscode.Disposable {
         );
         this.connectionStatusItem.command = 'revitpy.connectToRevit';
         this.connectionStatusItem.tooltip = 'RevitPy Connection Status';
-        
+
         // Create package status item
         this.packageStatusItem = vscode.window.createStatusBarItem(
             vscode.StatusBarAlignment.Left,
@@ -24,7 +24,7 @@ export class RevitPyStatusBar implements vscode.Disposable {
         // Initialize with default states
         this.updateConnectionStatus(false);
         this.updatePackageStatus(0, 0);
-        
+
         // Show items
         this.connectionStatusItem.show();
         this.packageStatusItem.show();
@@ -51,7 +51,7 @@ export class RevitPyStatusBar implements vscode.Disposable {
 
     showMessage(message: string, type: 'info' | 'warning' | 'error' = 'info'): void {
         const icon = type === 'error' ? '$(error)' : type === 'warning' ? '$(warning)' : '$(info)';
-        
+
         // Create temporary status item for messages
         const messageItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
         messageItem.text = `${icon} ${message}`;

@@ -56,7 +56,7 @@
   * {
     @apply border-border;
   }
-  
+
   body {
     @apply bg-background text-foreground font-sans;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -169,7 +169,7 @@
     .sidebar-width {
       width: 100%;
     }
-    
+
     .content-area {
       margin-left: 0;
     }
@@ -180,7 +180,7 @@
     .no-print {
       display: none !important;
     }
-    
+
     .print-break {
       page-break-before: always;
     }

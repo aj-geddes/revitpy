@@ -16,7 +16,7 @@ public class ResourceManager : IResourceManager, IDisposable
     private readonly RevitPyOptions _options;
     private readonly Timer _monitoringTimer;
     private readonly object _statsLock = new();
-    
+
     private ResourceManagerStats _stats = new();
     private ResourceUsageInfo _currentUsage = new();
     private bool _isRunning;
@@ -75,7 +75,7 @@ public class ResourceManager : IResourceManager, IDisposable
             TimeSpan.FromSeconds(30)  // Monitoring interval
         );
 
-        _logger.LogInformation("Resource manager initialized with max concurrent operations: {MaxOperations}", 
+        _logger.LogInformation("Resource manager initialized with max concurrent operations: {MaxOperations}",
             _maxConcurrentOperations.CurrentCount);
     }
 
@@ -89,13 +89,13 @@ public class ResourceManager : IResourceManager, IDisposable
         try
         {
             _isRunning = true;
-            
+
             // Initialize resource pools
             await InitializeResourcePoolsAsync(cancellationToken);
-            
+
             // Start monitoring
             await MonitorResourcesAsync();
-            
+
             _logger.LogInformation("Resource manager started successfully");
         }
         catch (Exception ex)
@@ -115,10 +115,10 @@ public class ResourceManager : IResourceManager, IDisposable
         try
         {
             _isRunning = false;
-            
+
             // Cleanup resources
             await CleanupResourcesAsync(cancellationToken);
-            
+
             _logger.LogInformation("Resource manager stopped successfully");
         }
         catch (Exception ex)
@@ -127,7 +127,7 @@ public class ResourceManager : IResourceManager, IDisposable
         }
     }
 
-    public async Task<T> AcquireResourceAsync<T>(string resourceKey, Func<Task<T>> factory, TimeSpan? timeout = null) 
+    public async Task<T> AcquireResourceAsync<T>(string resourceKey, Func<Task<T>> factory, TimeSpan? timeout = null)
         where T : class
     {
         var effectiveTimeout = timeout ?? TimeSpan.FromSeconds(30);
@@ -141,13 +141,13 @@ public class ResourceManager : IResourceManager, IDisposable
             try
             {
                 // Try to get from pool first
-                if (_connectionPool.TryGetValue(resourceKey, out var pooledResource) && 
-                    pooledResource.Resource is T cachedResource && 
+                if (_connectionPool.TryGetValue(resourceKey, out var pooledResource) &&
+                    pooledResource.Resource is T cachedResource &&
                     !pooledResource.IsExpired)
                 {
                     pooledResource.LastUsed = DateTime.UtcNow;
                     pooledResource.UseCount++;
-                    
+
                     lock (_statsLock)
                     {
                         _stats.ResourcePoolHits++;
@@ -175,7 +175,7 @@ public class ResourceManager : IResourceManager, IDisposable
                     _stats.TotalResourcesCreated++;
                     _stats.CurrentResourcesInUse++;
                     _stats.ResourcePoolMisses++;
-                    
+
                     if (_stats.CurrentResourcesInUse > _stats.PeakResourceUsage)
                     {
                         _stats.PeakResourceUsage = _stats.CurrentResourcesInUse;
@@ -212,17 +212,17 @@ public class ResourceManager : IResourceManager, IDisposable
                 {
                     // Remove from pool and dispose
                     _connectionPool.TryRemove(resourceKey, out _);
-                    
+
                     if (pooledResource.Resource is IDisposable disposable)
                     {
                         disposable.Dispose();
                     }
-                    
+
                     lock (_statsLock)
                     {
                         _stats.TotalResourcesDestroyed++;
                         _stats.CurrentResourcesInUse--;
-                        
+
                         var lifetime = DateTime.UtcNow - pooledResource.CreatedAt;
                         _stats.AverageResourceLifetime = TimeSpan.FromMilliseconds(
                             (_stats.AverageResourceLifetime.TotalMilliseconds + lifetime.TotalMilliseconds) / 2);
@@ -251,13 +251,13 @@ public class ResourceManager : IResourceManager, IDisposable
             // Reuse existing thread
             pooledThread.LastUsed = DateTime.UtcNow;
             pooledThread.UseCount++;
-            
+
             var thread = pooledThread.Resource;
-            
+
             // Update thread for new work
             // Note: In practice, you can't reuse .NET threads like this
             // This is more conceptual - you'd use a ThreadPool or TaskScheduler
-            
+
             _logger.LogDebug("Reused thread from pool: {ThreadName}", name ?? "Unnamed");
             return new PooledThread { Thread = thread, IsFromPool = true };
         }
@@ -296,7 +296,7 @@ public class ResourceManager : IResourceManager, IDisposable
         {
             // In practice, threads can't be reused like this in .NET
             // This would be handled by ThreadPool or custom thread management
-            
+
             if (pooledThread.IsFromPool && _threadPool.Count < 10) // Limit pool size
             {
                 var pooledResource = new PooledResource<Thread>
@@ -326,11 +326,11 @@ public class ResourceManager : IResourceManager, IDisposable
     public async Task<ProcessInfo> StartManagedProcessAsync(ProcessStartInfo startInfo, TimeSpan? timeout = null)
     {
         var process = new Process { StartInfo = startInfo };
-        
+
         try
         {
             process.Start();
-            
+
             var processInfo = new ProcessInfo
             {
                 Process = process,
@@ -340,13 +340,13 @@ public class ResourceManager : IResourceManager, IDisposable
             };
 
             _managedProcesses.TryAdd(process.Id, processInfo);
-            
+
             // Monitor process
             _ = Task.Run(async () => await MonitorProcessAsync(processInfo));
-            
-            _logger.LogInformation("Started managed process: {ProcessId} ({ProcessName})", 
+
+            _logger.LogInformation("Started managed process: {ProcessId} ({ProcessName})",
                 process.Id, process.ProcessName);
-            
+
             return processInfo;
         }
         catch (Exception ex)
@@ -368,7 +368,7 @@ public class ResourceManager : IResourceManager, IDisposable
         try
         {
             var process = processInfo.Process;
-            
+
             if (!process.HasExited)
             {
                 if (force)
@@ -379,7 +379,7 @@ public class ResourceManager : IResourceManager, IDisposable
                 else
                 {
                     process.CloseMainWindow();
-                    
+
                     // Wait for graceful shutdown
                     if (!process.WaitForExit(5000))
                     {
@@ -410,7 +410,7 @@ public class ResourceManager : IResourceManager, IDisposable
         {
             // Clean up expired resources
             await CleanupExpiredResourcesAsync();
-            
+
             // Force garbage collection if memory usage is high
             var memoryUsage = GC.GetTotalMemory(false);
             if (memoryUsage > _options.MaxMemoryUsageMB * 1024 * 1024 * 0.8) // 80% of limit
@@ -419,24 +419,24 @@ public class ResourceManager : IResourceManager, IDisposable
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 GC.Collect();
-                
+
                 var newMemoryUsage = GC.GetTotalMemory(true);
                 _logger.LogInformation("Garbage collection completed. Memory reduced from {OldMB:F1}MB to {NewMB:F1}MB",
                     memoryUsage / 1024.0 / 1024.0,
                     newMemoryUsage / 1024.0 / 1024.0);
             }
-            
+
             // Clean up old threads
             await CleanupThreadPoolAsync();
-            
+
             // Check managed processes
             await CheckManagedProcessesAsync();
-            
+
             lock (_statsLock)
             {
                 _stats.LastCleanup = DateTime.UtcNow;
             }
-            
+
             _logger.LogInformation("Resource optimization completed");
         }
         catch (Exception ex)
@@ -448,7 +448,7 @@ public class ResourceManager : IResourceManager, IDisposable
     public ResourceUsageSnapshot CreateResourceSnapshot()
     {
         var process = Process.GetCurrentProcess();
-        
+
         return new ResourceUsageSnapshot
         {
             Timestamp = DateTime.UtcNow,
@@ -478,7 +478,7 @@ public class ResourceManager : IResourceManager, IDisposable
     {
         // Pre-warm thread pool if needed
         // In practice, this would be handled by ThreadPool configuration
-        
+
         _logger.LogDebug("Resource pools initialized");
     }
 
@@ -505,7 +505,7 @@ public class ResourceManager : IResourceManager, IDisposable
             {
                 _logger.LogWarning("Memory usage is approaching limit: {MemoryMB:F1}MB of {LimitMB}MB",
                     _currentUsage.ManagedMemoryMB, _options.MaxMemoryUsageMB);
-                
+
                 await OptimizeResourceUsageAsync();
             }
 
@@ -530,7 +530,7 @@ public class ResourceManager : IResourceManager, IDisposable
     private async Task CleanupResourcesAsync(CancellationToken cancellationToken)
     {
         // Stop all managed processes
-        var processTasks = _managedProcesses.Keys.Select(processId => 
+        var processTasks = _managedProcesses.Keys.Select(processId =>
             StopManagedProcessAsync(processId, force: true));
         await Task.WhenAll(processTasks);
 
@@ -627,7 +627,7 @@ public class ResourceManager : IResourceManager, IDisposable
                 {
                     completedProcesses.Add(kvp.Key);
                 }
-                else if (processInfo.Timeout.HasValue && 
+                else if (processInfo.Timeout.HasValue &&
                          DateTime.UtcNow - processInfo.StartTime > processInfo.Timeout.Value)
                 {
                     _logger.LogWarning("Managed process timed out, terminating: {ProcessId}", kvp.Key);
@@ -658,8 +658,8 @@ public class ResourceManager : IResourceManager, IDisposable
         {
             var process = processInfo.Process;
             await Task.Run(() => process.WaitForExit());
-            
-            _logger.LogInformation("Managed process exited: {ProcessId} (Exit code: {ExitCode})", 
+
+            _logger.LogInformation("Managed process exited: {ProcessId} (Exit code: {ExitCode})",
                 process.Id, process.ExitCode);
         }
         catch (Exception ex)
@@ -805,7 +805,7 @@ public class ResourceManagerStats
     public long TotalResourcesDestroyed { get; set; }
     public int CurrentResourcesInUse { get; set; }
     public int PeakResourceUsage { get; set; }
-    public double ResourcePoolHitRate => ResourcePoolHits + ResourcePoolMisses == 0 ? 0 : 
+    public double ResourcePoolHitRate => ResourcePoolHits + ResourcePoolMisses == 0 ? 0 :
         (double)ResourcePoolHits / (ResourcePoolHits + ResourcePoolMisses) * 100;
     public long ResourcePoolHits { get; set; }
     public long ResourcePoolMisses { get; set; }

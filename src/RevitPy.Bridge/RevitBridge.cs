@@ -87,18 +87,18 @@ public class RevitBridge : IRevitBridge
                 return;
 
             var stopwatch = Stopwatch.StartNew();
-            
+
             _revitApplication = application;
-            
+
             // Initialize type converter with Revit-specific mappings
             await InitializeTypeConverter(cancellationToken);
-            
+
             // Cache frequently used types and methods
             await PreloadTypeCache(cancellationToken);
-            
+
             _initialized = true;
-            
-            _logger.LogInformation("RevitBridge initialized successfully in {ElapsedMs}ms", 
+
+            _logger.LogInformation("RevitBridge initialized successfully in {ElapsedMs}ms",
                 stopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
@@ -114,8 +114,8 @@ public class RevitBridge : IRevitBridge
 
     /// <inheritdoc/>
     public async Task<T?> InvokeMethodAsync<T>(
-        object target, 
-        string methodName, 
+        object target,
+        string methodName,
         object[]? parameters = null,
         CancellationToken cancellationToken = default)
     {
@@ -144,7 +144,7 @@ public class RevitBridge : IRevitBridge
             if (result is Task task)
             {
                 await task;
-                
+
                 if (task.GetType().IsGenericType)
                 {
                     var resultProperty = task.GetType().GetProperty("Result");
@@ -159,14 +159,14 @@ public class RevitBridge : IRevitBridge
             // Convert result to Python-compatible type
             var convertedResult = TypeConverter.ConvertToPython(result);
 
-            _logger.LogDebug("Method '{MethodName}' invoked in {ElapsedMs}ms", 
+            _logger.LogDebug("Method '{MethodName}' invoked in {ElapsedMs}ms",
                 methodName, stopwatch.ElapsedMilliseconds);
 
             return (T?)convertedResult;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to invoke method '{MethodName}' on type '{TypeName}'", 
+            _logger.LogError(ex, "Failed to invoke method '{MethodName}' on type '{TypeName}'",
                 methodName, target.GetType().Name);
             throw new RevitApiException($"Method invocation failed: {ex.Message}", ex);
         }
@@ -174,7 +174,7 @@ public class RevitBridge : IRevitBridge
 
     /// <inheritdoc/>
     public async Task<T?> GetPropertyAsync<T>(
-        object target, 
+        object target,
         string propertyName,
         CancellationToken cancellationToken = default)
     {
@@ -204,7 +204,7 @@ public class RevitBridge : IRevitBridge
             // Log performance for properties that take too long
             if (stopwatch.ElapsedMilliseconds > 1)
             {
-                _logger.LogWarning("Property '{PropertyName}' access took {ElapsedMs}ms", 
+                _logger.LogWarning("Property '{PropertyName}' access took {ElapsedMs}ms",
                     propertyName, stopwatch.ElapsedMilliseconds);
             }
 
@@ -212,7 +212,7 @@ public class RevitBridge : IRevitBridge
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get property '{PropertyName}' on type '{TypeName}'", 
+            _logger.LogError(ex, "Failed to get property '{PropertyName}' on type '{TypeName}'",
                 propertyName, target.GetType().Name);
             throw new RevitApiException($"Property access failed: {ex.Message}", ex);
         }
@@ -220,8 +220,8 @@ public class RevitBridge : IRevitBridge
 
     /// <inheritdoc/>
     public async Task SetPropertyAsync(
-        object target, 
-        string propertyName, 
+        object target,
+        string propertyName,
         object? value,
         CancellationToken cancellationToken = default)
     {
@@ -246,7 +246,7 @@ public class RevitBridge : IRevitBridge
 
             // Convert value from Python to Revit type
             var convertedValue = TypeConverter.ConvertFromPython<object>(value, property.PropertyType);
-            
+
             // Use transaction for property modifications that might affect the model
             if (RequiresTransaction(property))
             {
@@ -267,7 +267,7 @@ public class RevitBridge : IRevitBridge
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to set property '{PropertyName}' on type '{TypeName}'", 
+            _logger.LogError(ex, "Failed to set property '{PropertyName}' on type '{TypeName}'",
                 propertyName, target.GetType().Name);
             throw new RevitApiException($"Property set failed: {ex.Message}", ex);
         }
@@ -275,7 +275,7 @@ public class RevitBridge : IRevitBridge
 
     /// <inheritdoc/>
     public async Task<T?> CreateInstanceAsync<T>(
-        string typeName, 
+        string typeName,
         object[]? parameters = null,
         CancellationToken cancellationToken = default)
     {
@@ -322,7 +322,7 @@ public class RevitBridge : IRevitBridge
 
     /// <inheritdoc/>
     public async Task<IEventSubscription> RegisterEventHandlerAsync(
-        string eventName, 
+        string eventName,
         Func<object, object[], Task> handler,
         CancellationToken cancellationToken = default)
     {
@@ -342,7 +342,7 @@ public class RevitBridge : IRevitBridge
 
             _eventSubscriptions[subscriptionId] = subscription;
 
-            _logger.LogInformation("Registered event handler for '{EventName}' with subscription {SubscriptionId}", 
+            _logger.LogInformation("Registered event handler for '{EventName}' with subscription {SubscriptionId}",
                 eventName, subscriptionId);
 
             return subscription;
@@ -404,7 +404,7 @@ public class RevitBridge : IRevitBridge
         try
         {
             var type = obj.GetType();
-            
+
             // Check if it's from a Revit assembly
             var assemblyName = type.Assembly.GetName().Name;
             if (assemblyName?.StartsWith("Revit", StringComparison.OrdinalIgnoreCase) == true)
@@ -454,7 +454,7 @@ public class RevitBridge : IRevitBridge
     {
         // Register common Revit type conversions
         // This would be expanded with actual Revit API type mappings
-        
+
         // Example registrations (would be replaced with actual Revit types):
         // TypeConverter.RegisterBidirectionalConverter<PythonXYZ, Autodesk.Revit.DB.XYZ>(
         //     revitXyz => new PythonXYZ { X = revitXyz.X, Y = revitXyz.Y, Z = revitXyz.Z },
@@ -483,7 +483,7 @@ public class RevitBridge : IRevitBridge
             {
                 try
                 {
-                    var type = Type.GetType(typeName) ?? 
+                    var type = Type.GetType(typeName) ??
                               AppDomain.CurrentDomain.GetAssemblies()
                                   .SelectMany(a => a.GetTypes())
                                   .FirstOrDefault(t => t.FullName == typeName);
@@ -510,7 +510,7 @@ public class RevitBridge : IRevitBridge
     private MethodInfo? GetCachedMethod(Type type, string methodName, object[]? parameters)
     {
         var cacheKey = $"{type.FullName}.{methodName}({string.Join(",", parameters?.Select(p => p?.GetType().Name) ?? Array.Empty<string>())})";
-        
+
         return _methodCache.GetOrAdd(cacheKey, _ =>
         {
             var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
@@ -528,7 +528,7 @@ public class RevitBridge : IRevitBridge
     private PropertyInfo? GetCachedProperty(Type type, string propertyName)
     {
         var cacheKey = $"{type.FullName}.{propertyName}";
-        
+
         return _propertyCache.GetOrAdd(cacheKey, _ =>
             type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static));
     }
@@ -655,7 +655,7 @@ public class EventSubscription : IEventSubscription
 public class PropertyAccessException : RevitApiException
 {
     public PropertyAccessException(string message) : base(message, "PROPERTY_ACCESS_FAILED") { }
-    
+
     public PropertyAccessException(string message, Exception innerException) : base(message, innerException)
     {
         ErrorCode = "PROPERTY_ACCESS_FAILED";
@@ -668,7 +668,7 @@ public class PropertyAccessException : RevitApiException
 public class MethodAccessException : RevitApiException
 {
     public MethodAccessException(string message) : base(message, "METHOD_ACCESS_FAILED") { }
-    
+
     public MethodAccessException(string message, Exception innerException) : base(message, innerException)
     {
         ErrorCode = "METHOD_ACCESS_FAILED";

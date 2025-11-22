@@ -9,7 +9,7 @@ RevitPy has demonstrated **$500K+ annual value** through 5 comprehensive proof-o
 
 **Key Findings Preview:**
 - **Total Addressable Market (TAM)**: $12.8B AEC software market with 40%+ Python automation adoption
-- **Conservative ROI**: 350-500% within 12 months across all POC applications  
+- **Conservative ROI**: 350-500% within 12 months across all POC applications
 - **Market Readiness**: 85% of AEC firms report urgent need for AI/ML capabilities
 - **Competitive Advantage**: Zero direct competition for modern Python + Revit integration
 
@@ -67,7 +67,7 @@ RevitPy has demonstrated **$500K+ annual value** through 5 comprehensive proof-o
 
 #### Conservative 3-Year Projection
 - **Year 1**: 0.5% market penetration = 2,900 users = **$145M**
-- **Year 2**: 1.2% market penetration = 6,960 users = **$348M**  
+- **Year 2**: 1.2% market penetration = 6,960 users = **$348M**
 - **Year 3**: 2.5% market penetration = 14,500 users = **$725M**
 
 #### Market Validation Evidence
@@ -299,7 +299,7 @@ RevitPy has demonstrated **$500K+ annual value** through 5 comprehensive proof-o
 
 #### Persona 1: Technical Director - Large Firm
 **Role:** Oversees technology strategy and implementation
-**Goals:** 
+**Goals:**
 - Reduce software costs while improving capabilities
 - Enable AI/ML adoption across projects
 - Maintain competitive advantage through technology

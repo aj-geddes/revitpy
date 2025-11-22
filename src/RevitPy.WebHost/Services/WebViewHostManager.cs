@@ -35,7 +35,7 @@ public class WebViewHostManager : IDisposable
     public async Task<IWebViewHost> CreateHostAsync(WebViewConfiguration configuration)
     {
         if (_disposed) throw new ObjectDisposedException(nameof(WebViewHostManager));
-        
+
         if (_hosts.ContainsKey(configuration.Id))
         {
             throw new InvalidOperationException($"Host with ID '{configuration.Id}' already exists");
@@ -44,11 +44,11 @@ public class WebViewHostManager : IDisposable
         try
         {
             var host = _serviceProvider.GetRequiredService<IWebViewHost>();
-            
+
             // Set up event handlers
-            host.MessageReceived += (s, message) => 
+            host.MessageReceived += (s, message) =>
                 MessageReceived?.Invoke(this, new WebViewMessageEventArgs(configuration.Id, message));
-            
+
             host.WebViewClosed += (s, e) =>
             {
                 _hosts.TryRemove(configuration.Id, out _);
@@ -56,7 +56,7 @@ public class WebViewHostManager : IDisposable
             };
 
             await host.InitializeAsync(configuration);
-            
+
             if (_hosts.TryAdd(configuration.Id, host))
             {
                 HostCreated?.Invoke(this, new WebViewHostEventArgs(configuration.Id, host));
@@ -249,7 +249,7 @@ public class WebViewHostManager : IDisposable
     public async Task<Dictionary<string, PerformanceMetrics>> GetAllPerformanceMetricsAsync()
     {
         var results = new Dictionary<string, PerformanceMetrics>();
-        
+
         var tasks = _hosts.Select(async kvp =>
         {
             try
@@ -265,7 +265,7 @@ public class WebViewHostManager : IDisposable
         });
 
         var metrics = await Task.WhenAll(tasks);
-        
+
         foreach (var (hostId, metric) in metrics)
         {
             if (metric != null)
@@ -283,7 +283,7 @@ public class WebViewHostManager : IDisposable
     public async Task<PanelGroup> CreatePanelGroupAsync(string groupId, IEnumerable<WebViewConfiguration> configurations)
     {
         var hosts = new List<IWebViewHost>();
-        
+
         foreach (var config in configurations)
         {
             try
@@ -293,9 +293,9 @@ public class WebViewHostManager : IDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to create host {HostId} for panel group {GroupId}", 
+                _logger.LogError(ex, "Failed to create host {HostId} for panel group {GroupId}",
                     config.Id, groupId);
-                
+
                 // Clean up already created hosts on failure
                 foreach (var createdHost in hosts)
                 {

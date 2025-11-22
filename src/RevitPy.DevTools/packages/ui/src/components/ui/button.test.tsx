@@ -11,7 +11,7 @@ describe('Button', () => {
   it('handles click events', () => {
     const handleClick = vi.fn();
     render(<Button onClick={handleClick}>Click me</Button>);
-    
+
     fireEvent.click(screen.getByRole('button'));
     expect(handleClick).toHaveBeenCalledTimes(1);
   });
@@ -44,7 +44,7 @@ describe('Button', () => {
         Submit
       </Button>
     );
-    
+
     const button = screen.getByRole('button');
     expect(button).toBeDisabled();
     expect(screen.getByText('Loading...')).toBeInTheDocument();
@@ -53,7 +53,7 @@ describe('Button', () => {
 
   it('shows loading spinner without custom text', () => {
     render(<Button loading>Submit</Button>);
-    
+
     const button = screen.getByRole('button');
     expect(button).toBeDisabled();
     expect(screen.getByText('Submit')).toBeInTheDocument();
@@ -87,7 +87,7 @@ describe('Button', () => {
         Submit
       </Button>
     );
-    
+
     const button = screen.getByRole('button');
     expect(button).toHaveAttribute('type', 'submit');
     expect(button).toHaveAttribute('data-testid', 'submit-button');
@@ -99,7 +99,7 @@ describe('Button', () => {
         <a href="/link">Link Button</a>
       </Button>
     );
-    
+
     const link = screen.getByRole('link', { name: 'Link Button' });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', '/link');
@@ -109,14 +109,14 @@ describe('Button', () => {
   it('supports keyboard navigation', () => {
     const handleClick = vi.fn();
     render(<Button onClick={handleClick}>Button</Button>);
-    
+
     const button = screen.getByRole('button');
     button.focus();
     expect(button).toHaveFocus();
-    
+
     fireEvent.keyDown(button, { key: 'Enter' });
     expect(handleClick).toHaveBeenCalledTimes(1);
-    
+
     fireEvent.keyDown(button, { key: ' ' });
     expect(handleClick).toHaveBeenCalledTimes(2);
   });

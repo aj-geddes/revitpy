@@ -17,7 +17,7 @@ theme:
   name: material
   custom_dir: overrides
   language: en
-  
+
   # Colors and appearance
   palette:
     # Palette toggle for light mode
@@ -34,17 +34,17 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-  
+
   # Fonts
   font:
     text: Roboto
     code: Roboto Mono
-  
+
   # Icons and logos
   icon:
     repo: fontawesome/brands/github
     logo: material/code-braces
-  
+
   # Features
   features:
     - announce.dismiss
@@ -184,7 +184,7 @@ extra:
 # Navigation
 nav:
   - Home: index.md
-  
+
   - Getting Started:
     - getting-started/index.md
     - Installation: getting-started/installation.md
@@ -192,7 +192,7 @@ nav:
     - First Script: getting-started/first-script.md
     - VS Code Setup: getting-started/vscode-setup.md
     - Troubleshooting: getting-started/troubleshooting.md
-  
+
   - Tutorials:
     - tutorials/index.md
     - Your First Script: tutorials/first-script.md
@@ -202,7 +202,7 @@ nav:
     - Package Development: tutorials/package-development.md
     - Enterprise Deployment: tutorials/enterprise-deployment.md
     - Performance Optimization: tutorials/performance-optimization.md
-  
+
   - Guides:
     - guides/index.md
     - Migration from PyRevit: guides/migration-from-pyrevit.md
@@ -211,7 +211,7 @@ nav:
     - Security Guidelines: guides/security-guidelines.md
     - Testing Strategies: guides/testing-strategies.md
     - Deployment Planning: guides/deployment-planning.md
-  
+
   - API Reference:
     - reference/index.md
     - Core API:
@@ -240,7 +240,7 @@ nav:
       - revitpy doctor: reference/cli/doctor.md
     - Configuration: reference/configuration.md
     - Compatibility: reference/compatibility.md
-  
+
   - Enterprise:
     - enterprise/index.md
     - Deployment Guide: enterprise/deployment.md
@@ -251,7 +251,7 @@ nav:
     - Backup & Recovery: enterprise/backup-recovery.md
     - Performance Tuning: enterprise/performance-tuning.md
     - Scaling Guide: enterprise/scaling.md
-  
+
   - Community:
     - community/index.md
     - Contributing: community/contributing.md

@@ -2,7 +2,6 @@
 
 import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -10,8 +9,14 @@ from rich.traceback import install
 
 from revitpy_cli.commands import (
     build as build_cmd,
+)
+from revitpy_cli.commands import (
     create as create_cmd,
+)
+from revitpy_cli.commands import (
     dev as dev_cmd,
+)
+from revitpy_cli.commands import (
     publish as publish_cmd,
 )
 
@@ -21,7 +26,7 @@ try:
 except ImportError:
     install_cmd = None
 
-# Import doctor command - handle missing module gracefully  
+# Import doctor command - handle missing module gracefully
 try:
     from revitpy_cli.commands import doctor as doctor_cmd
 except ImportError:
@@ -46,7 +51,7 @@ app = typer.Typer(
 
 # Add command groups
 app.add_typer(create_cmd.app, name="create")
-app.add_typer(build_cmd.app, name="build") 
+app.add_typer(build_cmd.app, name="build")
 app.add_typer(dev_cmd.app, name="dev")
 app.add_typer(publish_cmd.app, name="publish")
 
@@ -63,8 +68,10 @@ if doctor_cmd:
 def version() -> None:
     """Show RevitPy CLI version information."""
     from revitpy_cli import __version__
-    
-    console.print(f"[bold blue]RevitPy CLI[/bold blue] version [green]{__version__}[/green]")
+
+    console.print(
+        f"[bold blue]RevitPy CLI[/bold blue] version [green]{__version__}[/green]"
+    )
 
 
 @app.command()
@@ -75,46 +82,41 @@ def config(
 ) -> None:
     """Manage RevitPy CLI configuration."""
     config_instance = get_config()
-    
+
     if reset:
         config_instance.reset_to_defaults()
         console.print("[green]✓[/green] Configuration reset to defaults")
         return
-    
+
     if edit:
         config_path = config_instance.config_file
         editor = config_instance.editor or "nano"
         typer.launch(str(config_path), application=editor)
         return
-    
+
     if show:
         config_instance.show_config()
         return
-    
+
     console.print("[yellow]Use --show, --edit, or --reset flags[/yellow]")
 
 
 @app.command(name="completion")
 def generate_completion(
-    shell: str = typer.Option(
-        None, 
-        help="Shell type (bash, zsh, fish, powershell)"
-    ),
+    shell: str = typer.Option(None, help="Shell type (bash, zsh, fish, powershell)"),
     install: bool = typer.Option(
-        False, 
-        "--install", 
-        help="Install completion automatically"
+        False, "--install", help="Install completion automatically"
     ),
 ) -> None:
     """Generate shell completion scripts."""
     if not shell:
         # Auto-detect shell
         shell = detect_shell()
-    
+
     if shell not in ["bash", "zsh", "fish", "powershell"]:
         console.print(f"[red]Error:[/red] Unsupported shell '{shell}'")
         raise typer.Exit(1)
-    
+
     if install:
         install_completion(shell)
     else:
@@ -124,12 +126,14 @@ def generate_completion(
 @app.command()
 def plugins(
     list_plugins: bool = typer.Option(False, "--list", help="List installed plugins"),
-    install: Optional[str] = typer.Option(None, "--install", help="Install a plugin"),
-    uninstall: Optional[str] = typer.Option(None, "--uninstall", help="Uninstall a plugin"),
+    install: str | None = typer.Option(None, "--install", help="Install a plugin"),
+    uninstall: str | None = typer.Option(
+        None, "--uninstall", help="Uninstall a plugin"
+    ),
 ) -> None:
     """Manage RevitPy CLI plugins."""
     manager = PluginManager()
-    
+
     if list_plugins:
         manager.list_plugins()
     elif install:
@@ -144,6 +148,7 @@ def detect_shell() -> str:
     """Auto-detect the current shell."""
     try:
         import shellingham
+
         shell_name, _ = shellingham.detect_shell()
         return shell_name
     except Exception:
@@ -156,9 +161,9 @@ def generate_completion_script(shell: str) -> None:
     """Generate completion script for specified shell."""
     try:
         from typer.main import get_command
-        
+
         click_command = get_command(app)
-        
+
         if shell == "bash":
             script = click_command.get_completion_script("bash", "revitpy")
         elif shell == "zsh":
@@ -168,9 +173,9 @@ def generate_completion_script(shell: str) -> None:
         else:
             console.print(f"[red]Error:[/red] Completion for {shell} not implemented")
             raise typer.Exit(1)
-        
+
         console.print(script)
-        
+
     except Exception as e:
         console.print(f"[red]Error generating completion:[/red] {e}")
         raise typer.Exit(1)
@@ -180,9 +185,9 @@ def install_completion(shell: str) -> None:
     """Install completion script for specified shell."""
     try:
         from typer.main import get_command
-        
+
         click_command = get_command(app)
-        
+
         if shell == "bash":
             script = click_command.get_completion_script("bash", "revitpy")
             completion_file = Path.home() / ".bash_completion.d" / "revitpy"
@@ -191,20 +196,22 @@ def install_completion(shell: str) -> None:
             completion_file = Path.home() / ".zsh" / "completions" / "_revitpy"
         elif shell == "fish":
             script = click_command.get_completion_script("fish", "revitpy")
-            completion_file = Path.home() / ".config" / "fish" / "completions" / "revitpy.fish"
+            completion_file = (
+                Path.home() / ".config" / "fish" / "completions" / "revitpy.fish"
+            )
         else:
             console.print(f"[red]Error:[/red] Auto-install for {shell} not supported")
             raise typer.Exit(1)
-        
+
         # Create directory if it doesn't exist
         completion_file.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Write completion script
         completion_file.write_text(script)
-        
+
         console.print(f"[green]✓[/green] Completion installed for {shell}")
         console.print(f"[dim]Restart your shell or run: source {completion_file}[/dim]")
-        
+
     except Exception as e:
         console.print(f"[red]Error installing completion:[/red] {e}")
         raise typer.Exit(1)

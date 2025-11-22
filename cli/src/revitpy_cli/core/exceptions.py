@@ -1,14 +1,12 @@
 """Exception classes for RevitPy CLI."""
 
-from typing import Optional
-
 
 class RevitPyCliError(Exception):
     """Base exception for all RevitPy CLI errors."""
 
     def __init__(self, message: str, exit_code: int = 1) -> None:
         """Initialize CLI error.
-        
+
         Args:
             message: Error message to display
             exit_code: Exit code for the CLI (default: 1)
@@ -22,14 +20,14 @@ class CommandError(RevitPyCliError):
     """Exception raised when a CLI command fails."""
 
     def __init__(
-        self, 
-        command: str, 
-        message: str, 
+        self,
+        command: str,
+        message: str,
         exit_code: int = 1,
-        suggestion: Optional[str] = None
+        suggestion: str | None = None,
     ) -> None:
         """Initialize command error.
-        
+
         Args:
             command: The command that failed
             message: Error message
@@ -39,7 +37,7 @@ class CommandError(RevitPyCliError):
         full_message = f"Command '{command}' failed: {message}"
         if suggestion:
             full_message += f"\nSuggestion: {suggestion}"
-        
+
         super().__init__(full_message, exit_code)
         self.command = command
         self.suggestion = suggestion
@@ -48,9 +46,9 @@ class CommandError(RevitPyCliError):
 class ConfigurationError(RevitPyCliError):
     """Exception raised when configuration is invalid or missing."""
 
-    def __init__(self, message: str, config_path: Optional[str] = None) -> None:
+    def __init__(self, message: str, config_path: str | None = None) -> None:
         """Initialize configuration error.
-        
+
         Args:
             message: Error message
             config_path: Path to the problematic config file
@@ -59,7 +57,7 @@ class ConfigurationError(RevitPyCliError):
             full_message = f"Configuration error in {config_path}: {message}"
         else:
             full_message = f"Configuration error: {message}"
-        
+
         super().__init__(full_message)
         self.config_path = config_path
 
@@ -67,9 +65,9 @@ class ConfigurationError(RevitPyCliError):
 class ProjectError(RevitPyCliError):
     """Exception raised for project-related errors."""
 
-    def __init__(self, message: str, project_path: Optional[str] = None) -> None:
+    def __init__(self, message: str, project_path: str | None = None) -> None:
         """Initialize project error.
-        
+
         Args:
             message: Error message
             project_path: Path to the project with the issue
@@ -78,7 +76,7 @@ class ProjectError(RevitPyCliError):
             full_message = f"Project error in {project_path}: {message}"
         else:
             full_message = f"Project error: {message}"
-        
+
         super().__init__(full_message)
         self.project_path = project_path
 
@@ -88,7 +86,7 @@ class TemplateError(RevitPyCliError):
 
     def __init__(self, template: str, message: str) -> None:
         """Initialize template error.
-        
+
         Args:
             template: Template name or path
             message: Error message
@@ -101,9 +99,9 @@ class TemplateError(RevitPyCliError):
 class BuildError(RevitPyCliError):
     """Exception raised during build operations."""
 
-    def __init__(self, message: str, build_step: Optional[str] = None) -> None:
+    def __init__(self, message: str, build_step: str | None = None) -> None:
         """Initialize build error.
-        
+
         Args:
             message: Error message
             build_step: The build step that failed
@@ -112,7 +110,7 @@ class BuildError(RevitPyCliError):
             full_message = f"Build failed at step '{build_step}': {message}"
         else:
             full_message = f"Build failed: {message}"
-        
+
         super().__init__(full_message)
         self.build_step = build_step
 
@@ -120,9 +118,9 @@ class BuildError(RevitPyCliError):
 class PublishError(RevitPyCliError):
     """Exception raised during publishing operations."""
 
-    def __init__(self, message: str, registry: Optional[str] = None) -> None:
+    def __init__(self, message: str, registry: str | None = None) -> None:
         """Initialize publish error.
-        
+
         Args:
             message: Error message
             registry: Registry URL that failed
@@ -131,7 +129,7 @@ class PublishError(RevitPyCliError):
             full_message = f"Publish to {registry} failed: {message}"
         else:
             full_message = f"Publish failed: {message}"
-        
+
         super().__init__(full_message)
         self.registry = registry
 
@@ -141,7 +139,7 @@ class InstallError(RevitPyCliError):
 
     def __init__(self, package: str, message: str) -> None:
         """Initialize install error.
-        
+
         Args:
             package: Package name or specification
             message: Error message
@@ -154,9 +152,9 @@ class InstallError(RevitPyCliError):
 class DevServerError(RevitPyCliError):
     """Exception raised by the development server."""
 
-    def __init__(self, message: str, port: Optional[int] = None) -> None:
+    def __init__(self, message: str, port: int | None = None) -> None:
         """Initialize dev server error.
-        
+
         Args:
             message: Error message
             port: Port number if relevant
@@ -165,7 +163,7 @@ class DevServerError(RevitPyCliError):
             full_message = f"Dev server error on port {port}: {message}"
         else:
             full_message = f"Dev server error: {message}"
-        
+
         super().__init__(full_message)
         self.port = port
 
@@ -175,7 +173,7 @@ class PluginError(RevitPyCliError):
 
     def __init__(self, plugin: str, message: str) -> None:
         """Initialize plugin error.
-        
+
         Args:
             plugin: Plugin name
             message: Error message

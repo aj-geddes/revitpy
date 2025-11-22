@@ -43,7 +43,7 @@ public interface IPythonInterpreter : IDisposable
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Execution result</returns>
     Task<PythonExecutionResult> ExecuteAsync(
-        string code, 
+        string code,
         Dictionary<string, object>? globals = null,
         Dictionary<string, object>? locals = null,
         CancellationToken cancellationToken = default);

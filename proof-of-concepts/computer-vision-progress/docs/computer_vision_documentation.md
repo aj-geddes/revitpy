@@ -65,7 +65,7 @@ class ConstructionProgressMonitor:
 ```python
 async def analyze_construction_photos(self, photos):
     """Analyze construction photos with computer vision (IMPOSSIBLE in PyRevit)"""
-    
+
     analysis_results = {
         'total_photos': len(photos),
         'elements_detected': 0,
@@ -74,32 +74,32 @@ async def analyze_construction_photos(self, photos):
         'quality_issues': [],
         'analysis_confidence': 0.0
     }
-    
+
     for photo in photos:
         # Load and preprocess image with OpenCV
         image = cv2.imread(photo['filename'])
         preprocessed = self._preprocess_image(image)
-        
+
         # Run deep learning object detection
         detections = self._detect_construction_elements(preprocessed)
-        
+
         # Analyze progress indicators
         progress = self._analyze_progress_indicators(detections, photo)
-        
+
         # Assess quality
         quality = self._assess_construction_quality(detections, photo)
-        
+
         # Accumulate results
         analysis_results['elements_detected'] += len(detections)
         analysis_results['detected_elements'].extend(detections)
         analysis_results['progress_indicators'].extend(progress)
         analysis_results['quality_issues'].extend(quality)
-    
+
     # Calculate overall confidence
     analysis_results['analysis_confidence'] = self._calculate_analysis_confidence(
         analysis_results
     )
-    
+
     return analysis_results
 ```
 
@@ -107,10 +107,10 @@ async def analyze_construction_photos(self, photos):
 ```python
 async def real_time_progress_monitoring(self, project_schedule, duration_minutes=10):
     """Monitor construction progress in real-time (IMPOSSIBLE in PyRevit)"""
-    
+
     start_time = datetime.now()
     end_time = start_time + timedelta(minutes=duration_minutes)
-    
+
     monitoring_results = {
         'start_time': start_time.isoformat(),
         'monitoring_duration_minutes': duration_minutes,
@@ -119,23 +119,23 @@ async def real_time_progress_monitoring(self, project_schedule, duration_minutes
         'phase_progress': {},
         'analytics': {}
     }
-    
+
     # Simulate real-time monitoring
     while datetime.now() < end_time:
         # Capture camera feeds (simulated)
         camera_images = await self._capture_camera_feeds()
-        
+
         for image in camera_images:
             # Process with computer vision
             detections = self._detect_construction_elements(image)
-            
+
             # Update progress tracking
             for phase in project_schedule:
                 phase_name = phase['phase']
                 current_progress = self._calculate_phase_progress(
                     detections, phase
                 )
-                
+
                 if phase_name not in monitoring_results['phase_progress']:
                     monitoring_results['phase_progress'][phase_name] = {
                         'planned_completion': phase['planned_completion'],
@@ -145,19 +145,19 @@ async def real_time_progress_monitoring(self, project_schedule, duration_minutes
                 else:
                     monitoring_results['phase_progress'][phase_name]['actual_completion'] = current_progress
                     monitoring_results['phase_progress'][phase_name]['last_updated'] = datetime.now().isoformat()
-            
+
             monitoring_results['images_analyzed'] += 1
-        
+
         monitoring_results['progress_updates'] += 1
-        
+
         # Brief pause between monitoring cycles
         await asyncio.sleep(duration_minutes * 60 / 10)  # 10 cycles total
-    
+
     # Calculate analytics
     monitoring_results['analytics'] = self._calculate_progress_analytics(
         monitoring_results['phase_progress']
     )
-    
+
     return monitoring_results
 ```
 
@@ -165,14 +165,14 @@ async def real_time_progress_monitoring(self, project_schedule, duration_minutes
 ```python
 def _assess_element_quality(self, element_data):
     """Assess construction element quality using AI (IMPOSSIBLE in PyRevit)"""
-    
+
     element_type = element_data['element_type']
     quality_criteria = element_data['quality_criteria']
-    
+
     # Initialize quality assessment
     quality_scores = {}
     overall_score = 0
-    
+
     # Assess each quality criterion
     for criterion in quality_criteria:
         if criterion == 'surface_finish':
@@ -190,16 +190,16 @@ def _assess_element_quality(self, element_data):
         else:
             # Generic quality assessment
             score = np.random.uniform(85, 98)  # High quality baseline
-        
+
         quality_scores[criterion] = score
-    
+
     # Calculate overall quality score
     overall_score = np.mean(list(quality_scores.values()))
-    
+
     # Determine pass/fail status
     pass_threshold = 90.0
     status = "PASS" if overall_score >= pass_threshold else "REVIEW"
-    
+
     return {
         'element_id': element_data.get('element_id', 'unknown'),
         'element_type': element_type,
@@ -297,22 +297,22 @@ class ConstructionElementDetector:
             'concrete_pour', 'crane', 'worker',
             'safety_equipment', 'formwork'
         ]
-    
+
     def detect_elements(self, image):
         """Detect construction elements in image"""
-        
+
         # Preprocess image
         input_blob = cv2.dnn.blobFromImage(
             image, 1/255.0, (416, 416), swapRB=True, crop=False
         )
-        
+
         # Run inference
         self.model.setInput(input_blob)
         outputs = self.model.forward()
-        
+
         # Process detections
         detections = self._process_yolo_outputs(outputs, image.shape)
-        
+
         return detections
 ```
 
@@ -322,17 +322,17 @@ class QualityAssessmentCNN:
     def __init__(self):
         self.model = self._build_cnn_model()
         self.quality_classes = ['excellent', 'good', 'acceptable', 'poor']
-    
+
     def assess_quality(self, image_patch):
         """Assess construction quality using CNN"""
-        
+
         # Preprocess patch
         preprocessed = self._preprocess_for_cnn(image_patch)
-        
+
         # Predict quality class
         prediction = self.model.predict(preprocessed)
         quality_score = np.max(prediction) * 100
-        
+
         return {
             'quality_score': quality_score,
             'quality_class': self.quality_classes[np.argmax(prediction)],
@@ -346,21 +346,21 @@ class SafetyComplianceDetector:
     def __init__(self):
         self.ppe_detector = self._load_ppe_model()
         self.zone_classifier = self._load_zone_model()
-    
+
     def check_safety_compliance(self, worker_detection):
         """Check worker safety compliance"""
-        
+
         # Detect PPE
         ppe_results = self.ppe_detector.detect(worker_detection['image_patch'])
-        
+
         # Required PPE checklist
         required_ppe = ['hard_hat', 'safety_vest', 'safety_boots']
         detected_ppe = [item['type'] for item in ppe_results]
-        
+
         # Calculate compliance
         compliance_score = len(set(required_ppe) & set(detected_ppe)) / len(required_ppe) * 100
         violations = list(set(required_ppe) - set(detected_ppe))
-        
+
         return {
             'worker_id': worker_detection['worker_id'],
             'compliance_score': compliance_score,

@@ -22,7 +22,7 @@ export function RevitPyProvider({ children }: RevitPyProviderProps) {
     setPerformanceMetrics,
     connectionStatus
   } = useRevitPyStore();
-  
+
   const messageId = useRef(0);
   const pendingRequests = useRef(new Map<string, {
     resolve: (value: any) => void;
@@ -39,10 +39,10 @@ export function RevitPyProvider({ children }: RevitPyProviderProps) {
 
       const id = `msg_${++messageId.current}`;
       const messageWithId = { ...message, id };
-      
+
       // Store the promise resolvers
       pendingRequests.current.set(id, { resolve, reject });
-      
+
       // Set timeout for request
       setTimeout(() => {
         const pending = pendingRequests.current.get(id);
@@ -65,7 +65,7 @@ export function RevitPyProvider({ children }: RevitPyProviderProps) {
   useEffect(() => {
     const handleMessage = (event: CustomEvent) => {
       const message = event.detail as WebViewMessage;
-      
+
       try {
         switch (message.type) {
           case 'response':
@@ -134,7 +134,7 @@ export function RevitPyProvider({ children }: RevitPyProviderProps) {
     const initializeConnection = async () => {
       try {
         setConnectionStatus('connecting');
-        
+
         // Check if RevitPy bridge is available
         if (!window.revitpy) {
           throw new Error('RevitPy bridge not available');
@@ -159,7 +159,7 @@ export function RevitPyProvider({ children }: RevitPyProviderProps) {
       } catch (error) {
         console.error('Failed to initialize RevitPy connection:', error);
         setConnectionStatus('error');
-        
+
         toast({
           title: 'Connection Error',
           description: 'Failed to connect to RevitPy runtime',
@@ -190,7 +190,7 @@ export function RevitPyProvider({ children }: RevitPyProviderProps) {
       } catch (error) {
         console.error('Health check failed:', error);
         setConnectionStatus('error');
-        
+
         toast({
           title: 'Connection Lost',
           description: 'Lost connection to RevitPy runtime',
@@ -206,7 +206,7 @@ export function RevitPyProvider({ children }: RevitPyProviderProps) {
     if (message.event === 'runtime:status') {
       setConnectionStatus(message.data.status);
     }
-    
+
     // Show toast notification
     if (message.data?.title) {
       toast({
@@ -220,7 +220,7 @@ export function RevitPyProvider({ children }: RevitPyProviderProps) {
   const handleDataBinding = (message: any) => {
     // Handle real-time data updates from the host
     const { propertyPath, value } = message;
-    
+
     // Update store based on property path
     if (propertyPath.startsWith('runtime.')) {
       // Update runtime properties
@@ -242,7 +242,7 @@ export function RevitPyProvider({ children }: RevitPyProviderProps) {
 
   const handleError = (message: WebViewMessage) => {
     console.error('RevitPy error:', message.error);
-    
+
     toast({
       title: 'RevitPy Error',
       description: message.error?.message || 'An unknown error occurred',

@@ -16,7 +16,7 @@ public class RevitPyHost : IRevitPyHost, IDisposable
     private readonly RevitPyOptions _options;
     private readonly IConfigurationValidator _configurationValidator;
     private readonly IServiceProvider _serviceProvider;
-    
+
     // Core services
     private readonly IPythonInterpreterPool _interpreterPool;
     private readonly IMemoryManager _memoryManager;
@@ -25,7 +25,7 @@ public class RevitPyHost : IRevitPyHost, IDisposable
     private readonly IExtensionManager _extensionManager;
     private readonly IHealthMonitor _healthMonitor;
     private readonly IResourceManager _resourceManager;
-    
+
     // Host state
     private bool _isInitialized;
     private bool _isRunning;
@@ -34,7 +34,7 @@ public class RevitPyHost : IRevitPyHost, IDisposable
     private RevitPyHostStats _stats = new();
     private readonly object _statsLock = new();
     private readonly Stopwatch _uptimeStopwatch = new();
-    
+
     // Service startup order for dependency management
     private readonly List<(string Name, Func<CancellationToken, Task> StartFunc, Func<CancellationToken, Task> StopFunc)> _services;
 
@@ -136,7 +136,7 @@ public class RevitPyHost : IRevitPyHost, IDisposable
             // Validate configuration
             _logger.LogInformation("Validating configuration...");
             var configValidation = await _configurationValidator.ValidateAsync(
-                _serviceProvider.GetService(typeof(Microsoft.Extensions.Configuration.IConfiguration)) 
+                _serviceProvider.GetService(typeof(Microsoft.Extensions.Configuration.IConfiguration))
                 as Microsoft.Extensions.Configuration.IConfiguration ?? throw new InvalidOperationException("Configuration not found"));
 
             if (!configValidation.IsValid)
@@ -155,7 +155,7 @@ public class RevitPyHost : IRevitPyHost, IDisposable
 
             // Initialize Revit bridge
             _logger.LogInformation("Initializing Revit bridge...");
-            RevitBridge = _serviceProvider.GetService<IRevitBridge>() ?? 
+            RevitBridge = _serviceProvider.GetService<IRevitBridge>() ??
                          throw new InvalidOperationException("Revit bridge service not available");
 
             if (RevitBridge is IInitializable initializableBridge)
@@ -212,15 +212,15 @@ public class RevitPyHost : IRevitPyHost, IDisposable
                 {
                     await startFunc(cancellationToken);
                     serviceStopwatch.Stop();
-                    _logger.LogInformation("Service {ServiceName} started in {Duration}ms", 
+                    _logger.LogInformation("Service {ServiceName} started in {Duration}ms",
                         serviceName, serviceStopwatch.ElapsedMilliseconds);
                 }
                 catch (Exception ex)
                 {
                     serviceStopwatch.Stop();
-                    _logger.LogError(ex, "Failed to start service {ServiceName} after {Duration}ms", 
+                    _logger.LogError(ex, "Failed to start service {ServiceName} after {Duration}ms",
                         serviceName, serviceStopwatch.ElapsedMilliseconds);
-                    
+
                     // Stop already started services
                     await StopStartedServicesAsync(serviceName, cancellationToken);
                     throw;
@@ -234,7 +234,7 @@ public class RevitPyHost : IRevitPyHost, IDisposable
             // Verify startup meets performance requirement (<2 seconds)
             if (startStopwatch.ElapsedMilliseconds > 2000)
             {
-                _logger.LogWarning("Host startup took {Duration}ms, exceeding the 2-second requirement", 
+                _logger.LogWarning("Host startup took {Duration}ms, exceeding the 2-second requirement",
                     startStopwatch.ElapsedMilliseconds);
             }
 
@@ -246,7 +246,7 @@ public class RevitPyHost : IRevitPyHost, IDisposable
             {
                 await Task.Delay(5000, cancellationToken); // Wait 5 seconds before first health check
                 var health = await HealthCheckAsync(cancellationToken);
-                
+
                 if (!health.IsHealthy)
                 {
                     _logger.LogWarning("Initial health check failed: {IssueCount} issues detected", health.Issues.Count);
@@ -288,7 +288,7 @@ public class RevitPyHost : IRevitPyHost, IDisposable
 
             // Stop services in reverse order
             var servicesReversed = _services.AsEnumerable().Reverse().ToList();
-            
+
             foreach (var (serviceName, _, stopFunc) in servicesReversed)
             {
                 _logger.LogInformation("Stopping service: {ServiceName}", serviceName);
@@ -298,13 +298,13 @@ public class RevitPyHost : IRevitPyHost, IDisposable
                 {
                     await stopFunc(cancellationToken);
                     serviceStopwatch.Stop();
-                    _logger.LogInformation("Service {ServiceName} stopped in {Duration}ms", 
+                    _logger.LogInformation("Service {ServiceName} stopped in {Duration}ms",
                         serviceName, serviceStopwatch.ElapsedMilliseconds);
                 }
                 catch (Exception ex)
                 {
                     serviceStopwatch.Stop();
-                    _logger.LogError(ex, "Error stopping service {ServiceName} after {Duration}ms", 
+                    _logger.LogError(ex, "Error stopping service {ServiceName} after {Duration}ms",
                         serviceName, serviceStopwatch.ElapsedMilliseconds);
                     // Continue stopping other services
                 }
@@ -315,7 +315,7 @@ public class RevitPyHost : IRevitPyHost, IDisposable
             // Verify shutdown meets performance requirement (<5 seconds)
             if (stopStopwatch.ElapsedMilliseconds > 5000)
             {
-                _logger.LogWarning("Host shutdown took {Duration}ms, exceeding the 5-second requirement", 
+                _logger.LogWarning("Host shutdown took {Duration}ms, exceeding the 5-second requirement",
                     stopStopwatch.ElapsedMilliseconds);
             }
 
@@ -345,7 +345,7 @@ public class RevitPyHost : IRevitPyHost, IDisposable
         }
 
         var executionStopwatch = Stopwatch.StartNew();
-        
+
         lock (_statsLock)
         {
             _stats.TotalPythonExecutions++;
@@ -366,7 +366,7 @@ public class RevitPyHost : IRevitPyHost, IDisposable
             }
 
             var result = await interpreter.ExecuteAsync(code, effectiveGlobals, locals, cancellationToken);
-            
+
             executionStopwatch.Stop();
 
             lock (_statsLock)
@@ -396,14 +396,14 @@ public class RevitPyHost : IRevitPyHost, IDisposable
         catch (Exception ex)
         {
             executionStopwatch.Stop();
-            
+
             lock (_statsLock)
             {
                 _stats.FailedExecutions++;
             }
 
             _logger.LogError(ex, "Python execution failed after {Duration}ms", executionStopwatch.ElapsedMilliseconds);
-            
+
             return new PythonExecutionResult
             {
                 IsSuccess = false,
@@ -421,14 +421,14 @@ public class RevitPyHost : IRevitPyHost, IDisposable
         }
 
         _logger.LogInformation("Loading extension: {ExtensionPath}", extensionPath);
-        
+
         try
         {
             var extensionInfo = await _extensionManager.LoadExtensionAsync(extensionPath, cancellationToken);
-            
-            _logger.LogInformation("Extension loaded successfully: {ExtensionId} ({Name} v{Version})", 
+
+            _logger.LogInformation("Extension loaded successfully: {ExtensionId} ({Name} v{Version})",
                 extensionInfo.Id, extensionInfo.Name, extensionInfo.Version);
-            
+
             return extensionInfo;
         }
         catch (Exception ex)
@@ -446,11 +446,11 @@ public class RevitPyHost : IRevitPyHost, IDisposable
         }
 
         _logger.LogInformation("Unloading extension: {ExtensionId}", extensionId);
-        
+
         try
         {
             await _extensionManager.UnloadExtensionAsync(extensionId, cancellationToken);
-            
+
             _logger.LogInformation("Extension unloaded successfully: {ExtensionId}", extensionId);
         }
         catch (Exception ex)
@@ -463,11 +463,11 @@ public class RevitPyHost : IRevitPyHost, IDisposable
     public async Task<RevitPyHostHealth> HealthCheckAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Performing host health check");
-        
+
         try
         {
             var health = await _healthMonitor.PerformHealthCheckAsync(cancellationToken);
-            
+
             lock (_statsLock)
             {
                 _stats.LastHealthCheck = DateTime.UtcNow;
@@ -494,9 +494,9 @@ public class RevitPyHost : IRevitPyHost, IDisposable
         }
 
         _logger.LogInformation("Resetting RevitPy host");
-        
+
         var resetStopwatch = Stopwatch.StartNew();
-        
+
         try
         {
             // Reset Python interpreter pool
@@ -522,7 +522,7 @@ public class RevitPyHost : IRevitPyHost, IDisposable
             }
 
             resetStopwatch.Stop();
-            
+
             _logger.LogInformation("RevitPy host reset completed in {Duration}ms", resetStopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
@@ -637,19 +637,19 @@ public class RevitPyHost : IRevitPyHost, IDisposable
             // Dispose disposable services
             if (_resourceManager is IDisposable disposableResourceManager)
                 disposableResourceManager.Dispose();
-            
+
             if (_memoryManager is IDisposable disposableMemoryManager)
                 disposableMemoryManager.Dispose();
-            
+
             if (_extensionManager is IDisposable disposableExtensionManager)
                 disposableExtensionManager.Dispose();
-            
+
             if (_healthMonitor is IDisposable disposableHealthMonitor)
                 disposableHealthMonitor.Dispose();
-            
+
             if (_debugServer is IDisposable disposableDebugServer)
                 disposableDebugServer.Dispose();
-            
+
             if (_hotReloadManager is IDisposable disposableHotReloadManager)
                 disposableHotReloadManager.Dispose();
 

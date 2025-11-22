@@ -97,66 +97,66 @@ export function deactivate() {
 function registerCommands(context: vscode.ExtensionContext, managers: any) {
     const commands = [
         // Project commands
-        vscode.commands.registerCommand('revitpy.createProject', () => 
+        vscode.commands.registerCommand('revitpy.createProject', () =>
             managers.projectManager.createProject()
         ),
-        vscode.commands.registerCommand('revitpy.openProject', () => 
+        vscode.commands.registerCommand('revitpy.openProject', () =>
             managers.projectManager.openProject()
         ),
-        vscode.commands.registerCommand('revitpy.buildProject', () => 
+        vscode.commands.registerCommand('revitpy.buildProject', () =>
             managers.projectManager.buildProject()
         ),
-        vscode.commands.registerCommand('revitpy.deployProject', () => 
+        vscode.commands.registerCommand('revitpy.deployProject', () =>
             managers.projectManager.deployProject()
         ),
 
         // Script execution commands
-        vscode.commands.registerCommand('revitpy.runScript', () => 
+        vscode.commands.registerCommand('revitpy.runScript', () =>
             runCurrentScript(managers.revitConnection)
         ),
-        vscode.commands.registerCommand('revitpy.debugScript', () => 
+        vscode.commands.registerCommand('revitpy.debugScript', () =>
             debugCurrentScript()
         ),
 
         // REPL commands
-        vscode.commands.registerCommand('revitpy.openRepl', () => 
+        vscode.commands.registerCommand('revitpy.openRepl', () =>
             managers.replManager.openREPL()
         ),
 
         // Package commands
-        vscode.commands.registerCommand('revitpy.installPackage', () => 
+        vscode.commands.registerCommand('revitpy.installPackage', () =>
             managers.packageManager.installPackage()
         ),
-        vscode.commands.registerCommand('revitpy.browsePackages', () => 
+        vscode.commands.registerCommand('revitpy.browsePackages', () =>
             managers.packageManager.browsePackages()
         ),
 
         // Dashboard command
-        vscode.commands.registerCommand('revitpy.openDashboard', () => 
+        vscode.commands.registerCommand('revitpy.openDashboard', () =>
             openDashboard()
         ),
 
         // Connection commands
-        vscode.commands.registerCommand('revitpy.connectToRevit', () => 
+        vscode.commands.registerCommand('revitpy.connectToRevit', () =>
             managers.revitConnection.connect()
         ),
-        vscode.commands.registerCommand('revitpy.disconnectFromRevit', () => 
+        vscode.commands.registerCommand('revitpy.disconnectFromRevit', () =>
             managers.revitConnection.disconnect()
         ),
 
         // Element inspector
-        vscode.commands.registerCommand('revitpy.showElementInspector', () => 
+        vscode.commands.registerCommand('revitpy.showElementInspector', () =>
             managers.elementInspector.show()
         ),
 
         // Refresh commands
-        vscode.commands.registerCommand('revitpy.refreshProjects', () => 
+        vscode.commands.registerCommand('revitpy.refreshProjects', () =>
             managers.projectManager.refresh()
         ),
-        vscode.commands.registerCommand('revitpy.refreshPackages', () => 
+        vscode.commands.registerCommand('revitpy.refreshPackages', () =>
             managers.packageManager.refresh()
         ),
-        vscode.commands.registerCommand('revitpy.refreshConnection', () => 
+        vscode.commands.registerCommand('revitpy.refreshConnection', () =>
             managers.revitConnection.refresh()
         )
     ];
@@ -321,20 +321,20 @@ function getDashboardHtml(): string {
             <div class="title">RevitPy Dashboard</div>
             <div class="subtitle">Welcome to your RevitPy development environment</div>
         </div>
-        
+
         <div class="quick-actions">
             <div class="action-card" onclick="sendMessage('createProject')">
                 <div class="action-icon">📁</div>
                 <div class="action-title">New Project</div>
                 <div class="action-description">Create a new RevitPy project</div>
             </div>
-            
+
             <div class="action-card" onclick="sendMessage('browsePackages')">
                 <div class="action-icon">📦</div>
                 <div class="action-title">Browse Packages</div>
                 <div class="action-description">Explore the RevitPy package registry</div>
             </div>
-            
+
             <div class="action-card" onclick="sendMessage('openREPL')">
                 <div class="action-icon">⚡</div>
                 <div class="action-title">Open REPL</div>
@@ -344,7 +344,7 @@ function getDashboardHtml(): string {
 
         <script>
             const vscode = acquireVsCodeApi();
-            
+
             function sendMessage(command) {
                 vscode.postMessage({ command: command });
             }

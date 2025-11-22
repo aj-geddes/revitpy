@@ -62,47 +62,47 @@ program
   .option('--benchmark', 'Enable benchmarking mode')
   .action(async (options) => {
     const startTime = performance.now();
-    
+
     try {
       console.log(chalk.blue.bold(`🚀 Starting RevitPy Development Server v${packageInfo.version}`));
       console.log(chalk.gray('High-performance hot-reload server with <500ms Python and <200ms UI reload times\n'));
 
       // Load configuration
       const config = await loadConfiguration(options);
-      
+
       // Validate configuration
       await validateConfiguration(config);
-      
+
       // Create and start server
       const server = new DevServer(config);
-      
+
       // Set up graceful shutdown
       setupGracefulShutdown(server);
-      
+
       // Start the server
       await server.start();
-      
+
       const startupTime = Math.round(performance.now() - startTime);
       console.log(chalk.green(`\n✅ Server started successfully in ${startupTime}ms`));
-      
+
       // Display connection info
       displayServerInfo(config);
-      
+
       // Display feature status
       displayFeatureStatus(config);
-      
+
       if (options.benchmark) {
         await runBenchmarks(server);
       }
-      
+
     } catch (error) {
       console.error(chalk.red('❌ Failed to start server:'));
       console.error(chalk.red(error.message));
-      
+
       if (options.logLevel === 'debug') {
         console.error(chalk.gray(error.stack));
       }
-      
+
       process.exit(1);
     }
   });
@@ -119,7 +119,7 @@ program
     try {
       const response = await fetch(`http://${options.host}:${options.port}/health`);
       const data = await response.json();
-      
+
       console.log(chalk.green('✅ Server is running'));
       console.log(chalk.blue('Server Information:'));
       console.log(`  Status: ${data.status}`);
@@ -127,14 +127,14 @@ program
       console.log(`  Version: ${data.version}`);
       console.log(`  Clients: ${data.clients}`);
       console.log(`  Reload Count: ${data.reloadCount}`);
-      
+
       if (data.metrics) {
         console.log(chalk.blue('\nPerformance Metrics:'));
         console.log(`  Build Time: ${Math.round(data.metrics.buildTime)}ms`);
         console.log(`  Memory Usage: ${Math.round(data.metrics.memoryUsage.heapUsed / 1024 / 1024)}MB`);
         console.log(`  CPU Usage: ${data.metrics.cpuUsage?.percent?.toFixed(1) || 'N/A'}%`);
       }
-      
+
     } catch (error) {
       if (error.code === 'ECONNREFUSED') {
         console.log(chalk.yellow('⚠️  Server is not running'));
@@ -159,7 +159,7 @@ program
       const response = await fetch(`http://${options.host}:${options.port}/api/shutdown`, {
         method: 'POST'
       });
-      
+
       if (response.ok) {
         console.log(chalk.green('✅ Server stopped successfully'));
       } else {
@@ -207,7 +207,7 @@ program
   .option('--concurrent <count>', 'Concurrent connections', '5')
   .action(async (options) => {
     console.log(chalk.blue.bold('🏃 Running RevitPy DevServer Benchmarks\n'));
-    
+
     try {
       await runPerformanceBenchmarks(options);
     } catch (error) {
@@ -224,7 +224,7 @@ program.parse();
 
 async function loadConfiguration(options: any): Promise<DevServerConfig> {
   let config: Partial<DevServerConfig> = {};
-  
+
   // Load from config file if specified
   if (options.config) {
     try {
@@ -235,7 +235,7 @@ async function loadConfiguration(options: any): Promise<DevServerConfig> {
       console.warn(chalk.yellow(`⚠️  Could not load config file: ${error.message}`));
     }
   }
-  
+
   // Override with command line options
   const cliConfig: Partial<DevServerConfig> = {
     host: options.host,
@@ -247,7 +247,7 @@ async function loadConfiguration(options: any): Promise<DevServerConfig> {
     debounceMs: parseInt(options.debounce),
     maxReloadTime: parseInt(options.maxReloadTime),
     parallelProcesses: parseInt(options.parallelProcesses),
-    
+
     hotReload: {
       enabled: options.hotReload,
       pythonModules: options.pythonReload,
@@ -257,7 +257,7 @@ async function loadConfiguration(options: any): Promise<DevServerConfig> {
       includePatterns: [],
       preserveState: true
     },
-    
+
     moduleReloader: {
       enabled: options.pythonReload,
       safeReload: true,
@@ -267,7 +267,7 @@ async function loadConfiguration(options: any): Promise<DevServerConfig> {
       preReloadHooks: [],
       postReloadHooks: []
     },
-    
+
     uiReload: {
       enabled: options.uiReload,
       webview2Integration: options.webview,
@@ -277,7 +277,7 @@ async function loadConfiguration(options: any): Promise<DevServerConfig> {
       cssHotReload: true,
       assetPipeline: true
     },
-    
+
     errorRecovery: {
       enabled: options.errorRecovery,
       maxRetries: 3,
@@ -287,7 +287,7 @@ async function loadConfiguration(options: any): Promise<DevServerConfig> {
       automaticRecovery: true,
       userPrompting: false
     },
-    
+
     performance: {
       monitoring: options.performance,
       metrics: options.performance,
@@ -297,7 +297,7 @@ async function loadConfiguration(options: any): Promise<DevServerConfig> {
       caching: true,
       memoryManagement: true
     },
-    
+
     revit: {
       enabled: options.revit,
       host: 'localhost',
@@ -306,14 +306,14 @@ async function loadConfiguration(options: any): Promise<DevServerConfig> {
       reconnectInterval: 5000,
       commandTimeout: 10000
     },
-    
+
     vscode: {
       enabled: options.vscode,
       port: parseInt(options.wsPort) + 2,
       debugAdapter: true,
       problemMatcher: true
     },
-    
+
     webview: {
       enabled: options.webview,
       port: parseInt(options.wsPort) + 3,
@@ -321,14 +321,14 @@ async function loadConfiguration(options: any): Promise<DevServerConfig> {
       securityDisabled: true
     }
   };
-  
+
   // Merge configurations (CLI options override config file)
   return { ...config, ...cliConfig } as DevServerConfig;
 }
 
 async function validateConfiguration(config: DevServerConfig): Promise<void> {
   const issues: string[] = [];
-  
+
   // Check project root
   try {
     const stats = await fs.stat(config.projectRoot);
@@ -338,33 +338,33 @@ async function validateConfiguration(config: DevServerConfig): Promise<void> {
   } catch {
     issues.push(`Project root does not exist: ${config.projectRoot}`);
   }
-  
+
   // Check watch paths
   for (const watchPath of config.watchPaths) {
-    const fullPath = path.isAbsolute(watchPath) 
-      ? watchPath 
+    const fullPath = path.isAbsolute(watchPath)
+      ? watchPath
       : path.join(config.projectRoot, watchPath);
-      
+
     try {
       await fs.access(fullPath);
     } catch {
       console.warn(chalk.yellow(`⚠️  Watch path does not exist: ${watchPath}`));
     }
   }
-  
+
   if (issues.length > 0) {
     console.error(chalk.red('❌ Configuration validation failed:'));
     issues.forEach(issue => console.error(chalk.red(`  • ${issue}`)));
     process.exit(1);
   }
-  
+
   console.log(chalk.green('✅ Configuration validated'));
 }
 
 function setupGracefulShutdown(server: DevServer): void {
   const shutdown = async (signal: string) => {
     console.log(chalk.yellow(`\n⚠️  Received ${signal}, shutting down gracefully...`));
-    
+
     try {
       await server.stop();
       console.log(chalk.green('✅ Server stopped gracefully'));
@@ -375,18 +375,18 @@ function setupGracefulShutdown(server: DevServer): void {
       process.exit(1);
     }
   };
-  
+
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGUSR2', () => shutdown('SIGUSR2')); // For nodemon
-  
+
   process.on('uncaughtException', (error) => {
     console.error(chalk.red('❌ Uncaught exception:'));
     console.error(chalk.red(error.message));
     console.error(chalk.gray(error.stack));
     shutdown('uncaughtException');
   });
-  
+
   process.on('unhandledRejection', (reason, promise) => {
     console.error(chalk.red('❌ Unhandled rejection at:'), promise);
     console.error(chalk.red('Reason:'), reason);
@@ -410,7 +410,7 @@ function displayFeatureStatus(config: DevServerConfig): void {
   console.log(`  UI Components:     ${config.uiReload.enabled ? '✅' : '❌'}`);
   console.log(`  Error Recovery:    ${config.errorRecovery.enabled ? '✅' : '❌'}`);
   console.log(`  Performance:       ${config.performance.monitoring ? '✅' : '❌'}`);
-  
+
   console.log(chalk.blue.bold('\n🔌 Integrations:'));
   console.log(`  Revit:             ${config.revit.enabled ? '✅' : '❌'}`);
   console.log(`  VS Code:           ${config.vscode.enabled ? '✅' : '❌'}`);
@@ -494,7 +494,7 @@ async function generateConfigFile(outputPath: string): Promise<void> {
       securityDisabled: true
     }
   };
-  
+
   try {
     await fs.writeFile(outputPath, JSON.stringify(defaultConfig, null, 2));
     console.log(chalk.green(`✅ Configuration file generated: ${outputPath}`));
@@ -509,16 +509,16 @@ async function validateConfigFile(configPath: string): Promise<void> {
   try {
     const configData = await fs.readFile(configPath, 'utf-8');
     const config = JSON.parse(configData);
-    
+
     // Basic validation
     const requiredFields = ['host', 'port', 'projectRoot', 'watchPaths'];
     const missing = requiredFields.filter(field => !(field in config));
-    
+
     if (missing.length > 0) {
       console.error(chalk.red(`❌ Missing required fields: ${missing.join(', ')}`));
       process.exit(1);
     }
-    
+
     console.log(chalk.green(`✅ Configuration file is valid: ${configPath}`));
   } catch (error) {
     if (error.code === 'ENOENT') {
@@ -534,11 +534,11 @@ async function validateConfigFile(configPath: string): Promise<void> {
 
 async function runBenchmarks(server: DevServer): Promise<void> {
   console.log(chalk.blue.bold('\n🏃 Running Performance Benchmarks...\n'));
-  
+
   // Warmup
   console.log(chalk.gray('Warming up...'));
   await new Promise(resolve => setTimeout(resolve, 2000));
-  
+
   // File change benchmark
   console.log(chalk.blue('📁 File Change Performance:'));
   const fileChangeResults = await benchmarkFileChanges(server, 10);
@@ -546,19 +546,19 @@ async function runBenchmarks(server: DevServer): Promise<void> {
   console.log(`  Min: ${fileChangeResults.min}ms`);
   console.log(`  Max: ${fileChangeResults.max}ms`);
   console.log(`  Target: <500ms (Python), <200ms (UI)`);
-  
+
   // Memory usage
   console.log(chalk.blue('\n💾 Memory Usage:'));
   const memoryUsage = process.memoryUsage();
   console.log(`  RSS: ${Math.round(memoryUsage.rss / 1024 / 1024)}MB`);
   console.log(`  Heap Used: ${Math.round(memoryUsage.heapUsed / 1024 / 1024)}MB`);
   console.log(`  Heap Total: ${Math.round(memoryUsage.heapTotal / 1024 / 1024)}MB`);
-  
+
   // WebSocket performance
   console.log(chalk.blue('\n🔌 WebSocket Performance:'));
   const clients = server.getClients();
   console.log(`  Connected Clients: ${clients.length}`);
-  
+
   const metrics = server.getPerformanceMetrics();
   console.log(`  Messages/sec: ${Math.round(60000 / (metrics.buildTime || 1))}`);
   console.log(`  Network Latency: ${metrics.networkLatency || 0}ms`);
@@ -570,20 +570,20 @@ async function benchmarkFileChanges(server: DevServer, iterations: number): Prom
   max: number;
 }> {
   const times: number[] = [];
-  
+
   for (let i = 0; i < iterations; i++) {
     const startTime = performance.now();
-    
+
     // Simulate file change by triggering rebuild
     await server.rebuild();
-    
+
     const duration = Math.round(performance.now() - startTime);
     times.push(duration);
-    
+
     // Small delay between iterations
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  
+
   return {
     average: Math.round(times.reduce((sum, time) => sum + time, 0) / times.length),
     min: Math.min(...times),
@@ -595,16 +595,16 @@ async function runPerformanceBenchmarks(options: any): Promise<void> {
   const iterations = parseInt(options.iterations);
   const concurrent = parseInt(options.concurrent);
   const serverUrl = `http://${options.host}:${options.port}`;
-  
+
   console.log(chalk.gray(`Testing against ${serverUrl} with ${iterations} iterations and ${concurrent} concurrent connections\n`));
-  
+
   // Test server response time
   console.log(chalk.blue('🚀 Server Response Time:'));
   const responseTimes: number[] = [];
-  
+
   for (let i = 0; i < iterations; i++) {
     const startTime = performance.now();
-    
+
     try {
       await fetch(`${serverUrl}/health`);
       const responseTime = Math.round(performance.now() - startTime);
@@ -613,14 +613,14 @@ async function runPerformanceBenchmarks(options: any): Promise<void> {
       console.error(chalk.red(`  Error in iteration ${i + 1}: ${error.message}`));
     }
   }
-  
+
   if (responseTimes.length > 0) {
     const avgResponse = Math.round(responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length);
     console.log(`  Average: ${avgResponse}ms`);
     console.log(`  Min: ${Math.min(...responseTimes)}ms`);
     console.log(`  Max: ${Math.max(...responseTimes)}ms`);
   }
-  
+
   console.log(chalk.green('\n✅ Benchmark completed'));
 }
 

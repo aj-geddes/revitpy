@@ -47,7 +47,7 @@ export class RevitPyConnectionManager implements vscode.Disposable {
         const newHotReloadEnabled = config.get<boolean>('enableHotReload', true);
 
         const connectionChanged = newHost !== this.connection.host || newPort !== this.connection.port;
-        
+
         this.connection.host = newHost;
         this.connection.port = newPort;
         this.hotReloadEnabled = newHotReloadEnabled;
@@ -107,7 +107,7 @@ export class RevitPyConnectionManager implements vscode.Disposable {
 
         try {
             this.logger.info(`Connecting to Revit at ${this.connection.host}:${this.connection.port}`);
-            
+
             const wsUrl = `ws://${this.connection.host}:${this.connection.port}/revitpy`;
             this.websocket = new WebSocket(wsUrl);
 
@@ -122,10 +122,10 @@ export class RevitPyConnectionManager implements vscode.Disposable {
                     this.reconnectAttempts = 0;
                     this.logger.info('Successfully connected to Revit');
                     this.onConnectionChangedEmitter.fire(true);
-                    
+
                     // Request Revit information
                     this.requestRevitInfo();
-                    
+
                     resolve(true);
                 };
 
@@ -156,7 +156,7 @@ export class RevitPyConnectionManager implements vscode.Disposable {
             this.websocket.close();
             this.websocket = undefined;
         }
-        
+
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = undefined;
@@ -188,9 +188,9 @@ export class RevitPyConnectionManager implements vscode.Disposable {
     private scheduleReconnect() {
         this.reconnectAttempts++;
         const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000); // Exponential backoff, max 30s
-        
+
         this.logger.info(`Scheduling reconnection attempt ${this.reconnectAttempts} in ${delay}ms`);
-        
+
         this.reconnectTimer = setTimeout(() => {
             this.reconnect();
         }, delay);

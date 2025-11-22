@@ -81,6 +81,12 @@ complexity_report.json
 *.log
 logs/
 
+# Sugar Autonomous Development System
+.sugar/logs/
+.sugar/cache/
+.sugar/backups/
+.sugar/*.log
+
 # Database
 *.db
 *.sqlite

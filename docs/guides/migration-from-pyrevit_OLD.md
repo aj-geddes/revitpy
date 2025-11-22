@@ -7,7 +7,7 @@ This comprehensive guide helps you migrate from PyRevit to RevitPy, comparing fe
 Migrating from PyRevit to RevitPy brings significant advantages:
 
 - **Modern Python**: Python 3.11+ instead of IronPython 2.7
-- **Type Safety**: Full IntelliSense and type checking support  
+- **Type Safety**: Full IntelliSense and type checking support
 - **ORM Layer**: LINQ-style queries instead of manual element collection
 - **Enterprise Ready**: MSI installer, security, and professional deployment
 - **Better Performance**: 3x faster execution and 60% less memory usage
@@ -118,7 +118,7 @@ with RevitContext() as context:
                   .where(lambda w: w.Height > 10.0)
                   .order_by(lambda w: w.Height)
                   .to_list())
-    
+
     print(f"Found {len(tall_walls)} tall walls")
 ```
 
@@ -138,19 +138,19 @@ from Autodesk.Revit.DB import Transaction
 def update_wall_comments(doc, walls):
     t = Transaction(doc, "Update Wall Comments")
     t.Start()
-    
+
     try:
         for wall in walls:
             # Get height parameter
             height_param = wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM)
             height = height_param.AsDouble() if height_param else 0
-            
+
             # Get comments parameter
             comments_param = wall.LookupParameter("Comments")
             if comments_param and not comments_param.IsReadOnly:
                 comment = "Height: {:.1f} ft".format(height)
                 comments_param.Set(comment)
-        
+
         t.Commit()
         print "Updated {} walls".format(len(walls))
     except Exception as e:
@@ -170,7 +170,7 @@ def update_wall_comments(walls: List[Element]) -> None:
                 height = wall.Height  # Direct property access
                 comment = f"Height: {height:.1f} ft"
                 wall.set_parameter("Comments", comment)  # Type-safe parameter setting
-            
+
             txn.commit()
             print(f"Updated {len(walls)} walls")
 ```
@@ -192,27 +192,27 @@ class WallAnalyzerForm(Form):
     def __init__(self):
         self.Text = "Wall Analyzer"
         self.Size = Size(400, 300)
-        
+
         # Create controls manually
         self.label = Label()
         self.label.Text = "Select analysis type:"
         self.label.Location = Point(10, 10)
-        
+
         self.combo = ComboBox()
         self.combo.Items.Add("Height Analysis")
         self.combo.Items.Add("Area Analysis")
         self.combo.Location = Point(10, 40)
-        
+
         self.button = Button()
         self.button.Text = "Analyze"
         self.button.Location = Point(10, 80)
         self.button.Click += self.analyze_click
-        
+
         # Add controls to form
         self.Controls.Add(self.label)
         self.Controls.Add(self.combo)
         self.Controls.Add(self.button)
-    
+
     def analyze_click(self, sender, e):
         # Analysis logic here
         MessageBox.Show("Analysis complete!")
@@ -241,8 +241,8 @@ export const WallAnalyzer: React.FC = () => {
   return (
     <Card className="wall-analyzer">
       <Typography variant="h2">Wall Analyzer</Typography>
-      
-      <Select 
+
+      <Select
         value={analysisType}
         onChange={setAnalysisType}
         options={[
@@ -250,11 +250,11 @@ export const WallAnalyzer: React.FC = () => {
           { value: 'area', label: 'Area Analysis' }
         ]}
       />
-      
+
       <Button onClick={handleAnalyze}>
         Analyze Walls
       </Button>
-      
+
       {results.length > 0 && (
         <div className="results">
           {results.map(result => (
@@ -280,13 +280,13 @@ class WallAnalyzerPanel(WebViewPanel):
             height=300,
             component="WallAnalyzer"
         )
-    
+
     @webview_method
     async def analyze_walls(self, analysis_type: str) -> dict:
         """Analyze walls based on selected type."""
         with RevitContext() as context:
             walls = context.elements.of_category('Walls')
-            
+
             if analysis_type == 'height':
                 results = [
                     {'id': wall.Id, 'name': wall.Name, 'value': f"{wall.Height:.1f} ft"}
@@ -297,7 +297,7 @@ class WallAnalyzerPanel(WebViewPanel):
                     {'id': wall.Id, 'name': wall.Name, 'value': f"{wall.Area:.1f} sq ft"}
                     for wall in walls.order_by(lambda w: w.Area)
                 ]
-            
+
             return {'results': results}
 
 # Show panel
@@ -425,7 +425,7 @@ def get_wall_info(wall):
     height = wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM).AsDouble()
     area = wall.get_Parameter(BuiltInParameter.HOST_AREA_COMPUTED).AsDouble()
     comments = wall.LookupParameter("Comments").AsString() or ""
-    
+
     return {
         'height': height,
         'area': area,
@@ -484,7 +484,7 @@ class ModernizedWallAnalyzer:
     def __init__(self):
         self.form = WallAnalyzerForm()
         self.form.analyze_callback = self.analyze_walls_modern
-    
+
     def analyze_walls_modern(self, criteria):
         """Modern RevitPy backend with legacy UI."""
         with RevitContext() as context:
@@ -492,7 +492,7 @@ class ModernizedWallAnalyzer:
                      .of_category('Walls')
                      .where(lambda w: w.Height > criteria.min_height)
                      .to_list())
-            
+
             return [self.wall_to_dict(wall) for wall in walls]
 ```
 
@@ -530,11 +530,11 @@ def test_wall_analysis():
         wall1 = create_mock_element('Wall', Height=8.0, Area=100.0)
         wall2 = create_mock_element('Wall', Height=12.0, Area=150.0)
         mock_context.add_elements([wall1, wall2])
-        
+
         # Test analysis
         analyzer = WallAnalyzer()
         results = analyzer.analyze_by_height(min_height=10.0)
-        
+
         assert len(results) == 1
         assert results[0]['height'] == 12.0
 
@@ -671,16 +671,16 @@ Begin migration with core business logic before tackling UI:
 class WallDataService:
     def __init__(self, context: RevitContext):
         self.context = context
-    
+
     def get_walls_by_criteria(self, criteria: WallCriteria) -> List[Wall]:
         query = self.context.elements.of_category('Walls')
-        
+
         if criteria.min_height:
             query = query.where(lambda w: w.Height >= criteria.min_height)
-        
+
         if criteria.wall_type:
             query = query.where(lambda w: w.WallType.Name == criteria.wall_type)
-        
+
         return query.to_list()
 
 # Step 2: Update business logic to use new data service
@@ -693,7 +693,7 @@ class WallDataService:
 class PyRevitCompatibilityAdapter:
     def __init__(self):
         self.context = RevitContext()
-    
+
     def get_walls_old_style(self, doc):
         """Provides PyRevit-style interface using RevitPy backend."""
         with self.context:
@@ -706,17 +706,17 @@ class PyRevitCompatibilityAdapter:
 from typing import List, Optional, Dict, Any
 from revitpy import Element, RevitContext
 
-def analyze_walls(context: RevitContext, 
+def analyze_walls(context: RevitContext,
                  min_height: float = 0.0,
                  wall_types: Optional[List[str]] = None) -> Dict[str, Any]:
     """
     Analyze walls based on criteria.
-    
+
     Args:
         context: RevitPy context for database access
         min_height: Minimum wall height to include
         wall_types: List of wall type names to filter by
-        
+
     Returns:
         Dictionary containing analysis results
     """
@@ -741,7 +741,7 @@ def sample_walls():
 def test_wall_analysis_comprehensive(sample_walls):
     analyzer = WallAnalyzer()
     results = analyzer.analyze(sample_walls, min_height=9.0)
-    
+
     assert len(results) == 2
     assert all(r['height'] >= 9.0 for r in results)
 ```
@@ -814,7 +814,7 @@ Track these metrics to measure migration success:
 
 ### Performance Metrics
 - **Execution Time**: Target 2-3x improvement
-- **Memory Usage**: Target 30-50% reduction  
+- **Memory Usage**: Target 30-50% reduction
 - **Startup Time**: Target 60% improvement
 - **Query Performance**: Target 3-5x improvement for complex queries
 
@@ -892,7 +892,7 @@ For complex migrations, consider professional services:
 
 - **Migration Assessment**: Comprehensive codebase analysis
 - **Custom Tool Development**: Specialized migration tools
-- **Team Training**: On-site training programs  
+- **Team Training**: On-site training programs
 - **Ongoing Support**: Post-migration support contracts
 
 Contact [migration@revitpy.dev](mailto:migration@revitpy.dev) for enterprise migration support.
@@ -981,10 +981,10 @@ Ready to start your migration journey? Begin with the [assessment tool](https://
 ---
 
 !!! success "Migration Resources"
-    
+
     - 📋 [Migration Assessment Tool](https://github.com/revitpy/migration-toolkit)
-    - 🎥 [Video Tutorial Series](https://youtube.com/@revitpy-migration)  
+    - 🎥 [Video Tutorial Series](https://youtube.com/@revitpy-migration)
     - 💬 [Community Support](https://discord.gg/revitpy)
     - 📧 [Enterprise Migration Services](mailto:migration@revitpy.dev)
-    
+
     **Questions?** We're here to help with your migration journey!

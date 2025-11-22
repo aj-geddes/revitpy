@@ -21,12 +21,12 @@ export class RevitConnector extends EventEmitter {
 
   async connect(): Promise<void> {
     if (!this.config.enabled) return;
-    
-    this.logger.info('Connecting to Revit...', { 
-      host: this.config.host, 
-      port: this.config.port 
+
+    this.logger.info('Connecting to Revit...', {
+      host: this.config.host,
+      port: this.config.port
     });
-    
+
     // Simulate connection
     this.connected = true;
     this.emit('connected');
@@ -35,7 +35,7 @@ export class RevitConnector extends EventEmitter {
 
   async disconnect(): Promise<void> {
     if (!this.connected) return;
-    
+
     this.logger.info('Disconnecting from Revit...');
     this.connected = false;
     this.emit('disconnected');
@@ -52,7 +52,7 @@ export class RevitConnector extends EventEmitter {
     }
 
     this.logger.debug('Sending command to Revit', { command, data });
-    
+
     // Simulate command execution
     return { success: true, result: 'Command executed' };
   }

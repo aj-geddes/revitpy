@@ -89,17 +89,17 @@ graph TB
     CLI[RevitPy CLI] --> Registry[Package Registry]
     CLI --> Resolver[Dependency Resolver]
     CLI --> Installer[Package Installer]
-    
+
     Registry --> DB[(PostgreSQL)]
     Registry --> S3[AWS S3 Storage]
     Registry --> Cache[(Redis Cache)]
-    
+
     Resolver --> CompatMatrix[Revit Compatibility]
     Resolver --> LockFile[Lock Files]
-    
+
     Installer --> VEnv[Virtual Environments]
     Installer --> Security[Security Scanner]
-    
+
     Security --> Signing[Package Signing]
     Security --> Vulns[Vulnerability DB]
 ```

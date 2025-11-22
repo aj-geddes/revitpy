@@ -14,7 +14,7 @@
     </Description>
     <VisibilityMode>NotVisibleWhenNoActiveDocument</VisibilityMode>
   </AddIn>
-  
+
   <!-- External Commands -->
   <AddIn Type="Command">
     <Name>RevitPy Console</Name>
@@ -27,7 +27,7 @@
     <LargeImage>RevitPy.Bridge.Resources.console_32.png</LargeImage>
     <SmallImage>RevitPy.Bridge.Resources.console_16.png</SmallImage>
   </AddIn>
-  
+
   <AddIn Type="Command">
     <Name>RevitPy Script Runner</Name>
     <Assembly>RevitPy.Bridge.dll</Assembly>
@@ -39,7 +39,7 @@
     <LargeImage>RevitPy.Bridge.Resources.script_32.png</LargeImage>
     <SmallImage>RevitPy.Bridge.Resources.script_16.png</SmallImage>
   </AddIn>
-  
+
   <AddIn Type="Command">
     <Name>RevitPy Package Manager</Name>
     <Assembly>RevitPy.Bridge.dll</Assembly>
@@ -51,7 +51,7 @@
     <LargeImage>RevitPy.Bridge.Resources.package_32.png</LargeImage>
     <SmallImage>RevitPy.Bridge.Resources.package_16.png</SmallImage>
   </AddIn>
-  
+
   <AddIn Type="Command">
     <Name>RevitPy Settings</Name>
     <Assembly>RevitPy.Bridge.dll</Assembly>
@@ -63,7 +63,7 @@
     <LargeImage>RevitPy.Bridge.Resources.settings_32.png</LargeImage>
     <SmallImage>RevitPy.Bridge.Resources.settings_16.png</SmallImage>
   </AddIn>
-  
+
   <!-- Dockable Panes -->
   <AddIn Type="DBApplication">
     <Name>RevitPy Properties Panel</Name>

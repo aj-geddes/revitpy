@@ -21,7 +21,7 @@ export class RevitConnection extends EventEmitter implements vscode.TreeDataProv
     constructor(private context: vscode.ExtensionContext) {
         super();
         this.connectionInfo = { status: 'disconnected' };
-        
+
         // Listen for configuration changes
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('revitpy.debugPort')) {
@@ -127,9 +127,9 @@ export class RevitConnection extends EventEmitter implements vscode.TreeDataProv
 
         try {
             this.updateStatus('connecting');
-            
+
             this.ws = new WebSocket(`ws://localhost:${port}`);
-            
+
             this.ws.on('open', () => {
                 this.onConnected();
                 this.startHeartbeat();
@@ -159,11 +159,11 @@ export class RevitConnection extends EventEmitter implements vscode.TreeDataProv
             this.ws.close();
             this.ws = null;
         }
-        
+
         this.stopHeartbeat();
         this.stopReconnect();
         this.updateStatus('disconnected');
-        
+
         vscode.window.showInformationMessage('Disconnected from Revit');
     }
 
@@ -188,7 +188,7 @@ export class RevitConnection extends EventEmitter implements vscode.TreeDataProv
                 if (response.id === message.id) {
                     clearTimeout(timeout);
                     this.off('message', messageHandler);
-                    
+
                     if (response.success) {
                         resolve(response.result);
                     } else {
@@ -220,7 +220,7 @@ export class RevitConnection extends EventEmitter implements vscode.TreeDataProv
     private onConnected(): void {
         this.updateStatus('connected');
         this.stopReconnect();
-        
+
         // Request Revit info
         this.sendMessage({
             type: 'get_info',
@@ -229,7 +229,7 @@ export class RevitConnection extends EventEmitter implements vscode.TreeDataProv
 
         vscode.commands.executeCommand('setContext', 'revitpy:connected', true);
         vscode.window.showInformationMessage('Connected to Revit successfully');
-        
+
         this.emit('connected');
     }
 
@@ -238,9 +238,9 @@ export class RevitConnection extends EventEmitter implements vscode.TreeDataProv
         this.connectionInfo.version = undefined;
         this.connectionInfo.processId = undefined;
         this.connectionInfo.lastActivity = undefined;
-        
+
         vscode.commands.executeCommand('setContext', 'revitpy:connected', false);
-        
+
         this.emit('disconnected');
     }
 
@@ -254,30 +254,30 @@ export class RevitConnection extends EventEmitter implements vscode.TreeDataProv
         try {
             const message = JSON.parse(data);
             this.connectionInfo.lastActivity = new Date();
-            
+
             switch (message.type) {
                 case 'info_response':
                     this.connectionInfo.version = message.revit_version;
                     this.connectionInfo.processId = message.process_id;
                     break;
-                    
+
                 case 'heartbeat':
                     // Update last activity
                     break;
-                    
+
                 case 'error':
                     vscode.window.showErrorMessage(`Revit error: ${message.message}`);
                     break;
-                    
+
                 case 'log':
                     // Handle log messages
                     console.log(`Revit: ${message.message}`);
                     break;
             }
-            
+
             this.emit('message', message);
             this.refresh();
-            
+
         } catch (error) {
             console.error('Failed to parse WebSocket message:', error);
         }
@@ -312,7 +312,7 @@ export class RevitConnection extends EventEmitter implements vscode.TreeDataProv
 
     private scheduleReconnect(): void {
         if (this.reconnectTimer) return;
-        
+
         const config = vscode.workspace.getConfiguration('revitpy');
         if (config.get('autoConnect', true)) {
             this.reconnectTimer = setTimeout(() => {

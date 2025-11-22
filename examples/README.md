@@ -25,7 +25,7 @@ A comprehensive collection of example projects demonstrating RevitPy capabilitie
 
 **Key Features**:
 - Simple element queries by category
-- Advanced filtering with custom conditions  
+- Advanced filtering with custom conditions
 - Element property analysis and display
 - Export results to various formats
 - Comprehensive error handling examples
@@ -183,10 +183,10 @@ For any example project:
    ```bash
    # Basic usage
    python examples/basic_usage.py
-   
+
    # Advanced features
    python examples/advanced_features.py
-   
+
    # Interactive mode
    python src/main.py interactive
    ```
@@ -276,11 +276,11 @@ Each example supports flexible configuration:
 general:
   log_level: "INFO"
   timeout: 300
-  
+
 performance:
   batch_size: 100
   parallel_processing: true
-  
+
 output:
   format: "json"
   include_metadata: true
@@ -320,12 +320,12 @@ for element in tqdm(elements, desc="Processing elements"):
 def load_config(config_file: str = None) -> Dict[str, Any]:
     """Load configuration with defaults."""
     default_config = get_default_config()
-    
+
     if config_file and Path(config_file).exists():
         with open(config_file) as f:
             user_config = yaml.safe_load(f)
         return merge_configs(default_config, user_config)
-    
+
     return default_config
 ```
 

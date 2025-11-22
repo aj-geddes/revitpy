@@ -52,7 +52,7 @@ export const createMockQueryClient = () => {
 
 export const mockLocalStorage = () => {
   const store: Record<string, string> = {};
-  
+
   return {
     getItem: vi.fn((key: string) => store[key] || null),
     setItem: vi.fn((key: string, value: string) => {
@@ -75,7 +75,7 @@ export const mockIntersectionObserver = () => {
   };
 
   window.IntersectionObserver = vi.fn().mockImplementation(() => mockObserver);
-  
+
   return mockObserver;
 };
 
@@ -87,7 +87,7 @@ export const mockResizeObserver = () => {
   };
 
   window.ResizeObserver = vi.fn().mockImplementation(() => mockObserver);
-  
+
   return mockObserver;
 };
 
@@ -104,7 +104,7 @@ export const mockMatchMedia = (matches = false) => {
   }));
 
   window.matchMedia = mockMatchMedia;
-  
+
   return mockMatchMedia;
 };
 
@@ -117,9 +117,9 @@ export const axeMatchers = {
     const hasAriaLabelledBy = received.hasAttribute('aria-labelledby');
     const hasAriaDescribedBy = received.hasAttribute('aria-describedby');
     const hasRole = received.hasAttribute('role');
-    
+
     const isAccessible = hasAriaLabel || hasAriaLabelledBy || hasAriaDescribedBy || hasRole;
-    
+
     return {
       message: () => `Expected element to be accessible`,
       pass: isAccessible,
@@ -131,7 +131,7 @@ export const axeMatchers = {
 export const mockPerformanceData = (count = 10) => {
   const data = [];
   const now = Date.now();
-  
+
   for (let i = 0; i < count; i++) {
     data.push({
       timestamp: now - (count - i) * 1000,
@@ -141,7 +141,7 @@ export const mockPerformanceData = (count = 10) => {
       responseTime: Math.floor(Math.random() * 500),
     });
   }
-  
+
   return data;
 };
 
@@ -186,11 +186,11 @@ export const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   <AllTheProviders>{children}</AllTheProviders>
 );
 
-export const MockThemeProvider = ({ 
-  children, 
-  theme = 'light' 
-}: { 
-  children: React.ReactNode; 
+export const MockThemeProvider = ({
+  children,
+  theme = 'light'
+}: {
+  children: React.ReactNode;
   theme?: 'light' | 'dark' | 'system';
 }) => (
   <ThemeProvider defaultTheme={theme} storageKey="test-theme">

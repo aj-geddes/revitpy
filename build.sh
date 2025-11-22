@@ -104,7 +104,7 @@ echo -e "${GREEN}Build completed successfully${NC}"
 # Run tests if requested
 if [ "$RUN_TESTS" = true ]; then
     echo -e "${YELLOW}Running tests...${NC}"
-    
+
     TEST_ARGS=(
         "test" "$SOLUTION_FILE"
         "--configuration" "$CONFIGURATION"
@@ -114,7 +114,7 @@ if [ "$RUN_TESTS" = true ]; then
     )
 
     dotnet "${TEST_ARGS[@]}"
-    
+
     echo -e "${GREEN}All tests passed${NC}"
 fi
 

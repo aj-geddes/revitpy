@@ -21,9 +21,9 @@ export class WebViewConnector extends EventEmitter {
 
   async connect(): Promise<void> {
     if (!this.config.enabled) return;
-    
+
     this.logger.info('Connecting to WebView2...', { port: this.config.port });
-    
+
     // Simulate connection
     this.connected = true;
     this.emit('connected');
@@ -32,7 +32,7 @@ export class WebViewConnector extends EventEmitter {
 
   async disconnect(): Promise<void> {
     if (!this.connected) return;
-    
+
     this.logger.info('Disconnecting from WebView2...');
     this.connected = false;
     this.emit('disconnected');

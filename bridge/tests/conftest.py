@@ -2,14 +2,15 @@
 Pytest configuration and fixtures for bridge testing.
 """
 
-import pytest
+import asyncio
 import json
 import tempfile
-import asyncio
-from pathlib import Path
-from typing import Dict, List, Any
-from unittest.mock import Mock, MagicMock
 from datetime import datetime
+from pathlib import Path
+from typing import Any
+from unittest.mock import Mock
+
+import pytest
 
 from . import TEST_CONFIG
 
@@ -44,14 +45,14 @@ def mock_revit_element():
     element.Category = Mock()
     element.Category.Name = "Walls"
     element.Name = "Basic Wall"
-    
+
     # Mock parameters
     element.LookupParameter = Mock(return_value=Mock())
     element.get_Parameter = Mock(return_value=Mock())
-    
+
     # Mock geometry
     element.get_Geometry = Mock(return_value=[Mock()])
-    
+
     return element
 
 
@@ -60,7 +61,7 @@ def mock_revit_elements():
     """Create multiple mock Revit elements."""
     elements = []
     categories = ["Walls", "Windows", "Doors", "Rooms", "Mechanical Equipment"]
-    
+
     for i, category in enumerate(categories):
         element = Mock()
         element.Id = Mock()
@@ -72,7 +73,7 @@ def mock_revit_elements():
         element.get_Parameter = Mock(return_value=Mock())
         element.get_Geometry = Mock(return_value=[Mock()])
         elements.append(element)
-    
+
     return elements
 
 
@@ -87,17 +88,17 @@ def sample_element_data():
         "parameters": {
             "Height": {"value": 3000, "type": "Length", "unit": "mm"},
             "Width": {"value": 200, "type": "Length", "unit": "mm"},
-            "Material": {"value": "Concrete", "type": "Text", "unit": None}
+            "Material": {"value": "Concrete", "type": "Text", "unit": None},
         },
         "geometry": {
             "type": "solid",
             "volume": 600000,
             "area": 6000,
             "vertices": [[0, 0, 0], [4000, 0, 0], [4000, 200, 0], [0, 200, 0]],
-            "faces": []
+            "faces": [],
         },
         "location": {"x": 2000, "y": 100, "z": 1500},
-        "level": "Level 1"
+        "level": "Level 1",
     }
 
 
@@ -111,9 +112,9 @@ def sample_analysis_request():
         "parameters": {
             "include_thermal": True,
             "weather_data": "default",
-            "calculation_method": "detailed"
+            "calculation_method": "detailed",
         },
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
 
 
@@ -126,24 +127,21 @@ def sample_analysis_result():
         "results": {
             "overall_rating": "B+",
             "energy_consumption": 150.5,
-            "thermal_performance": {
-                "u_value": 0.3,
-                "thermal_bridge_factor": 0.05
-            },
+            "thermal_performance": {"u_value": 0.3, "thermal_bridge_factor": 0.05},
             "elements": {
                 "12345": {
                     "rating": "A",
                     "energy_consumption": 45.2,
-                    "recommendations": ["Add insulation layer"]
+                    "recommendations": ["Add insulation layer"],
                 }
-            }
+            },
         },
         "metadata": {
             "analysis_duration": 12.5,
             "elements_processed": 3,
             "warnings": [],
-            "timestamp": datetime.now().isoformat()
-        }
+            "timestamp": datetime.now().isoformat(),
+        },
     }
 
 
@@ -156,21 +154,21 @@ def mock_bridge_config():
             "pipe_name": "test_revitpy_bridge",
             "websocket_host": "localhost",
             "websocket_port": 8766,
-            "file_exchange_dir": str(TEST_CONFIG['temp_dir']),
-            "connection_timeout": 10
+            "file_exchange_dir": str(TEST_CONFIG["temp_dir"]),
+            "connection_timeout": 10,
         },
         "serialization": {
             "compression_enabled": True,
             "batch_size": 50,
             "max_file_size_mb": 10,
-            "format_version": "1.0"
+            "format_version": "1.0",
         },
         "performance": {
             "enable_caching": True,
             "cache_size_mb": 100,
             "max_concurrent_analyses": 3,
-            "progress_update_interval": 1.0
-        }
+            "progress_update_interval": 1.0,
+        },
     }
 
 
@@ -178,7 +176,7 @@ def mock_bridge_config():
 def mock_pyrevit_ui():
     """Mock PyRevit UI components for testing."""
     ui_mock = Mock()
-    
+
     # TaskDialog mock
     ui_mock.TaskDialog = Mock()
     ui_mock.TaskDialog.Show = Mock(return_value=Mock())
@@ -188,13 +186,13 @@ def mock_pyrevit_ui():
     ui_mock.TaskDialogCommonButtons = Mock()
     ui_mock.TaskDialogCommonButtons.Yes = "Yes"
     ui_mock.TaskDialogCommonButtons.No = "No"
-    
+
     # Forms mock
     forms_mock = Mock()
     forms_mock.SelectFromList = Mock()
     forms_mock.GetValueWindow = Mock()
     forms_mock.ProgressWindow = Mock()
-    
+
     return {"UI": ui_mock, "forms": forms_mock}
 
 
@@ -210,18 +208,18 @@ def sample_sensor_data():
             "unit": "°C",
             "element_id": "12345",
             "location": "center",
-            "quality": "good"
+            "quality": "good",
         },
         {
-            "sensor_id": "humidity_001", 
+            "sensor_id": "humidity_001",
             "sensor_type": "humidity",
             "timestamp": datetime.now().isoformat(),
             "value": 45.0,
             "unit": "%",
             "element_id": "12345",
             "location": "center",
-            "quality": "good"
-        }
+            "quality": "good",
+        },
     ]
 
 
@@ -237,21 +235,22 @@ def performance_test_data():
             "type": "TestElement",
             "parameters": {
                 "param1": {"value": i * 1.5, "type": "Number", "unit": "units"},
-                "param2": {"value": f"Value_{i}", "type": "Text", "unit": None}
+                "param2": {"value": f"Value_{i}", "type": "Text", "unit": None},
             },
             "geometry": {
                 "type": "box",
                 "volume": i * 100,
                 "area": i * 10,
-                "vertices": [[0, 0, 0], [i, i, i]]
-            }
+                "vertices": [[0, 0, 0], [i, i, i]],
+            },
         }
         elements.append(element)
-    
+
     return elements
 
 
 # Helper functions for tests
+
 
 def create_test_file(temp_dir: Path, filename: str, content: str) -> Path:
     """Create a test file with given content."""
@@ -260,10 +259,10 @@ def create_test_file(temp_dir: Path, filename: str, content: str) -> Path:
     return file_path
 
 
-def create_test_json_file(temp_dir: Path, filename: str, data: Dict[str, Any]) -> Path:
+def create_test_json_file(temp_dir: Path, filename: str, data: dict[str, Any]) -> Path:
     """Create a test JSON file with given data."""
     file_path = temp_dir / filename
-    with open(file_path, 'w') as f:
+    with open(file_path, "w") as f:
         json.dump(data, f, indent=2)
     return file_path
 

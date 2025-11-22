@@ -135,7 +135,7 @@ Reusable React components:
 - **Theme System** - Light, dark, and custom themes
 
 **Key Files:**
-- `src/components/ui/` - Core UI components  
+- `src/components/ui/` - Core UI components
 - `src/components/revitpy/` - RevitPy-specific components
 - `src/components/layout/` - Layout components
 - `src/providers/theme-provider.tsx` - Theme management
@@ -442,9 +442,9 @@ Use dynamic imports for large components:
 
 ```tsx
 // Lazy load heavy components
-const PerformanceChart = lazy(() => 
-  import('@revitpy/ui').then(m => ({ 
-    default: m.PerformanceChart 
+const PerformanceChart = lazy(() =>
+  import('@revitpy/ui').then(m => ({
+    default: m.PerformanceChart
   }))
 );
 ```

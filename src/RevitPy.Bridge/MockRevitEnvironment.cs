@@ -18,13 +18,13 @@ public class MockRevitEnvironment : IDisposable
     public MockRevitEnvironment(ILogger<MockRevitEnvironment> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        
+
         _mockApplicationProperties = new Dictionary<string, object>();
         _mockDocuments = new Dictionary<string, object>();
         _mockElements = new Dictionary<string, object>();
         _mockParameters = new Dictionary<string, Dictionary<string, object>>();
         _mockGeometries = new Dictionary<string, object>();
-        
+
         InitializeMockEnvironment();
     }
 
@@ -63,12 +63,12 @@ public class MockRevitEnvironment : IDisposable
     {
         return geometryType switch
         {
-            "Point" => new MockRevitPoint(properties?.GetValueOrDefault("X", 0.0), 
-                                        properties?.GetValueOrDefault("Y", 0.0), 
+            "Point" => new MockRevitPoint(properties?.GetValueOrDefault("X", 0.0),
+                                        properties?.GetValueOrDefault("Y", 0.0),
                                         properties?.GetValueOrDefault("Z", 0.0)),
-            "Line" => new MockRevitLine(properties?.GetValueOrDefault("StartPoint"), 
+            "Line" => new MockRevitLine(properties?.GetValueOrDefault("StartPoint"),
                                       properties?.GetValueOrDefault("EndPoint")),
-            "Plane" => new MockRevitPlane(properties?.GetValueOrDefault("Origin"), 
+            "Plane" => new MockRevitPlane(properties?.GetValueOrDefault("Origin"),
                                         properties?.GetValueOrDefault("Normal")),
             _ => new MockGeometry(geometryType, properties ?? new Dictionary<string, object>())
         };
@@ -137,7 +137,7 @@ public class MockRevitEnvironment : IDisposable
             _mockElements.Clear();
             _mockParameters.Clear();
             _mockGeometries.Clear();
-            
+
             _disposed = true;
             _logger.LogInformation("Mock Revit environment disposed");
         }
@@ -170,7 +170,7 @@ public class MockRevitApplication
     public string Language => (string)_properties["Language"];
 
     public object? ActiveUIDocument => _environment.CreateMockDocument("ActiveDocument");
-    
+
     public object GetProperty(string propertyName)
     {
         return _properties.GetValueOrDefault(propertyName, $"Mock_{propertyName}");
@@ -282,9 +282,9 @@ public class MockRevitElement
             },
             "Point" => new[]
             {
-                _environment.CreateMockGeometry("Point", new Dictionary<string, object> 
-                { 
-                    ["X"] = 0.0, ["Y"] = 0.0, ["Z"] = 0.0 
+                _environment.CreateMockGeometry("Point", new Dictionary<string, object>
+                {
+                    ["X"] = 0.0, ["Y"] = 0.0, ["Z"] = 0.0
                 })
             },
             _ => new[]
@@ -384,7 +384,7 @@ public class MockRevitLine
 
     public MockRevitPoint StartPoint { get; set; }
     public MockRevitPoint EndPoint { get; set; }
-    
+
     public double Length => StartPoint.DistanceTo(EndPoint);
 
     public MockRevitPoint GetEndPoint(int index)
@@ -449,7 +449,7 @@ public class MockRevitException : Exception
 {
     public string ErrorType { get; }
     public string RevitErrorMessage { get; }
-    
+
     public MockRevitException(string errorType, string message) : base(message)
     {
         ErrorType = errorType ?? "Unknown";

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  
+
   <Fragment>
     <!-- Core Application Files Component Group -->
     <ComponentGroup Id="CoreApplicationFiles">
@@ -163,28 +163,28 @@
     <ComponentGroup Id="EnvironmentVariables">
       <Component Id="RevitPyEnvironment" Guid="55555555-6666-7777-8888-999999999999" Directory="INSTALLDIR">
         <!-- Add RevitPy to PATH -->
-        <Environment Id="RevitPyPath" 
-                     Name="PATH" 
-                     Value="[INSTALLDIR]bin" 
-                     Permanent="no" 
-                     Part="last" 
-                     Action="set" 
+        <Environment Id="RevitPyPath"
+                     Name="PATH"
+                     Value="[INSTALLDIR]bin"
+                     Permanent="no"
+                     Part="last"
+                     Action="set"
                      System="yes" />
 
         <!-- Set REVITPY_HOME environment variable -->
-        <Environment Id="RevitPyHome" 
-                     Name="REVITPY_HOME" 
-                     Value="[INSTALLDIR]" 
-                     Permanent="no" 
-                     Action="set" 
+        <Environment Id="RevitPyHome"
+                     Name="REVITPY_HOME"
+                     Value="[INSTALLDIR]"
+                     Permanent="no"
+                     Action="set"
                      System="yes" />
 
         <!-- Set Python path for RevitPy -->
-        <Environment Id="RevitPyPythonPath" 
-                     Name="REVITPY_PYTHON" 
-                     Value="[PythonDir]python.exe" 
-                     Permanent="no" 
-                     Action="set" 
+        <Environment Id="RevitPyPythonPath"
+                     Name="REVITPY_PYTHON"
+                     Value="[PythonDir]python.exe"
+                     Permanent="no"
+                     Action="set"
                      System="yes" />
       </Component>
     </ComponentGroup>

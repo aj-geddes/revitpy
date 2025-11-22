@@ -18,7 +18,7 @@ public class HealthMonitor : IHealthMonitor, IDisposable
     private readonly ConcurrentDictionary<string, HealthMetrics> _metrics = new();
     private readonly Timer _healthCheckTimer;
     private readonly Timer _metricsTimer;
-    
+
     private bool _isRunning;
     private bool _isDisposed;
     private HealthMonitorStats _stats = new();
@@ -85,10 +85,10 @@ public class HealthMonitor : IHealthMonitor, IDisposable
         _logger.LogInformation("Starting health monitoring");
 
         _isRunning = true;
-        
+
         // Perform initial health check
         await PerformHealthChecksAsync();
-        
+
         _logger.LogInformation("Health monitoring started successfully");
     }
 
@@ -100,9 +100,9 @@ public class HealthMonitor : IHealthMonitor, IDisposable
         _logger.LogInformation("Stopping health monitoring");
 
         _isRunning = false;
-        
+
         await Task.CompletedTask;
-        
+
         _logger.LogInformation("Health monitoring stopped");
     }
 
@@ -158,7 +158,7 @@ public class HealthMonitor : IHealthMonitor, IDisposable
                     _stats.FailedHealthChecks++;
                 }
                 _stats.LastHealthCheck = DateTime.UtcNow;
-                
+
                 // Update average health check time
                 var totalTime = _stats.AverageHealthCheckTime.TotalMilliseconds * (_stats.TotalHealthChecks - 1);
                 totalTime += stopwatch.ElapsedMilliseconds;
@@ -313,7 +313,7 @@ public class HealthMonitor : IHealthMonitor, IDisposable
 
         try
         {
-            var interpreterPool = _serviceProvider.GetService(typeof(Runtime.IPythonInterpreterPool)) 
+            var interpreterPool = _serviceProvider.GetService(typeof(Runtime.IPythonInterpreterPool))
                 as Runtime.IPythonInterpreterPool;
 
             if (interpreterPool == null)
@@ -501,7 +501,7 @@ public class HealthMonitor : IHealthMonitor, IDisposable
         {
             var process = Process.GetCurrentProcess();
             var cpuUsage = GetCpuUsage();
-            
+
             healthCheck.IsHealthy = cpuUsage < 80.0; // CPU usage below 80%
             healthCheck.ErrorMessage = healthCheck.IsHealthy ? null : $"High CPU usage detected: {cpuUsage:F1}%";
             healthCheck.Metrics["CpuUsage"] = cpuUsage;
@@ -523,7 +523,7 @@ public class HealthMonitor : IHealthMonitor, IDisposable
     {
         try
         {
-            var interpreterPool = _serviceProvider.GetService(typeof(Runtime.IPythonInterpreterPool)) 
+            var interpreterPool = _serviceProvider.GetService(typeof(Runtime.IPythonInterpreterPool))
                 as Runtime.IPythonInterpreterPool;
 
             if (interpreterPool != null)
@@ -632,16 +632,16 @@ public class HealthMonitor : IHealthMonitor, IDisposable
             using var process = Process.GetCurrentProcess();
             var startTime = DateTime.UtcNow;
             var startCpuUsage = process.TotalProcessorTime;
-            
+
             Thread.Sleep(100); // Sample period
-            
+
             var endTime = DateTime.UtcNow;
             var endCpuUsage = process.TotalProcessorTime;
-            
+
             var cpuUsedMs = (endCpuUsage - startCpuUsage).TotalMilliseconds;
             var totalMsPassed = (endTime - startTime).TotalMilliseconds;
             var cpuUsageTotal = cpuUsedMs / (Environment.ProcessorCount * totalMsPassed);
-            
+
             return cpuUsageTotal * 100;
         }
         catch

@@ -125,8 +125,8 @@ public class ConfigurationValidator : IConfigurationValidator
         {
             foreach (var validationResult in validationResults)
             {
-                var memberNames = validationResult.MemberNames.Any() 
-                    ? string.Join(", ", validationResult.MemberNames) 
+                var memberNames = validationResult.MemberNames.Any()
+                    ? string.Join(", ", validationResult.MemberNames)
                     : "Unknown";
                 result.Errors.Add($"Validation error for {memberNames}: {validationResult.ErrorMessage}");
             }
@@ -492,7 +492,7 @@ public static class ValidatorExtensions
                 {
                     var nestedContext = new ValidationContext(value, null, null);
                     var nestedResults = new List<ValidationResult>();
-                    
+
                     if (!Validator.TryValidateObject(value, nestedContext, nestedResults, true))
                     {
                         foreach (var nestedResult in nestedResults)

@@ -32,7 +32,7 @@ RevitPy is a comprehensive Python framework designed to modernize Revit automati
 
 === "🔒 Production Ready"
 
-    - **Security First**: Input validation, sanitization, and secure coding practices  
+    - **Security First**: Input validation, sanitization, and secure coding practices
     - **Package Management**: Secure package distribution with signing and verification
     - **MSI Installer**: Professional deployment with Group Policy support
     - **Testing Framework**: Comprehensive testing tools with mock environments
@@ -111,7 +111,7 @@ graph TB
         CLI[RevitPy CLI]
         Scripts[Python Scripts]
     end
-    
+
     subgraph "RevitPy Framework"
         subgraph "Python Layer"
             API[Core API]
@@ -119,44 +119,44 @@ graph TB
             Extensions[Extension System]
             Async[Async Support]
         end
-        
+
         subgraph ".NET Bridge"
             Bridge[RevitPy Bridge]
             Host[RevitPy Host]
             Runtime[Python Runtime]
         end
     end
-    
+
     subgraph "Autodesk Revit"
         RevitAPI[Revit API]
         UI[Revit UI]
         Document[Document Model]
     end
-    
+
     subgraph "Package Management"
         Registry[Package Registry]
         Installer[Package Installer]
         Security[Security Scanner]
     end
-    
+
     VSCode --> CLI
     CLI --> Scripts
     Scripts --> API
     API --> ORM
     API --> Extensions
     API --> Async
-    
+
     ORM --> Bridge
     Extensions --> Bridge
     Async --> Bridge
-    
+
     Bridge --> Host
     Host --> Runtime
     Bridge --> RevitAPI
-    
+
     RevitAPI --> UI
     RevitAPI --> Document
-    
+
     CLI --> Registry
     Registry --> Installer
     Registry --> Security
@@ -185,7 +185,7 @@ with RevitContext() as context:
     walls = context.elements.where(
         lambda e: e.Category == 'Walls' and e.Height > 10.0
     )
-    
+
     for wall in walls:
         print(f"Wall: {wall.Name}, Height: {wall.Height}")
 ```
@@ -201,7 +201,7 @@ with RevitContext() as context:
                    .where(lambda r: r.Area > 500)
                    .include('Boundaries.Wall')  # Load related walls
                    .to_list())
-    
+
     for room in large_rooms:
         wall_count = len(room.Boundaries)
         print(f"Room {room.Name}: {room.Area} sq ft, {wall_count} walls")
@@ -218,10 +218,10 @@ async def process_elements():
         elements = await context.elements.where(
             lambda e: e.Category == 'Windows'
         ).to_list_async()
-        
+
         tasks = [update_element(elem) for elem in elements]
         results = await asyncio.gather(*tasks)
-        
+
         return results
 
 async def update_element(element):
@@ -295,7 +295,7 @@ RevitPy delivers significant performance improvements over traditional approache
 
 ### 🎉 Core Features
 - Complete Python 3.11+ framework with async support
-- Intuitive ORM layer with LINQ-style queries  
+- Intuitive ORM layer with LINQ-style queries
 - Professional VS Code extension with IntelliSense
 - Secure package management system
 - Comprehensive CLI tools for development workflow
@@ -330,7 +330,7 @@ RevitPy delivers significant performance improvements over traditional approache
 
 ### Enterprise Services
 - **🏢 Enterprise Licensing**: Volume licensing with priority support
-- **🛠️ Custom Development**: Tailored solutions for specific requirements  
+- **🛠️ Custom Development**: Tailored solutions for specific requirements
 - **📋 Training & Consulting**: Professional services for teams and organizations
 - **🔒 Security Audits**: Comprehensive security assessments and compliance
 
@@ -366,26 +366,26 @@ Transform your Revit development experience with modern Python, enterprise archi
     ```bash
     # Install RevitPy
     msiexec /i RevitPy-Installer.msi /quiet
-    
+
     # Create your first project
     revitpy create my-first-script --template basic-script
     cd my-first-script
-    
+
     # Run in development mode
     revitpy dev --watch
     ```
 
     ```python title="main.py"
     from revitpy import RevitContext
-    
+
     def main():
         with RevitContext() as context:
             walls = context.elements.of_category('Walls')
             print(f"Found {len(walls)} walls in the model")
-            
+
             for wall in walls.take(5):  # Show first 5 walls
                 print(f"- {wall.Name}: {wall.Height} ft high")
-    
+
     if __name__ == "__main__":
         main()
     ```

@@ -87,17 +87,17 @@ from revitpy import RevitContext
 with RevitContext() as context:
     # Simple filtering
     tall_walls = context.elements.where(lambda w: w.Height > 10.0)
-    
+
     # Multiple conditions
     exterior_walls = context.elements.where(
-        lambda w: w.Category == 'Walls' and 
+        lambda w: w.Category == 'Walls' and
                  w.get_parameter('Function').AsInteger() == 1
     )
-    
+
     # Complex expressions
     large_rooms = context.elements.where(
-        lambda r: r.Category == 'Rooms' and 
-                 r.Area > 100 and 
+        lambda r: r.Category == 'Rooms' and
+                 r.Area > 100 and
                  r.Name.startswith('Office')
     )
 ```
@@ -195,17 +195,17 @@ for room in rooms_with_boundaries:
 def analyze_room_walls(room_id):
     with RevitContext() as context:
         room = context.get_element_by_id(room_id)
-        
+
         # Navigate to related walls
         boundary_walls = [boundary.Wall for boundary in room.Boundaries]
-        
+
         # Analyze wall properties
         wall_analysis = {
             'total_walls': len(boundary_walls),
             'total_length': sum(wall.Length for wall in boundary_walls),
             'wall_types': set(wall.WallType.Name for wall in boundary_walls)
         }
-        
+
         return wall_analysis
 ```
 
@@ -217,19 +217,19 @@ def update_wall_properties():
     with RevitContext() as context:
         # Enable change tracking
         context.track_changes = True
-        
+
         walls = context.elements.of_category('Walls').to_list()
-        
+
         # Modify elements
         for wall in walls:
             if wall.Height < 10:
                 wall.set_parameter('Comments', 'Low wall')
-        
+
         # Check for changes
         if context.has_changes():
             changes = context.get_changes()
             print(f"Modified {len(changes)} elements")
-            
+
             # Save all changes at once
             context.save_changes()
 ```
@@ -239,16 +239,16 @@ def update_wall_properties():
 def batch_update_elements(updates):
     with RevitContext() as context:
         tracker = context.get_change_tracker()
-        
+
         with context.transaction("Batch Update") as txn:
             for element_id, properties in updates.items():
                 element = context.get_element_by_id(element_id)
                 tracker.track_element(element)
-                
+
                 # Apply updates
                 for param, value in properties.items():
                     element.set_parameter(param, value)
-            
+
             # Verify changes before committing
             changes = tracker.get_changes()
             if len(changes) == len(updates):
@@ -273,12 +273,12 @@ def optimized_element_query():
                 .where(lambda w: w.Height > 10)
                 .include('WallType')
                 .order_by(lambda w: w.Name))
-        
+
         # View query execution plan
         plan = query.explain_query()
         print(f"Estimated cost: {plan.cost}")
         print(f"Index usage: {plan.indexes_used}")
-        
+
         # Execute optimized query
         results = query.to_list()
 ```
@@ -291,13 +291,13 @@ def cached_element_access():
     with RevitContext() as context:
         # Enable query result caching
         context.enable_caching = True
-        
+
         # First query - hits the database
         walls = context.elements.of_category('Walls').to_list()
-        
+
         # Second identical query - uses cache
         walls_cached = context.elements.of_category('Walls').to_list()
-        
+
         # Clear cache when needed
         context.clear_cache()
 ```
@@ -309,13 +309,13 @@ def efficient_bulk_updates(element_updates):
         # Use bulk operations for better performance
         element_ids = list(element_updates.keys())
         elements = context.get_elements_by_ids(element_ids)  # Single query
-        
+
         with context.transaction("Bulk Update") as txn:
             for element in elements:
                 updates = element_updates.get(element.Id)
                 if updates:
                     element.update_parameters(updates)  # Batch parameter update
-            
+
             txn.commit()
 ```
 
@@ -327,11 +327,11 @@ from revitpy.orm import QueryExtension
 
 class WallQueryExtensions(QueryExtension):
     """Custom query extensions for walls."""
-    
+
     def exterior_walls(self, query):
         """Filter for exterior walls only."""
         return query.where(lambda w: w.get_parameter('Function').AsInteger() == 1)
-    
+
     def by_height_range(self, query, min_height, max_height):
         """Filter walls by height range."""
         return query.where(lambda w: min_height <= w.Height <= max_height)
@@ -354,25 +354,25 @@ def build_dynamic_query(filters):
     """Build queries dynamically based on runtime conditions."""
     with RevitContext() as context:
         query = context.elements.of_category('Rooms')
-        
+
         # Apply filters dynamically
         if 'min_area' in filters:
             query = query.where(lambda r: r.Area >= filters['min_area'])
-        
+
         if 'level_name' in filters:
             query = query.where(lambda r: r.Level.Name == filters['level_name'])
-        
+
         if 'name_pattern' in filters:
             pattern = filters['name_pattern']
             query = query.where(lambda r: pattern in r.Name)
-        
+
         # Apply ordering if specified
         if 'order_by' in filters:
             if filters['order_by'] == 'area':
                 query = query.order_by(lambda r: r.Area)
             elif filters['order_by'] == 'name':
                 query = query.order_by(lambda r: r.Name)
-        
+
         return query.to_list()
 ```
 
@@ -389,16 +389,16 @@ def test_wall_query():
         wall1 = create_mock_element('Wall', Height=8.0, Name='Wall-1')
         wall2 = create_mock_element('Wall', Height=12.0, Name='Wall-2')
         wall3 = create_mock_element('Wall', Height=15.0, Name='Wall-3')
-        
+
         mock_context.add_elements([wall1, wall2, wall3])
-        
+
         # Test query
         tall_walls = (mock_context.elements
                       .of_category('Walls')
                       .where(lambda w: w.Height > 10)
                       .order_by(lambda w: w.Height)
                       .to_list())
-        
+
         # Verify results
         assert len(tall_walls) == 2
         assert tall_walls[0].Height == 12.0

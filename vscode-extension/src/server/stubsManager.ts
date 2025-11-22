@@ -19,12 +19,12 @@ export class StubsManager {
         try {
             const config = await this.connection.workspace.getConfiguration('revitpy');
             this.stubsPath = config.stubsPath;
-            
+
             if (!this.stubsPath) {
                 // Try to find stubs in common locations
                 this.stubsPath = await this.findStubsPath();
             }
-            
+
             this.connection.console.log(`Using stubs path: ${this.stubsPath || 'not found'}`);
         } catch (error) {
             this.connection.console.error(`Failed to load configuration: ${error}`);
@@ -74,7 +74,7 @@ export class StubsManager {
         if (!this.stubsPath) return;
 
         const stubFiles = await this.findStubFiles(this.stubsPath);
-        
+
         for (const file of stubFiles) {
             try {
                 await this.parseStubFile(file);
@@ -86,13 +86,13 @@ export class StubsManager {
 
     private async findStubFiles(dir: string): Promise<string[]> {
         const files: string[] = [];
-        
+
         try {
             const entries = await fs.readdir(dir, { withFileTypes: true });
-            
+
             for (const entry of entries) {
                 const fullPath = path.join(dir, entry.name);
-                
+
                 if (entry.isDirectory()) {
                     const subFiles = await this.findStubFiles(fullPath);
                     files.push(...subFiles);
@@ -103,7 +103,7 @@ export class StubsManager {
         } catch (error) {
             this.connection.console.warn(`Failed to read directory ${dir}: ${error}`);
         }
-        
+
         return files;
     }
 
@@ -120,13 +120,13 @@ export class StubsManager {
     private async parseStubContent(content: string, filePath: string): Promise<ApiDocumentation[]> {
         const docs: ApiDocumentation[] = [];
         const lines = content.split('\n');
-        
+
         let currentClass: string | null = null;
         let currentNamespace = this.extractNamespaceFromPath(filePath);
-        
+
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            
+
             // Parse class definitions
             const classMatch = line.match(/^class\s+(\w+)(?:\([^)]*\))?:/);
             if (classMatch) {
@@ -135,7 +135,7 @@ export class StubsManager {
                 if (doc) docs.push(doc);
                 continue;
             }
-            
+
             // Parse function/method definitions
             const funcMatch = line.match(/^(?:async\s+)?def\s+(\w+)\s*\([^)]*\)(?:\s*->\s*[^:]+)?:/);
             if (funcMatch) {
@@ -143,7 +143,7 @@ export class StubsManager {
                 if (doc) docs.push(doc);
                 continue;
             }
-            
+
             // Parse property definitions
             const propMatch = line.match(/^(\w+):\s*(.+)$/);
             if (propMatch && currentClass) {
@@ -151,7 +151,7 @@ export class StubsManager {
                 if (doc) docs.push(doc);
                 continue;
             }
-            
+
             // Parse enum definitions
             const enumMatch = line.match(/^class\s+(\w+)\s*\(\s*Enum\s*\):/);
             if (enumMatch) {
@@ -160,7 +160,7 @@ export class StubsManager {
                 continue;
             }
         }
-        
+
         return docs;
     }
 
@@ -174,15 +174,15 @@ export class StubsManager {
     private async parseClassDefinition(lines: string[], startIndex: number, namespace: string): Promise<ApiDocumentation | null> {
         const line = lines[startIndex].trim();
         const classMatch = line.match(/^class\s+(\w+)(?:\(([^)]*)\))?:/);
-        
+
         if (!classMatch) return null;
-        
+
         const className = classMatch[1];
         const baseClasses = classMatch[2]?.split(',').map(s => s.trim()) || [];
-        
+
         // Extract docstring
         const docstring = this.extractDocstring(lines, startIndex + 1);
-        
+
         return {
             name: `${namespace}.${className}`,
             type: 'class',
@@ -195,23 +195,23 @@ export class StubsManager {
     private async parseFunctionDefinition(lines: string[], startIndex: number, currentClass: string | null, namespace: string): Promise<ApiDocumentation | null> {
         const line = lines[startIndex].trim();
         const funcMatch = line.match(/^(?:async\s+)?def\s+(\w+)\s*\(([^)]*)\)(?:\s*->\s*([^:]+))?:/);
-        
+
         if (!funcMatch) return null;
-        
+
         const funcName = funcMatch[1];
         const params = funcMatch[2];
         const returnType = funcMatch[3]?.trim();
-        
+
         // Skip private methods
         if (funcName.startsWith('_') && funcName !== '__init__') {
             return null;
         }
-        
+
         const docstring = this.extractDocstring(lines, startIndex + 1);
         const parameters = this.parseParameters(params, docstring);
-        
+
         const fullName = currentClass ? `${namespace}.${currentClass}.${funcName}` : `${namespace}.${funcName}`;
-        
+
         return {
             name: fullName,
             type: 'method',
@@ -226,19 +226,19 @@ export class StubsManager {
     private async parsePropertyDefinition(lines: string[], startIndex: number, currentClass: string, namespace: string): Promise<ApiDocumentation | null> {
         const line = lines[startIndex].trim();
         const propMatch = line.match(/^(\w+):\s*(.+)$/);
-        
+
         if (!propMatch) return null;
-        
+
         const propName = propMatch[1];
         const propType = propMatch[2];
-        
+
         // Skip private properties
         if (propName.startsWith('_')) {
             return null;
         }
-        
+
         const docstring = this.extractDocstring(lines, startIndex + 1);
-        
+
         return {
             name: `${namespace}.${currentClass}.${propName}`,
             type: 'property',
@@ -252,12 +252,12 @@ export class StubsManager {
     private async parseEnumDefinition(lines: string[], startIndex: number, namespace: string): Promise<ApiDocumentation | null> {
         const line = lines[startIndex].trim();
         const enumMatch = line.match(/^class\s+(\w+)\s*\(\s*Enum\s*\):/);
-        
+
         if (!enumMatch) return null;
-        
+
         const enumName = enumMatch[1];
         const docstring = this.extractDocstring(lines, startIndex + 1);
-        
+
         return {
             name: `${namespace}.${enumName}`,
             type: 'enum',
@@ -269,27 +269,27 @@ export class StubsManager {
 
     private extractDocstring(lines: string[], startIndex: number): string {
         if (startIndex >= lines.length) return '';
-        
+
         const firstLine = lines[startIndex].trim();
-        
+
         // Single line docstring
         if (firstLine.startsWith('"""') && firstLine.endsWith('"""') && firstLine.length > 6) {
             return firstLine.slice(3, -3).trim();
         }
-        
+
         // Multi-line docstring
         if (firstLine.startsWith('"""')) {
             const docLines: string[] = [];
             let i = startIndex;
             let inDocstring = true;
-            
+
             // Skip the opening """
             if (firstLine === '"""') {
                 i++;
             } else {
                 docLines.push(firstLine.slice(3));
             }
-            
+
             while (i < lines.length && inDocstring) {
                 const line = lines[i];
                 if (line.trim().endsWith('"""')) {
@@ -302,29 +302,29 @@ export class StubsManager {
                 }
                 i++;
             }
-            
+
             return docLines.join('\n').trim();
         }
-        
+
         return '';
     }
 
     private parseParameters(paramString: string, docstring: string): any[] {
         const params: any[] = [];
-        
+
         if (!paramString.trim()) return params;
-        
+
         const paramParts = paramString.split(',').map(p => p.trim());
-        
+
         for (const part of paramParts) {
             if (part === 'self' || part === 'cls') continue;
-            
+
             const paramMatch = part.match(/(\w+)(?::\s*([^=]+))?(?:\s*=\s*(.+))?/);
             if (paramMatch) {
                 const name = paramMatch[1];
                 const type = paramMatch[2]?.trim() || 'Any';
                 const defaultValue = paramMatch[3]?.trim();
-                
+
                 params.push({
                     name,
                     type,
@@ -334,7 +334,7 @@ export class StubsManager {
                 });
             }
         }
-        
+
         return params;
     }
 
@@ -399,7 +399,7 @@ export class StubsManager {
                 examples: ['TaskDialog.Show("Title", "Message")']
             }
         ];
-        
+
         this.connection.console.log('Generated default API documentation');
     }
 
@@ -417,7 +417,7 @@ export class StubsManager {
 
         try {
             const stubFiles = await this.findStubFiles(this.stubsPath);
-            
+
             for (const file of stubFiles) {
                 const location = await this.findSymbolInFile(symbol, file);
                 if (location) {
@@ -436,10 +436,10 @@ export class StubsManager {
         try {
             const content = await fs.readFile(filePath, 'utf-8');
             const lines = content.split('\n');
-            
+
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
-                
+
                 // Check for class definition
                 if (line.includes(`class ${symbol}`)) {
                     return {
@@ -450,7 +450,7 @@ export class StubsManager {
                         }
                     };
                 }
-                
+
                 // Check for function definition
                 if (line.includes(`def ${symbol}(`)) {
                     return {
@@ -465,7 +465,7 @@ export class StubsManager {
         } catch (error) {
             this.connection.console.warn(`Failed to search in file ${filePath}: ${error}`);
         }
-        
+
         return null;
     }
 }

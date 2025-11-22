@@ -136,7 +136,7 @@ public class PythonInterpreterPoolTests : IDisposable
     {
         // Arrange
         await _pool.InitializeAsync();
-        
+
         // Perform some operations
         using (var rental = await _pool.RentAsync())
         {
@@ -202,7 +202,7 @@ public class PythonInterpreterPoolTests : IDisposable
         // Assert
         result.Success.Should().BeTrue();
         result.Exception.Should().BeNull();
-        
+
         var value = await rental.Interpreter.GetVariableAsync<int>("result");
         value.Should().Be(50);
     }
@@ -230,7 +230,7 @@ public class PythonInterpreterPoolTests : IDisposable
 
         // Assert
         await Task.WhenAll(tasks);
-        
+
         // All operations should complete successfully
         tasks.Should().OnlyContain(t => t.IsCompletedSuccessfully);
     }

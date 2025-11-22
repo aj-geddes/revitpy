@@ -225,7 +225,7 @@ if config and config.is_available_in_version(current_version):
 profile = config.performance_profile
 if profile.memory_impact >= PerformanceImpact.High:
     warn_user_about_memory_usage()
-    
+
 if profile.cpu_impact >= PerformanceImpact.High:
     suggest_background_processing()
 ```
@@ -250,7 +250,7 @@ async with api.transaction_manager.transaction("Create Elements"):
         width=200,
         location=Point3D(0, 0, 0)
     ))
-    
+
     # Set parameters using unified interface
     await api.parameter_manager.set_parameter_value_async(
         wall, "Comments", "Created by RevitPy"
@@ -452,10 +452,10 @@ if not feature_manager.is_feature_enabled("ModernTransactions"):
     validation = await feature_manager.validate_feature_dependencies_async(
         "ModernTransactions", current_version
     )
-    
+
     for missing in validation.missing_dependencies:
         print(f"Missing dependency: {missing}")
-    
+
     for conflict in validation.conflicting_features:
         print(f"Conflicting feature: {conflict}")
 ```
@@ -477,7 +477,7 @@ with PerformanceMonitor() as monitor:
 if monitor.execution_time > expected_time:
     print(f"Performance issue detected: {monitor.execution_time}ms")
     print(f"Memory usage: {monitor.peak_memory}MB")
-    
+
     # Suggest optimizations
     optimizations = monitor.get_optimization_suggestions()
     for opt in optimizations:
@@ -492,14 +492,14 @@ compatibility_report = await run_compatibility_check()
 
 if not compatibility_report.is_fully_compatible:
     print("Compatibility Issues Found:")
-    
+
     for issue in compatibility_report.critical_issues:
         print(f"❌ CRITICAL: {issue.message}")
         print(f"   Solution: {issue.recommendation}")
-    
+
     for warning in compatibility_report.warnings:
         print(f"⚠️  WARNING: {warning}")
-    
+
     for recommendation in compatibility_report.recommendations:
         print(f"💡 RECOMMENDATION: {recommendation}")
 ```
@@ -575,7 +575,7 @@ async def create_multiple_walls(wall_params_list):
                 wall = await api.element_manager.create_wall_async(params)
                 walls.append(wall)
             return walls
-    
+
     # Log performance metrics
     profiler.log_results()
 ```
@@ -591,16 +591,16 @@ from revitpy.compatibility.testing import RevitVersions, compatibility_test
 @compatibility_test(versions=RevitVersions.ALL_SUPPORTED)
 async def test_wall_creation(revit_version, api_adapter):
     """Test wall creation across all supported Revit versions."""
-    
+
     wall_params = WallCreationParameters(
         height=3000,
         width=200,
         location=Point3D(0, 0, 0)
     )
-    
+
     async with api_adapter.transaction_manager.transaction("Test"):
         wall = await api_adapter.element_manager.create_wall_async(wall_params)
-        
+
         assert wall is not None
         assert await api_adapter.parameter_manager.get_parameter_value_async(
             wall, "Height"
@@ -614,21 +614,21 @@ async def test_wall_creation(revit_version, api_adapter):
 @performance_test(max_execution_time=100)  # milliseconds
 async def test_parameter_access_performance(revit_version, api_adapter):
     """Ensure parameter access performance is consistent across versions."""
-    
+
     # Create test element
     wall = await create_test_wall(api_adapter)
-    
+
     # Measure parameter access time
     start_time = time.perf_counter()
-    
+
     for _ in range(100):
         height = await api_adapter.parameter_manager.get_parameter_value_async(
             wall, "Height"
         )
-    
+
     end_time = time.perf_counter()
     average_time = (end_time - start_time) / 100 * 1000  # Convert to ms
-    
+
     # Performance should be consistent across versions (within 20% variance)
     baseline_time = get_baseline_performance(revit_version, "parameter_access")
     assert average_time <= baseline_time * 1.2
@@ -640,22 +640,22 @@ async def test_parameter_access_performance(revit_version, api_adapter):
 @compatibility_test(versions=RevitVersions.LATEST_THREE)
 async def test_end_to_end_workflow(revit_version, api_adapter):
     """Test complete workflow across recent Revit versions."""
-    
+
     async with api_adapter.transaction_manager.transaction("E2E Test"):
         # 1. Create elements
         wall = await api_adapter.element_manager.create_wall_async(wall_params)
         door = await api_adapter.element_manager.create_door_async(door_params)
-        
+
         # 2. Modify parameters
         await api_adapter.parameter_manager.set_parameter_value_async(
             wall, "Comments", "Test wall"
         )
-        
+
         # 3. Query elements
         walls = await api_adapter.element_manager.query_elements_async(
             ElementFilter(element_type=Wall)
         )
-        
+
         # 4. Validate results
         assert len(walls) >= 1
         assert wall in walls
@@ -667,6 +667,6 @@ The RevitPy project includes comprehensive CI/CD pipelines that test compatibili
 
 ---
 
-**Last Updated**: 2024-08-19  
-**Version**: 1.0.0  
+**Last Updated**: 2024-08-19
+**Version**: 1.0.0
 **Contributors**: RevitPy Team

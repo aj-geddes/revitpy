@@ -94,7 +94,7 @@ export class RevitPyDebugSession extends DebugSession {
         args: RevitPyLaunchRequestArguments
     ): Promise<void> {
         this.logger.info(`Launching RevitPy debug session for script: ${args.script}`);
-        
+
         this.scriptPath = args.script;
 
         try {
@@ -421,9 +421,9 @@ export class RevitPyDebugSession extends DebugSession {
 
     private handleDebugStopped(data: any): void {
         this.isRunning = false;
-        
+
         // Update stack trace
-        this.currentStackTrace = data.stackTrace?.map((frame: any, index: number) => 
+        this.currentStackTrace = data.stackTrace?.map((frame: any, index: number) =>
             new StackFrame(
                 index + 1,
                 frame.name,

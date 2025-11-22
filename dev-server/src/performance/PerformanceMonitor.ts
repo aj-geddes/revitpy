@@ -7,11 +7,11 @@ import { EventEmitter } from 'events';
 import { performance } from 'perf_hooks';
 import pino from 'pino';
 
-import type { 
-  DevServerConfig, 
-  PerformanceMetrics, 
-  MemoryUsage, 
-  CPUUsage 
+import type {
+  DevServerConfig,
+  PerformanceMetrics,
+  MemoryUsage,
+  CPUUsage
 } from '../types/index.js';
 
 export class PerformanceService extends EventEmitter {
@@ -25,7 +25,7 @@ export class PerformanceService extends EventEmitter {
     super();
     this.config = config;
     this.logger = logger || pino({ name: 'PerformanceMonitor' });
-    
+
     this.metrics = {
       timestamp: Date.now(),
       buildTime: 0,
@@ -70,7 +70,7 @@ export class PerformanceService extends EventEmitter {
     const startTime = performance.now();
     await fn();
     const duration = Math.round(performance.now() - startTime);
-    
+
     this.logger.debug('Benchmark completed', { operation, duration });
     return duration;
   }

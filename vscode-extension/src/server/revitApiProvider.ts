@@ -32,10 +32,10 @@ export class RevitApiProvider {
     private async loadApiDefinitions(): Promise<void> {
         try {
             const apiDocs = await this.stubsManager.getApiDocumentation();
-            
+
             // Group by namespace/module for efficient lookup
             const groupedDocs = new Map<string, ApiDocumentation[]>();
-            
+
             for (const doc of apiDocs) {
                 const namespace = this.extractNamespace(doc.name);
                 if (!groupedDocs.has(namespace)) {
@@ -61,7 +61,7 @@ export class RevitApiProvider {
 
     async getCompletions(document: TextDocument, position: Position): Promise<CompletionItem[]> {
         const startTime = Date.now();
-        
+
         try {
             // Check cache validity
             if (Date.now() - this.lastCacheUpdate > this.cacheTimeout) {
@@ -85,10 +85,10 @@ export class RevitApiProvider {
             }
 
             const completions = await this.generateCompletions(context, document, position);
-            
+
             // Cache the results
             this.completionCache.set(cacheKey, completions);
-            
+
             // Clean cache if it gets too large
             if (this.completionCache.size > 1000) {
                 this.cleanCompletionCache();
@@ -96,7 +96,7 @@ export class RevitApiProvider {
 
             const executionTime = Date.now() - startTime;
             console.log(`Completion generated in ${executionTime}ms`);
-            
+
             return completions;
         } catch (error) {
             console.error('Error getting completions:', error);
@@ -192,13 +192,13 @@ export class RevitApiProvider {
 
     private async getMemberCompletions(memberAccess: string, prefix: string): Promise<CompletionItem[]> {
         const completions: CompletionItem[] = [];
-        
+
         // Try to resolve the type of the member access
         const resolvedType = await this.resolveType(memberAccess);
         if (!resolvedType) return completions;
 
         const members = this.apiCache.get(resolvedType) || [];
-        
+
         return members
             .filter(member => member.name.toLowerCase().includes(prefix.toLowerCase()))
             .map(member => this.createCompletionFromApiDoc(member));
@@ -206,14 +206,14 @@ export class RevitApiProvider {
 
     private getGeneralCompletions(prefix: string): CompletionItem[] {
         const completions: CompletionItem[] = [];
-        
+
         // Add common Revit API classes and functions
         for (const [namespace, docs] of this.apiCache.entries()) {
             if (namespace === 'global' || namespace.startsWith('Autodesk.Revit')) {
-                const filteredDocs = docs.filter(doc => 
+                const filteredDocs = docs.filter(doc =>
                     doc.name.toLowerCase().includes(prefix.toLowerCase())
                 );
-                
+
                 completions.push(...filteredDocs.map(doc => this.createCompletionFromApiDoc(doc)));
             }
         }
@@ -223,10 +223,10 @@ export class RevitApiProvider {
 
     private createCompletionFromApiDoc(doc: ApiDocumentation): CompletionItem {
         const kind = this.mapApiTypeToCompletionKind(doc.type);
-        
+
         let insertText = doc.name;
         if (doc.type === 'method' && doc.parameters) {
-            const paramList = doc.parameters.map((param, index) => 
+            const paramList = doc.parameters.map((param, index) =>
                 param.optional ? `\${${index + 1}:${param.name}}` : `\${${index + 1}:${param.name}}`
             ).join(', ');
             insertText = `${doc.name}(${paramList})`;
@@ -260,7 +260,7 @@ export class RevitApiProvider {
 
     private formatDocumentation(doc: ApiDocumentation): string {
         let markdown = `## ${doc.name}\n\n`;
-        
+
         if (doc.signature) {
             markdown += `\`\`\`python\n${doc.signature}\n\`\`\`\n\n`;
         }
@@ -311,7 +311,7 @@ export class RevitApiProvider {
             'enum': '4',
             'namespace': '5'
         };
-        
+
         const priority = typePriority[doc.type] || '9';
         return `${priority}_${doc.name.toLowerCase()}`;
     }
@@ -319,7 +319,7 @@ export class RevitApiProvider {
     async resolveCompletion(item: CompletionItem): Promise<CompletionItem> {
         if (item.data?.apiDoc) {
             const doc = item.data.apiDoc as ApiDocumentation;
-            
+
             // Add more detailed documentation if available
             if (doc.examples && doc.examples.length > 0) {
                 const currentDoc = item.documentation as any;
@@ -341,7 +341,7 @@ export class RevitApiProvider {
 
         const word = document.getText(wordRange);
         const apiDoc = await this.findApiDocumentation(word);
-        
+
         if (!apiDoc) return null;
 
         return {
@@ -365,7 +365,7 @@ export class RevitApiProvider {
 
         const functionName = functionMatch[1];
         const apiDoc = await this.findApiDocumentation(functionName);
-        
+
         if (!apiDoc || apiDoc.type !== 'method' || !apiDoc.parameters) {
             return null;
         }
@@ -384,7 +384,7 @@ export class RevitApiProvider {
 
         // Calculate active parameter
         const commaCount = (line.match(/,/g) || []).length;
-        
+
         return {
             signatures: [signature],
             activeSignature: 0,
@@ -398,7 +398,7 @@ export class RevitApiProvider {
 
         const word = document.getText(wordRange);
         const definition = await this.stubsManager.findDefinition(word);
-        
+
         if (!definition) return null;
 
         return {
@@ -414,7 +414,7 @@ export class RevitApiProvider {
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            
+
             // Check for deprecated API usage
             const deprecatedMatch = line.match(/(\w+\.\w+)/g);
             if (deprecatedMatch) {
@@ -502,7 +502,7 @@ export class RevitApiProvider {
         // Remove half of the cached entries (LRU would be better but this is simpler)
         const entries = Array.from(this.completionCache.entries());
         const toKeep = entries.slice(entries.length / 2);
-        
+
         this.completionCache.clear();
         for (const [key, value] of toKeep) {
             this.completionCache.set(key, value);

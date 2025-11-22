@@ -314,7 +314,7 @@ namespace RevitPy.Installer.CustomActions
                 {
                     var version = output.Replace("Python ", "").Trim();
                     var pythonPath = GetPythonPath();
-                    
+
                     return new PythonInstallation
                     {
                         Version = version,

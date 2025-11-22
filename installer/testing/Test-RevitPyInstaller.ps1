@@ -34,17 +34,17 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$InstallerPath,
-    
+
     [Parameter()]
     [ValidateSet("Quick", "Full", "Integration")]
     [string]$TestScope = "Full",
-    
+
     [Parameter()]
     [string]$OutputPath = ".\test-results",
-    
+
     [Parameter()]
     [switch]$CleanupAfterTest,
-    
+
     [Parameter()]
     [int]$TimeoutMinutes = 10
 )
@@ -97,14 +97,14 @@ function Initialize-Testing {
     Write-Host "Initializing RevitPy Installer Testing Framework" -ForegroundColor Green
     Write-Host "Test Scope: $TestScope" -ForegroundColor Yellow
     Write-Host "Installer: $InstallerPath" -ForegroundColor Yellow
-    
+
     if (-not (Test-Path $OutputPath)) {
         New-Item -Path $OutputPath -ItemType Directory -Force | Out-Null
     }
-    
+
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $script:LogFile = Join-Path $OutputPath "RevitPy-Test-$timestamp.log"
-    
+
     Write-Log "Test session started" -Level Info
     Write-Log "Test scope: $TestScope" -Level Info
     Write-Log "Installer path: $InstallerPath" -Level Info
@@ -114,22 +114,22 @@ function Write-Log {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Message,
-        
+
         [Parameter()]
         [ValidateSet("Info", "Warning", "Error", "Success")]
         [string]$Level = "Info"
     )
-    
+
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logEntry = "[$timestamp] [$Level] $Message"
-    
+
     switch ($Level) {
         "Info" { Write-Host $logEntry -ForegroundColor White }
         "Warning" { Write-Host $logEntry -ForegroundColor Yellow }
         "Error" { Write-Host $logEntry -ForegroundColor Red }
         "Success" { Write-Host $logEntry -ForegroundColor Green }
     }
-    
+
     if ($script:LogFile) {
         Add-Content -Path $script:LogFile -Value $logEntry -Encoding UTF8
     }
@@ -144,7 +144,7 @@ function Add-TestResult {
         [datetime]$StartTime,
         [datetime]$EndTime
     )
-    
+
     $result = @{
         TestName = $TestName
         Passed = $Passed
@@ -154,19 +154,19 @@ function Add-TestResult {
         EndTime = $EndTime
         Duration = ($EndTime - $StartTime).TotalSeconds
     }
-    
+
     $script:TestResults += $result
-    
+
     $status = if ($Passed) { "PASS" } else { "FAIL" }
     $level = if ($Passed) { "Success" } else { "Error" }
-    
+
     Write-Log "$status - $TestName : $Message" -Level $level
 }
 
 function Test-Prerequisites {
     $startTime = Get-Date
     Write-Log "Testing prerequisites..." -Level Info
-    
+
     try {
         $checks = @{
             "Administrator Rights" = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -176,9 +176,9 @@ function Test-Prerequisites {
             "Sufficient Disk Space" = (Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace -gt 1GB
             "Internet Connectivity" = Test-NetConnection -ComputerName "8.8.8.8" -Port 53 -InformationLevel Quiet
         }
-        
+
         $failedChecks = $checks.GetEnumerator() | Where-Object { -not $_.Value }
-        
+
         if ($failedChecks) {
             $message = "Prerequisites failed: " + (($failedChecks | ForEach-Object { $_.Key }) -join ", ")
             Add-TestResult -TestName "Prerequisites" -Passed $false -Message $message -Details $checks -StartTime $startTime -EndTime (Get-Date)
@@ -195,13 +195,13 @@ function Test-Prerequisites {
 function Test-SilentInstallation {
     $startTime = Get-Date
     Write-Log "Testing silent installation..." -Level Info
-    
+
     try {
         # Uninstall if already present
         Remove-RevitPyInstallation -Silent
-        
+
         $process = Start-Process -FilePath $InstallerPath -ArgumentList "/quiet", "/log", "C:\temp\revitpy-silent-install.log" -Wait -PassThru -NoNewWindow
-        
+
         if ($process.ExitCode -eq 0) {
             # Verify installation
             if (Test-Path "${env:ProgramFiles}\RevitPy") {
@@ -223,7 +223,7 @@ function Test-SilentInstallation {
 function Test-InteractiveInstallation {
     $startTime = Get-Date
     Write-Log "Testing interactive installation..." -Level Info
-    
+
     try {
         # This test requires user interaction, so we'll simulate it
         Write-Log "Interactive installation test requires manual verification" -Level Warning
@@ -237,7 +237,7 @@ function Test-InteractiveInstallation {
 function Test-CoreFiles {
     $startTime = Get-Date
     Write-Log "Testing core files installation..." -Level Info
-    
+
     try {
         $expectedFiles = @(
             "${env:ProgramFiles}\RevitPy\bin\RevitPy.Core.dll"
@@ -246,9 +246,9 @@ function Test-CoreFiles {
             "${env:ProgramFiles}\RevitPy\bin\RevitPy.Host.exe"
             "${env:ProgramFiles}\RevitPy\config\appsettings.json"
         )
-        
+
         $missingFiles = $expectedFiles | Where-Object { -not (Test-Path $_) }
-        
+
         if ($missingFiles) {
             $message = "Missing files: " + ($missingFiles -join ", ")
             Add-TestResult -TestName "Core Files" -Passed $false -Message $message -Details @{MissingFiles = $missingFiles} -StartTime $startTime -EndTime (Get-Date)
@@ -265,17 +265,17 @@ function Test-CoreFiles {
 function Test-RegistryEntries {
     $startTime = Get-Date
     Write-Log "Testing registry entries..." -Level Info
-    
+
     try {
         $registryChecks = @{
             "Uninstall Entry" = Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | Get-ItemProperty | Where-Object { $_.DisplayName -like "*RevitPy*" }
             "Service Entry" = Get-Service -Name "RevitPyHost" -ErrorAction SilentlyContinue
             "Environment Variables" = [Environment]::GetEnvironmentVariable("REVITPY_HOME", "Machine")
         }
-        
+
         $passed = $true
         $details = @{}
-        
+
         foreach ($check in $registryChecks.GetEnumerator()) {
             $result = $null -ne $check.Value
             $details[$check.Key] = $result
@@ -283,7 +283,7 @@ function Test-RegistryEntries {
                 $passed = $false
             }
         }
-        
+
         if ($passed) {
             Add-TestResult -TestName "Registry Entries" -Passed $true -Message "All registry entries present" -Details $details -StartTime $startTime -EndTime (Get-Date)
         }
@@ -299,10 +299,10 @@ function Test-RegistryEntries {
 function Test-HostService {
     $startTime = Get-Date
     Write-Log "Testing RevitPy host service..." -Level Info
-    
+
     try {
         $service = Get-Service -Name "RevitPyHost" -ErrorAction SilentlyContinue
-        
+
         if ($service) {
             if ($service.Status -eq "Running") {
                 # Test service functionality
@@ -330,18 +330,18 @@ function Test-HostService {
 function Test-RevitIntegration {
     $startTime = Get-Date
     Write-Log "Testing Revit integration..." -Level Info
-    
+
     try {
         $revitVersions = @("2022", "2023", "2024", "2025")
         $integrationResults = @{}
-        
+
         foreach ($version in $revitVersions) {
             $addinPath = "${env:ProgramData}\Autodesk\Revit\Addins\$version\RevitPy.addin"
             $integrationResults[$version] = Test-Path $addinPath
         }
-        
+
         $installedIntegrations = ($integrationResults.Values | Where-Object { $_ }).Count
-        
+
         if ($installedIntegrations -gt 0) {
             Add-TestResult -TestName "Revit Integration" -Passed $true -Message "Revit integration installed for $installedIntegrations version(s)" -Details $integrationResults -StartTime $startTime -EndTime (Get-Date)
         }
@@ -357,14 +357,14 @@ function Test-RevitIntegration {
 function Test-PythonRuntime {
     $startTime = Get-Date
     Write-Log "Testing Python runtime..." -Level Info
-    
+
     try {
         $pythonPath = "${env:ProgramFiles}\RevitPy\python\python.exe"
-        
+
         if (Test-Path $pythonPath) {
             # Test Python execution
             $process = Start-Process -FilePath $pythonPath -ArgumentList "--version" -Wait -PassThru -NoNewWindow -RedirectStandardOutput "python-version.txt"
-            
+
             if ($process.ExitCode -eq 0 -and (Test-Path "python-version.txt")) {
                 $version = Get-Content "python-version.txt" -Raw
                 Remove-Item "python-version.txt" -ErrorAction SilentlyContinue
@@ -386,13 +386,13 @@ function Test-PythonRuntime {
 function Test-ConfigurationFiles {
     $startTime = Get-Date
     Write-Log "Testing configuration files..." -Level Info
-    
+
     try {
         $configFiles = @(
             "${env:ProgramFiles}\RevitPy\config\appsettings.json"
             "${env:ProgramData}\RevitPy\config\default.yaml"
         )
-        
+
         $validConfigs = 0
         foreach ($configFile in $configFiles) {
             if (Test-Path $configFile) {
@@ -414,7 +414,7 @@ function Test-ConfigurationFiles {
                 }
             }
         }
-        
+
         if ($validConfigs -eq $configFiles.Count) {
             Add-TestResult -TestName "Configuration Files" -Passed $true -Message "All configuration files valid" -Details @{FilesValidated = $validConfigs} -StartTime $startTime -EndTime (Get-Date)
         }
@@ -430,10 +430,10 @@ function Test-ConfigurationFiles {
 function Test-FirewallRules {
     $startTime = Get-Date
     Write-Log "Testing firewall rules..." -Level Info
-    
+
     try {
         $firewallRules = Get-NetFirewallRule -DisplayName "*RevitPy*" -ErrorAction SilentlyContinue
-        
+
         if ($firewallRules) {
             $enabledRules = ($firewallRules | Where-Object { $_.Enabled -eq $true }).Count
             Add-TestResult -TestName "Firewall Rules" -Passed $true -Message "Firewall rules configured ($enabledRules enabled)" -Details @{RulesCount = $firewallRules.Count; EnabledCount = $enabledRules} -StartTime $startTime -EndTime (Get-Date)
@@ -450,13 +450,13 @@ function Test-FirewallRules {
 function Test-EnvironmentVariables {
     $startTime = Get-Date
     Write-Log "Testing environment variables..." -Level Info
-    
+
     try {
         $expectedVars = @{
             "REVITPY_HOME" = "${env:ProgramFiles}\RevitPy"
             "PATH" = "${env:ProgramFiles}\RevitPy\bin"
         }
-        
+
         $results = @{}
         foreach ($var in $expectedVars.GetEnumerator()) {
             $value = [Environment]::GetEnvironmentVariable($var.Key, "Machine")
@@ -466,9 +466,9 @@ function Test-EnvironmentVariables {
                 $value -eq $var.Value
             }
         }
-        
+
         $passed = ($results.Values | Where-Object { $_ }).Count -eq $results.Count
-        
+
         Add-TestResult -TestName "Environment Variables" -Passed $passed -Message "Environment variables check completed" -Details $results -StartTime $startTime -EndTime (Get-Date)
     }
     catch {
@@ -479,7 +479,7 @@ function Test-EnvironmentVariables {
 function Test-Updates {
     $startTime = Get-Date
     Write-Log "Testing update mechanism..." -Level Info
-    
+
     try {
         # This is a placeholder for update testing
         Write-Log "Update testing requires external update server" -Level Warning
@@ -493,24 +493,24 @@ function Test-Updates {
 function Test-Repair {
     $startTime = Get-Date
     Write-Log "Testing repair functionality..." -Level Info
-    
+
     try {
         # Simulate damage by removing a file
         $testFile = "${env:ProgramFiles}\RevitPy\config\appsettings.json"
         if (Test-Path $testFile) {
             Copy-Item $testFile "$testFile.backup"
             Remove-Item $testFile -Force
-            
+
             # Run repair
             $process = Start-Process -FilePath $InstallerPath -ArgumentList "/quiet", "/repair" -Wait -PassThru -NoNewWindow
-            
+
             if ($process.ExitCode -eq 0 -and (Test-Path $testFile)) {
                 Add-TestResult -TestName "Repair" -Passed $true -Message "Repair completed successfully" -Details @{ExitCode = $process.ExitCode} -StartTime $startTime -EndTime (Get-Date)
             }
             else {
                 Add-TestResult -TestName "Repair" -Passed $false -Message "Repair failed or incomplete" -Details @{ExitCode = $process.ExitCode} -StartTime $startTime -EndTime (Get-Date)
             }
-            
+
             # Restore backup if repair failed
             if (Test-Path "$testFile.backup" -and -not (Test-Path $testFile)) {
                 Move-Item "$testFile.backup" $testFile
@@ -528,10 +528,10 @@ function Test-Repair {
 function Test-Uninstallation {
     $startTime = Get-Date
     Write-Log "Testing uninstallation..." -Level Info
-    
+
     try {
         $uninstallResult = Remove-RevitPyInstallation -Silent
-        
+
         if ($uninstallResult) {
             Add-TestResult -TestName "Uninstallation" -Passed $true -Message "Uninstallation completed successfully" -StartTime $startTime -EndTime (Get-Date)
         }
@@ -547,27 +547,27 @@ function Test-Uninstallation {
 function Test-CleanupVerification {
     $startTime = Get-Date
     Write-Log "Testing cleanup verification..." -Level Info
-    
+
     try {
         $remainingItems = @()
-        
+
         # Check for remaining files
         if (Test-Path "${env:ProgramFiles}\RevitPy") {
             $remainingItems += "Installation directory"
         }
-        
+
         # Check for remaining registry entries
         $uninstallEntry = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object { $_.DisplayName -like "*RevitPy*" }
         if ($uninstallEntry) {
             $remainingItems += "Uninstall registry entry"
         }
-        
+
         # Check for remaining services
         $service = Get-Service -Name "RevitPyHost" -ErrorAction SilentlyContinue
         if ($service) {
             $remainingItems += "Windows service"
         }
-        
+
         if ($remainingItems.Count -eq 0) {
             Add-TestResult -TestName "Cleanup Verification" -Passed $true -Message "Clean uninstallation verified" -StartTime $startTime -EndTime (Get-Date)
         }
@@ -582,11 +582,11 @@ function Test-CleanupVerification {
 
 function Remove-RevitPyInstallation {
     param([switch]$Silent)
-    
+
     try {
         # Find RevitPy in installed programs
         $revitPy = Get-WmiObject -Class Win32_Product | Where-Object { $_.Name -like "*RevitPy*" }
-        
+
         if ($revitPy) {
             if ($Silent) {
                 $revitPy.Uninstall() | Out-Null
@@ -619,12 +619,12 @@ function Test-RollbackScenarios { <# Implementation #> }
 
 function New-TestReport {
     Write-Log "Generating test report..." -Level Info
-    
+
     $totalTests = $script:TestResults.Count
     $passedTests = ($script:TestResults | Where-Object { $_.Passed }).Count
     $failedTests = $totalTests - $passedTests
     $passRate = if ($totalTests -gt 0) { [math]::Round(($passedTests / $totalTests) * 100, 2) } else { 0 }
-    
+
     $report = @{
         TestSession = @{
             StartTime = $script:TestStartTime
@@ -641,12 +641,12 @@ function New-TestReport {
         }
         Results = $script:TestResults
     }
-    
+
     # Generate JSON report
     $jsonReport = $report | ConvertTo-Json -Depth 10
     $jsonPath = Join-Path $OutputPath "RevitPy-Test-Report-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
     Set-Content -Path $jsonPath -Value $jsonReport -Encoding UTF8
-    
+
     # Generate HTML report
     $htmlReport = @"
 <!DOCTYPE html>
@@ -671,7 +671,7 @@ function New-TestReport {
         <p>Start Time: $($script:TestStartTime)</p>
         <p>Duration: $([math]::Round(((Get-Date) - $script:TestStartTime).TotalMinutes, 2)) minutes</p>
     </div>
-    
+
     <div class="summary">
         <h2>Summary</h2>
         <p>Total Tests: $totalTests</p>
@@ -679,7 +679,7 @@ function New-TestReport {
         <p>Failed: <span class="test-fail">$failedTests</span></p>
         <p>Pass Rate: $passRate%</p>
     </div>
-    
+
     <h2>Test Results</h2>
     <table>
         <tr>
@@ -689,11 +689,11 @@ function New-TestReport {
             <th>Duration (s)</th>
         </tr>
 "@
-    
+
     foreach ($result in $script:TestResults) {
         $statusClass = if ($result.Passed) { "test-pass" } else { "test-fail" }
         $status = if ($result.Passed) { "PASS" } else { "FAIL" }
-        
+
         $htmlReport += @"
         <tr>
             <td>$($result.TestName)</td>
@@ -703,16 +703,16 @@ function New-TestReport {
         </tr>
 "@
     }
-    
+
     $htmlReport += @"
     </table>
 </body>
 </html>
 "@
-    
+
     $htmlPath = Join-Path $OutputPath "RevitPy-Test-Report-$(Get-Date -Format 'yyyyMMdd-HHmmss').html"
     Set-Content -Path $htmlPath -Value $htmlReport -Encoding UTF8
-    
+
     Write-Log "Test Summary:" -Level Info
     Write-Log "  Total Tests: $totalTests" -Level Info
     Write-Log "  Passed: $passedTests" -Level Success
@@ -720,53 +720,53 @@ function New-TestReport {
     Write-Log "  Pass Rate: $passRate%" -Level Info
     Write-Log "  JSON Report: $jsonPath" -Level Info
     Write-Log "  HTML Report: $htmlPath" -Level Info
-    
+
     return $report
 }
 
 # Main execution
 try {
     Initialize-Testing
-    
+
     if (-not (Test-Path $InstallerPath)) {
         throw "Installer file not found: $InstallerPath"
     }
-    
+
     $testsToRun = $TestSuites[$TestScope]
-    
+
     Write-Log "Running $($testsToRun.Count) tests..." -Level Info
-    
+
     foreach ($testName in $testsToRun) {
         Write-Log "Starting test: $testName" -Level Info
-        
+
         # Run test with timeout
         $job = Start-Job -ScriptBlock {
             param($TestName)
             & $TestName
         } -ArgumentList $testName
-        
+
         $timeoutSeconds = $TimeoutMinutes * 60
         $completed = Wait-Job -Job $job -Timeout $timeoutSeconds
-        
+
         if ($completed) {
             Receive-Job -Job $job
         }
         else {
             Add-TestResult -TestName $testName -Passed $false -Message "Test timed out after $TimeoutMinutes minutes" -StartTime (Get-Date).AddMinutes(-$TimeoutMinutes) -EndTime (Get-Date)
         }
-        
+
         Remove-Job -Job $job -Force
     }
-    
+
     $report = New-TestReport
-    
+
     if ($CleanupAfterTest) {
         Write-Log "Performing cleanup..." -Level Info
         Remove-RevitPyInstallation -Silent
     }
-    
+
     Write-Log "Testing completed" -Level Success
-    
+
     # Exit with appropriate code
     exit $(if ($report.Summary.FailedTests -gt 0) { 1 } else { 0 })
 }

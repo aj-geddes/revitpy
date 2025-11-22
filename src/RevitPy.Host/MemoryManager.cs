@@ -43,13 +43,13 @@ public class MemoryManager : IMemoryManager, IDisposable
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        
+
         _memoryThresholdBytes = _options.MaxMemoryUsageMB * 1024 * 1024;
 
         if (_options.EnableMemoryProfiling)
         {
-            _monitoringTimer = new Timer(async _ => await MonitorMemoryAsync(), 
-                null, 
+            _monitoringTimer = new Timer(async _ => await MonitorMemoryAsync(),
+                null,
                 TimeSpan.FromMilliseconds(_options.MemoryCheckInterval),
                 TimeSpan.FromMilliseconds(_options.MemoryCheckInterval));
         }
@@ -98,7 +98,7 @@ public class MemoryManager : IMemoryManager, IDisposable
         if (_isRunning || !_options.EnableMemoryProfiling)
             return;
 
-        _logger.LogInformation("Starting memory monitoring with threshold {ThresholdMB}MB", 
+        _logger.LogInformation("Starting memory monitoring with threshold {ThresholdMB}MB",
             _options.MaxMemoryUsageMB);
 
         _isRunning = true;
@@ -122,7 +122,7 @@ public class MemoryManager : IMemoryManager, IDisposable
         await Task.Run(() =>
         {
             var memoryBefore = GC.GetTotalMemory(false);
-            
+
             if (generation.HasValue)
             {
                 GC.Collect(generation.Value, GCCollectionMode.Forced, true);
@@ -141,7 +141,7 @@ public class MemoryManager : IMemoryManager, IDisposable
             {
                 _stats.ManualGcCalls++;
                 _stats.LastCleanup = DateTime.UtcNow;
-                
+
                 // Update running average of memory after cleanup
                 if (_stats.AverageMemoryAfterCleanup == 0)
                 {
@@ -149,7 +149,7 @@ public class MemoryManager : IMemoryManager, IDisposable
                 }
                 else
                 {
-                    _stats.AverageMemoryAfterCleanup = 
+                    _stats.AverageMemoryAfterCleanup =
                         (_stats.AverageMemoryAfterCleanup + memoryAfter) / 2;
                 }
             }
@@ -181,7 +181,7 @@ public class MemoryManager : IMemoryManager, IDisposable
         try
         {
             var memoryInfo = GetMemoryUsage();
-            
+
             // Check if we've exceeded the threshold
             if (memoryInfo.TotalManagedMemory > _memoryThresholdBytes)
             {
@@ -229,9 +229,9 @@ public class MemoryManager : IMemoryManager, IDisposable
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 GC.Collect();
-                
+
                 var finalMemory = GC.GetTotalMemory(true);
-                _logger.LogInformation("Final memory usage after cleanup: {MemoryMB:F2}MB", 
+                _logger.LogInformation("Final memory usage after cleanup: {MemoryMB:F2}MB",
                     finalMemory / 1024.0 / 1024.0);
             }
             catch (Exception ex)

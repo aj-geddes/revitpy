@@ -43,7 +43,7 @@
     <DefineConstants Condition="'$(RevitVersion)'=='2024'">$(DefineConstants);REVIT2024</DefineConstants>
     <DefineConstants Condition="'$(RevitVersion)'=='2025'">$(DefineConstants);REVIT2025</DefineConstants>
   </PropertyGroup>
-  
+
   <ItemGroup Condition="'$(RevitVersion)'=='2024' AND '$(Configuration)'=='Release'">
     <Reference Include="RevitAPI">
       <HintPath>C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll</HintPath>
@@ -54,7 +54,7 @@
       <Private>False</Private>
     </Reference>
   </ItemGroup>
-  
+
   <ItemGroup Condition="'$(RevitVersion)'=='2025' AND '$(Configuration)'=='Release'">
     <Reference Include="RevitAPI">
       <HintPath>C:\Program Files\Autodesk\Revit 2025\RevitAPI.dll</HintPath>

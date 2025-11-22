@@ -5,16 +5,16 @@
 
   <?define ProductVersion = "1.0.0" ?>
   <?define ProductUpgradeCode = "12345678-1234-1234-1234-123456789012" ?>
-  
-  <Product Id="*" 
-           Name="RevitPy - Python Framework for Revit" 
-           Language="1033" 
-           Version="$(var.ProductVersion)" 
-           Manufacturer="RevitPy Team" 
+
+  <Product Id="*"
+           Name="RevitPy - Python Framework for Revit"
+           Language="1033"
+           Version="$(var.ProductVersion)"
+           Manufacturer="RevitPy Team"
            UpgradeCode="$(var.ProductUpgradeCode)">
-    
-    <Package InstallerVersion="500" 
-             Compressed="yes" 
+
+    <Package InstallerVersion="500"
+             Compressed="yes"
              InstallScope="perMachine"
              Description="RevitPy - Modern Python Framework for Revit Development"
              Comments="Professional Revit automation and development framework"
@@ -36,7 +36,7 @@
     <Property Id="INSTALLLEVEL" Value="1" />
     <Property Id="ALLUSERS" Value="1" />
     <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
-    
+
     <!-- Revit Version Detection Properties -->
     <Property Id="REVIT_2022_INSTALLED" />
     <Property Id="REVIT_2023_INSTALLED" />
@@ -57,14 +57,14 @@
           <Directory Id="LibDir" Name="lib" />
           <Directory Id="ConfigDir" Name="config" />
           <Directory Id="LogsDir" Name="logs" />
-          
+
           <!-- Python Runtime Directory -->
           <Directory Id="PythonDir" Name="python">
             <Directory Id="PythonScriptsDir" Name="Scripts" />
             <Directory Id="PythonLibDir" Name="Lib" />
             <Directory Id="PythonDLLsDir" Name="DLLs" />
           </Directory>
-          
+
           <!-- Revit Add-ins Directory Structure -->
           <Directory Id="RevitAddinsDir" Name="addins">
             <Directory Id="Revit2022AddinsDir" Name="2022" />
@@ -102,13 +102,13 @@
     <!-- Feature Definition -->
     <Feature Id="MainFeature" Title="RevitPy Core" Level="1" Absent="disallow"
              Description="Core RevitPy framework and runtime components">
-      
+
       <!-- Core Application Files -->
       <ComponentGroupRef Id="CoreApplicationFiles" />
-      
+
       <!-- Configuration Files -->
       <ComponentGroupRef Id="ConfigurationFiles" />
-      
+
       <!-- Logging Components -->
       <ComponentGroupRef Id="LoggingComponents" />
     </Feature>
@@ -148,16 +148,16 @@
     <InstallExecuteSequence>
       <!-- Detect Revit Installations -->
       <Custom Action="DetectRevitInstallations" Before="CostInitialize" />
-      
+
       <!-- Detect Python Installation -->
       <Custom Action="DetectPythonInstallation" After="DetectRevitInstallations" />
-      
+
       <!-- Configure Revit Add-ins -->
       <Custom Action="ConfigureRevitAddins" Before="InstallFinalize">NOT Installed</Custom>
-      
+
       <!-- Start RevitPy Service -->
       <Custom Action="StartRevitPyService" After="InstallFinalize">NOT Installed</Custom>
-      
+
       <!-- Remove Revit Integration on Uninstall -->
       <Custom Action="RemoveRevitIntegration" Before="RemoveFiles">Installed AND (REMOVE="ALL")</Custom>
     </InstallExecuteSequence>
@@ -169,37 +169,37 @@
     </InstallUISequence>
 
     <!-- Custom Actions Definitions -->
-    <CustomAction Id="DetectRevitInstallations" 
-                  BinaryKey="CustomActions" 
-                  DllEntry="DetectRevitInstallations" 
-                  Execute="firstSequence" 
+    <CustomAction Id="DetectRevitInstallations"
+                  BinaryKey="CustomActions"
+                  DllEntry="DetectRevitInstallations"
+                  Execute="firstSequence"
                   Return="check" />
 
-    <CustomAction Id="DetectPythonInstallation" 
-                  BinaryKey="CustomActions" 
-                  DllEntry="DetectPythonInstallation" 
-                  Execute="firstSequence" 
+    <CustomAction Id="DetectPythonInstallation"
+                  BinaryKey="CustomActions"
+                  DllEntry="DetectPythonInstallation"
+                  Execute="firstSequence"
                   Return="check" />
 
-    <CustomAction Id="ConfigureRevitAddins" 
-                  BinaryKey="CustomActions" 
-                  DllEntry="ConfigureRevitAddins" 
-                  Execute="deferred" 
-                  Impersonate="no" 
+    <CustomAction Id="ConfigureRevitAddins"
+                  BinaryKey="CustomActions"
+                  DllEntry="ConfigureRevitAddins"
+                  Execute="deferred"
+                  Impersonate="no"
                   Return="check" />
 
-    <CustomAction Id="StartRevitPyService" 
-                  BinaryKey="CustomActions" 
-                  DllEntry="StartRevitPyService" 
-                  Execute="deferred" 
-                  Impersonate="no" 
+    <CustomAction Id="StartRevitPyService"
+                  BinaryKey="CustomActions"
+                  DllEntry="StartRevitPyService"
+                  Execute="deferred"
+                  Impersonate="no"
                   Return="check" />
 
-    <CustomAction Id="RemoveRevitIntegration" 
-                  BinaryKey="CustomActions" 
-                  DllEntry="RemoveRevitIntegration" 
-                  Execute="deferred" 
-                  Impersonate="no" 
+    <CustomAction Id="RemoveRevitIntegration"
+                  BinaryKey="CustomActions"
+                  DllEntry="RemoveRevitIntegration"
+                  Execute="deferred"
+                  Impersonate="no"
                   Return="check" />
 
     <!-- User Interface Reference -->
@@ -210,14 +210,14 @@
     <UI>
       <!-- Welcome Dialog Customization -->
       <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
-      
+
       <!-- Feature Selection Customization -->
       <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
     </UI>
 
     <!-- License Agreement -->
     <WixVariable Id="WixUILicenseRtf" Value="$(var.SolutionDir)assets\license.rtf" />
-    
+
     <!-- Installer Branding -->
     <WixVariable Id="WixUIBannerBmp" Value="$(var.SolutionDir)assets\banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="$(var.SolutionDir)assets\dialog.bmp" />
@@ -238,7 +238,7 @@
     <!-- Service Installation -->
     <Component Id="RevitPyService" Guid="11111111-2222-3333-4444-555555555555" Directory="BinDir">
       <File Id="RevitPyServiceExe" Source="$(var.SolutionDir)..\src\RevitPy.Host\bin\$(var.Configuration)\RevitPy.Host.exe" />
-      
+
       <ServiceInstall Id="RevitPyHostService"
                       Name="RevitPyHost"
                       DisplayName="RevitPy Host Service"
@@ -248,7 +248,7 @@
                       Account="LocalSystem"
                       ErrorControl="normal"
                       Vital="yes" />
-      
+
       <ServiceControl Id="StartRevitPyService"
                       Name="RevitPyHost"
                       Start="install"
@@ -264,7 +264,7 @@
                               Port="8080"
                               Protocol="tcp"
                               Scope="localSubnet" />
-      
+
       <fire:FirewallException Id="RevitPyWebSocketPort"
                               Name="RevitPy WebSocket"
                               Port="8081"

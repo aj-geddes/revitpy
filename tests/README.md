@@ -187,12 +187,12 @@ The testing suite includes a comprehensive mock Revit environment that allows te
 def test_with_mock_revit(mock_revit_doc, mock_revit_elements):
     # Use mock Revit document
     wall = mock_revit_elements[0]  # First mock element (wall)
-    
+
     # Test element operations
     assert wall.height == 3000.0
     wall.height = 3500.0
     assert wall.height == 3500.0
-    
+
     # Test parameter access
     height_param = wall.get_parameter("Height")
     assert height_param.value == 3500.0
@@ -220,11 +220,11 @@ def test_api_call_performance(benchmark, api_wrapper):
 ```python
 def test_memory_usage(memory_leak_detector):
     memory_leak_detector.start()
-    
+
     # Perform operations
     for i in range(1000):
         perform_operation(i)
-    
+
     # Check for leaks
     stats = memory_leak_detector.check()
     assert stats["memory_increase_mb"] < 10  # Less than 10MB increase
@@ -326,7 +326,7 @@ def test_with_logging(caplog):
     with caplog.at_level(logging.DEBUG):
         # Test code here
         pass
-    
+
     assert "Expected log message" in caplog.text
 ```
 

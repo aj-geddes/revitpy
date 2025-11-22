@@ -1,27 +1,25 @@
 """Database configuration and connection management."""
 
-import os
-from typing import AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from ..config import get_settings
 from .models.base import Base
 
-# Database configuration
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://revitpy:revitpy@localhost/revitpy_registry"
-)
+# Load database configuration from centralized config
+_settings = get_settings()
+DATABASE_URL = str(_settings.database.url)
 
-# Create async engine
+# Create async engine with settings from config
 engine = create_async_engine(
     DATABASE_URL,
-    echo=os.getenv("SQL_DEBUG", "false").lower() == "true",
-    pool_size=20,
-    max_overflow=0,
+    echo=_settings.database.echo,
+    pool_size=_settings.database.pool_size,
+    max_overflow=_settings.database.max_overflow,
     pool_pre_ping=True,
-    pool_recycle=3600,
+    pool_recycle=_settings.database.pool_recycle,
 )
 
 # Create async session factory
@@ -55,33 +53,34 @@ async def drop_tables():
 
 class DatabaseManager:
     """Database management utilities."""
-    
-    def __init__(self, database_url: Optional[str] = None):
+
+    def __init__(self, database_url: str | None = None):
+        settings = get_settings()
         self.database_url = database_url or DATABASE_URL
         self.engine = create_async_engine(
             self.database_url,
-            echo=os.getenv("SQL_DEBUG", "false").lower() == "true",
+            echo=settings.database.echo,
         )
         self.session_factory = sessionmaker(
             self.engine,
             class_=AsyncSession,
             expire_on_commit=False,
         )
-    
+
     async def create_tables(self):
         """Create all database tables."""
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-    
+
     async def drop_tables(self):
         """Drop all database tables."""
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
-    
+
     async def get_session(self) -> AsyncSession:
         """Get a database session."""
         return self.session_factory()
-    
+
     async def close(self):
         """Close the database engine."""
         await self.engine.dispose()

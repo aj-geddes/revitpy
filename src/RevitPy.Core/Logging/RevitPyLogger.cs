@@ -90,7 +90,7 @@ public class RevitPyLogger : IRevitPyLogger
             };
 
             using var scope = BeginScope("Python", pythonData);
-            _logger.Log(logLevel, message + Environment.NewLine + "Stack trace: {StackTrace}", 
+            _logger.Log(logLevel, message + Environment.NewLine + "Stack trace: {StackTrace}",
                 pythonMessage, stackTrace);
         }
         else
@@ -227,7 +227,7 @@ public class StructuredLogEvent
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = false
         };
-        
+
         return JsonSerializer.Serialize(this, options);
     }
 }
@@ -258,7 +258,7 @@ public class FileLogEventSink : ILogEventSink, IDisposable
     public FileLogEventSink(string filePath)
     {
         _filePath = filePath ?? throw new ArgumentNullException(nameof(filePath));
-        
+
         // Ensure directory exists
         var directory = Path.GetDirectoryName(_filePath);
         if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))

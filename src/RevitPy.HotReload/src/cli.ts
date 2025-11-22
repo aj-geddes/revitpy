@@ -38,7 +38,7 @@ program
     try {
       const config = await loadConfig(options);
       const server = new HotReloadServer(config);
-      
+
       // Handle graceful shutdown
       process.on('SIGINT', async () => {
         console.log(chalk.yellow('\nShutting down server...'));
@@ -72,17 +72,17 @@ program
       const config = await loadConfig(options);
       const { BuildSystem } = await import('./build/buildSystem.js');
       const { AssetProcessor } = await import('./processors/assetProcessor.js');
-      
+
       const assetProcessor = new AssetProcessor(config);
       const buildSystem = new BuildSystem(config, assetProcessor);
-      
+
       if (options.watch) {
         console.log(chalk.blue('Starting build in watch mode...'));
         // Implement watch mode
       } else {
         console.log(chalk.blue('Building project...'));
         const result = await buildSystem.build();
-        
+
         if (result.success) {
           console.log(chalk.green('Build completed successfully!'));
           if (result.stats) {
@@ -117,22 +117,22 @@ program
     try {
       const { ProjectGenerator } = await import('./generators/projectGenerator.js');
       const generator = new ProjectGenerator();
-      
+
       const projectConfig = {
         name: options.name || path.basename(process.cwd()),
         template: options.template,
         author: options.author || process.env.USER || process.env.USERNAME,
         directory: process.cwd()
       };
-      
+
       console.log(chalk.blue('Initializing RevitPy project...'));
       await generator.generate(projectConfig);
-      
+
       console.log(chalk.green('Project initialized successfully!'));
       console.log(chalk.gray('Next steps:'));
       console.log(chalk.gray('  1. Install dependencies: npm install'));
       console.log(chalk.gray('  2. Start development: revitpy-dev start'));
-      
+
     } catch (error) {
       console.error(chalk.red('Initialization failed:'), error);
       process.exit(1);
@@ -159,12 +159,12 @@ program
   .description('Check system requirements and configuration')
   .action(async () => {
     console.log(chalk.blue('RevitPy Development Environment Check\n'));
-    
+
     // Check Node.js version
     const nodeVersion = process.version;
     const requiredNode = '18.0.0';
     console.log(`Node.js version: ${nodeVersion}`);
-    
+
     // Check Python
     try {
       const { execSync } = await import('child_process');
@@ -173,21 +173,21 @@ program
     } catch {
       console.log(chalk.yellow('Python not found in PATH'));
     }
-    
+
     // Check Revit installation
     const revitPaths = [
       'C:\\Program Files\\Autodesk\\Revit 2024',
       'C:\\Program Files\\Autodesk\\Revit 2023',
       'C:\\Program Files\\Autodesk\\Revit 2022'
     ];
-    
+
     const revitInstalled = revitPaths.find(existsSync);
     if (revitInstalled) {
       console.log(`Revit installation: ${revitInstalled}`);
     } else {
       console.log(chalk.yellow('Revit installation not detected'));
     }
-    
+
     // Check configuration
     try {
       const config = await loadConfig({});
@@ -195,16 +195,16 @@ program
     } catch (error) {
       console.log(chalk.red(`\nConfiguration error: ${error}`));
     }
-    
+
     console.log(chalk.green('\nSystem check completed'));
   });
 
 async function loadConfig(options: any): Promise<ServerConfig> {
   const configFile = options.config || 'revitpy.config.js';
   const configPath = path.resolve(configFile);
-  
+
   let fileConfig: Partial<ServerConfig> = {};
-  
+
   // Try to load configuration file
   if (existsSync(configPath)) {
     try {
@@ -215,7 +215,7 @@ async function loadConfig(options: any): Promise<ServerConfig> {
       console.warn(chalk.yellow(`Failed to load config file: ${error}`));
     }
   }
-  
+
   // Merge with command line options
   const config: ServerConfig = {
     port: parseInt(options.port) || fileConfig.port || 3000,
@@ -250,7 +250,7 @@ async function loadConfig(options: any): Promise<ServerConfig> {
     },
     ...fileConfig
   };
-  
+
   return config;
 }
 
@@ -258,12 +258,12 @@ function formatBytes(bytes: number): string {
   const units = ['B', 'KB', 'MB', 'GB'];
   let size = bytes;
   let unitIndex = 0;
-  
+
   while (size >= 1024 && unitIndex < units.length - 1) {
     size /= 1024;
     unitIndex++;
   }
-  
+
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 

@@ -29,29 +29,29 @@ dependencies = [
     "fastapi>=0.104.1",
     "uvicorn[standard]>=0.24.0",
     "pydantic>=2.5.0",
-    
+
     # Database
     "sqlalchemy>=2.0.23",
     "alembic>=1.13.0",
     "asyncpg>=0.29.0",  # PostgreSQL async driver
-    
+
     # Storage and Caching
     "boto3>=1.34.0",  # AWS S3
     "redis>=5.0.0",
     "aiofiles>=23.2.1",
-    
+
     # Security and Cryptography
     "cryptography>=42.0.2",
     "authlib>=1.3.1",
     "bcrypt>=4.1.2",
     "python-multipart>=0.0.6",
-    
+
     # Package Management
     "packaging>=23.2",
     "pip-tools>=7.3.0",
     "wheel>=0.38.1",
     "virtualenv>=20.25.0",
-    
+
     # HTTP and Networking
     "httpx>=0.25.2",
     "aiohttp>=3.9.1",
@@ -59,25 +59,25 @@ dependencies = [
     "requests>=2.32.4",
     "urllib3>=2.5.0",
     "certifi>=2023.7.22",
-    
+
     # CLI and UI
     "click>=8.1.7",
     "rich>=13.7.0",
     "typer>=0.9.0",
     "questionary>=2.0.1",
-    
+
     # Utilities
     "pyyaml>=6.0.1",
     "toml>=0.10.2",
     "python-dateutil>=2.8.2",
     "email-validator>=2.1.0",
     "python-slugify>=8.0.1",
-    
+
     # Monitoring and Logging
     "structlog>=23.2.0",
     "prometheus-client>=0.19.0",
     "sentry-sdk[fastapi]>=1.39.1",
-    
+
     # Testing (dev dependencies)
     "pytest>=7.4.3",
     "pytest-asyncio>=0.21.1",

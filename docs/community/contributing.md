@@ -231,21 +231,21 @@ def process_elements(
     include_hidden: bool = False,
 ) -> List[Element]:
     """Process elements with optional filtering.
-    
+
     Args:
         elements: List of elements to process
         filter_func: Optional function to filter elements
         include_hidden: Whether to include hidden elements
-        
+
     Returns:
         List of processed elements
     """
     if filter_func is None:
         filter_func = lambda x: True
-    
+
     return [
-        element 
-        for element in elements 
+        element
+        for element in elements
         if filter_func(element) or (include_hidden and element.is_hidden)
     ]
 ```
@@ -279,32 +279,32 @@ def complex_function(
     **kwargs
 ) -> Dict[str, Any]:
     """One-line summary of what the function does.
-    
+
     Longer description of the function, including details about
     its behavior, algorithm, or important considerations.
-    
+
     Args:
         param1: Description of the first parameter
         param2: Description of the second parameter with default value
         **kwargs: Additional keyword arguments:
             - special_option (bool): Enable special processing
             - timeout (int): Timeout in seconds
-    
+
     Returns:
         Dictionary containing:
-            - success (bool): Whether operation succeeded  
+            - success (bool): Whether operation succeeded
             - data (List[Any]): Processed data
             - errors (List[str]): Any errors encountered
-    
+
     Raises:
         ValueError: If param1 is empty
         RevitPyException: If Revit operation fails
-        
+
     Example:
         >>> result = complex_function("test", param2=42)
         >>> print(result["success"])
         True
-        
+
     Note:
         This function requires an active Revit context.
     """
@@ -343,21 +343,21 @@ from revitpy import RevitContext
 
 class TestElementProcessing:
     """Test suite for element processing functionality."""
-    
+
     def test_simple_element_query(self):
         """Test basic element querying."""
         with MockRevitContext() as context:
             # Arrange
             wall = create_mock_element('Wall', Height=10.0)
             context.add_element(wall)
-            
+
             # Act
             walls = context.elements.of_category('Walls').to_list()
-            
+
             # Assert
             assert len(walls) == 1
             assert walls[0].Height == 10.0
-    
+
     def test_complex_filtering(self):
         """Test complex element filtering scenarios."""
         with MockRevitContext() as context:
@@ -368,20 +368,20 @@ class TestElementProcessing:
                 create_mock_element('Door', Height=7.0, Name='Door'),
             ]
             context.add_elements(elements)
-            
+
             # Act
             tall_walls = (context.elements
                          .of_category('Walls')
                          .where(lambda w: w.Height > 10.0)
                          .to_list())
-            
+
             # Assert
             assert len(tall_walls) == 1
             assert tall_walls[0].Name == 'Tall Wall'
-    
+
     @pytest.mark.parametrize("height,expected_count", [
         (5.0, 3),   # All elements
-        (8.0, 2),   # Walls and door  
+        (8.0, 2),   # Walls and door
         (12.0, 1),  # Only tall wall
         (15.0, 0),  # No elements
     ])
@@ -390,15 +390,15 @@ class TestElementProcessing:
         with MockRevitContext() as context:
             elements = [
                 create_mock_element('Wall', Height=8.0),
-                create_mock_element('Wall', Height=12.0), 
+                create_mock_element('Wall', Height=12.0),
                 create_mock_element('Door', Height=7.0),
             ]
             context.add_elements(elements)
-            
+
             results = (context.elements
                       .where(lambda e: e.Height >= height)
                       .to_list())
-            
+
             assert len(results) == expected_count
 ```
 
@@ -418,7 +418,7 @@ def test_large_element_query_performance():
             for i in range(10000)
         ]
         context.add_elements(elements)
-        
+
         # Test query performance
         start_time = time.time()
         tall_walls = (context.elements
@@ -426,7 +426,7 @@ def test_large_element_query_performance():
                      .where(lambda w: w.Height > 15.0)
                      .to_list())
         end_time = time.time()
-        
+
         # Verify results and performance
         assert len(tall_walls) > 0
         assert (end_time - start_time) < 1.0
@@ -443,7 +443,7 @@ def test_large_element_query_performance():
    - [ ] Type annotations are added
    - [ ] Performance impact considered
 
-2. **🧪 Testing Checklist**  
+2. **🧪 Testing Checklist**
    - [ ] Unit tests added for new functionality
    - [ ] Integration tests pass
    - [ ] Manual testing completed
@@ -585,7 +585,7 @@ What should happen.
 What actually happens.
 
 **Environment**
-- RevitPy version: 
+- RevitPy version:
 - Python version:
 - Revit version:
 - Operating system:
@@ -645,7 +645,7 @@ We use labels to organize and prioritize issues:
 - `priority: medium`: Regular priority
 - `priority: low`: Nice to have
 
-#### Component Labels  
+#### Component Labels
 - `component: core`: Core framework functionality
 - `component: orm`: ORM layer issues
 - `component: cli`: Command-line interface
@@ -664,7 +664,7 @@ We use labels to organize and prioritize issues:
 
 #### Small Code Improvements
 - **Add type annotations**: Improve code clarity
-- **Write unit tests**: Increase test coverage  
+- **Write unit tests**: Increase test coverage
 - **Fix linting issues**: Clean up code quality
 - **Optimize imports**: Better organization
 
