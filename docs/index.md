@@ -18,8 +18,8 @@ description: Modern Python Framework for Revit Development
     </div>
 </section>
 
-<div class="container">
-    <div class="main-content">
+<div class="container" markdown="1">
+<div class="main-content" markdown="1">
 
 ## What is RevitPy?
 
