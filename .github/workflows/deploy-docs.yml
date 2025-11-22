@@ -46,7 +46,7 @@ jobs:
 
       - name: Build documentation
         run: |
-          mkdocs build --config-file docs/mkdocs.yml --site-dir site
+          mkdocs build --config-file docs/mkdocs.yml --site-dir ${{ github.workspace }}/site
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
