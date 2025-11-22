@@ -1,0 +1,16 @@
+# RevitPy Documentation - robots.txt
+# https://revitpy.org/
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://revitpy.org/sitemap.xml
+
+# Crawl-delay for polite bots
+Crawl-delay: 1
+
+# Disallow admin/build paths
+Disallow: /_site/
+Disallow: /.jekyll-cache/
+Disallow: /node_modules/
