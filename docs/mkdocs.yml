@@ -100,14 +100,14 @@ plugins:
   - git-revision-date-localized:
       enable_creation_date: true
       type: timeago
-  - git-committers:
-      repository: highvelocitysolutions/revitpy
-      branch: main
-  - social:
-      cards_layout_options:
-        background_color: "#0f1419"
-        color: "#ffffff"
-  - tags
+  # - git-committers:
+  #     repository: highvelocitysolutions/revitpy
+  #     branch: main
+  # - social:
+  #     cards_layout_options:
+  #       background_color: "#0f1419"
+  #       color: "#ffffff"
+  # - tags
   - glightbox
   - minify:
       minify_html: true
