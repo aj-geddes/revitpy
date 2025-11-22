@@ -3,7 +3,7 @@ site_name: RevitPy Framework Documentation
 site_description: The modern Python framework for Autodesk Revit development
 site_author: High Velocity Solutions
 site_url: https://aj-geddes.github.io/revitpy
-docs_dir: docs
+docs_dir: .
 
 # Repository
 repo_name: highvelocitysolutions/revitpy
