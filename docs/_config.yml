@@ -59,6 +59,11 @@ defaults:
       path: "reference"
     values:
       layout: "api"
+  - scope:
+      path: ""
+    values:
+      image: /assets/images/social-card.png
+      og_type: website
 
 # Navigation
 navigation:
@@ -126,6 +131,7 @@ exclude:
   - mkdocs.yml
   - requirements-docs.txt
   - README.md
+  - reference/api
 
 # Include files
 include:
@@ -151,14 +157,6 @@ social:
   links:
     - https://github.com/revitpy/revitpy
     - https://twitter.com/revitpy
-
-# Open Graph defaults
-defaults:
-  - scope:
-      path: ""
-    values:
-      image: /assets/images/social-card.png
-      og_type: website
 
 # Webmaster verification
 webmaster_verifications:
