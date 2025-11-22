@@ -1,7 +1,7 @@
 ---
 layout: api
 title: Core API
-description: Core API reference documentation
+description: Core API reference for RevitContext, Element, Transaction, and Query classes
 ---
 
 # Core API
@@ -10,102 +10,190 @@ The Core API provides the fundamental classes and functions for interacting with
 
 ## RevitContext
 
-The main entry point for all RevitPy operations.
+The main entry point for all RevitPy operations. Use as a context manager to ensure proper resource cleanup.
 
-::: revitpy.orm.context.RevitContext
-    options:
-      members:
-        - __init__
-        - __enter__
-        - __exit__
-        - elements
-        - transaction
-        - get_element_by_id
-        - get_active_document
-        - get_application
+```python
+from revitpy import RevitContext
 
-## Element API
+with RevitContext() as context:
+    walls = context.elements.of_category('Walls')
+```
 
-Classes and functions for working with Revit elements.
+### Constructor
 
-::: revitpy.api.element.Element
-    options:
-      members:
-        - Name
-        - Id
-        - Category
-        - get_parameter
-        - set_parameter
-        - get_geometry
-        - delete
+```python
+RevitContext(document=None, application=None)
+```
 
-::: revitpy.api.element.ElementWrapper
-    options:
-      members:
-        - __init__
-        - wrap_element
-        - unwrap_element
-        - get_properties
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `document` | `Document` | Optional Revit document. Uses active document if not specified. |
+| `application` | `Application` | Optional Revit application instance. |
 
-## Query API
+### Properties
 
-Query execution and result handling.
+| Property | Type | Description |
+|----------|------|-------------|
+| `elements` | `ElementQueryBuilder` | Query builder for accessing Revit elements |
+| `document` | `Document` | The active Revit document |
+| `application` | `Application` | The Revit application instance |
 
-::: revitpy.api.query.QueryExecutor
-    options:
-      members:
-        - execute
-        - execute_async
-        - explain_query
-        - get_statistics
+### Methods
 
-::: revitpy.api.query.QueryResult
-    options:
-      members:
-        - elements
-        - count
-        - execution_time
-        - to_list
-        - to_dict
+#### `transaction(name)`
+Creates a new transaction for modifying the Revit model.
 
-## Transaction API
+```python
+with context.transaction("Update Elements") as txn:
+    # Make changes
+    txn.commit()
+```
 
-Transaction management for Revit operations.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` | Name of the transaction (shown in Undo menu) |
 
-::: revitpy.api.transaction.Transaction
-    options:
-      members:
-        - __init__
-        - __enter__
-        - __exit__
-        - commit
-        - rollback
-        - get_status
+**Returns:** `Transaction` - A transaction context manager
 
-::: revitpy.api.transaction.TransactionManager
-    options:
-      members:
-        - start_transaction
-        - commit_transaction
-        - rollback_transaction
-        - is_transaction_active
+#### `get_element_by_id(element_id)`
+Retrieves an element by its ID.
 
-## Wrapper API
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element_id` | `int` or `ElementId` | The element's ID |
 
-Low-level wrapper around the Revit API.
+**Returns:** `Element` - The wrapped element
+**Raises:** `ElementNotFound` - If element doesn't exist
 
-::: revitpy.api.wrapper.RevitAPIWrapper
-    options:
-      members:
-        - get_application
-        - get_active_document
-        - create_transaction
-        - get_selection
-        - refresh_active_view
+#### `get_active_document()`
+Returns the currently active Revit document.
+
+**Returns:** `Document` - The active document
+
+#### `get_application()`
+Returns the Revit application instance.
+
+**Returns:** `Application` - The Revit application
+
+---
+
+## Element
+
+Wrapper class for Revit elements providing a Pythonic interface.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Id` | `ElementId` | The element's unique identifier |
+| `Name` | `str` | The element's name |
+| `Category` | `str` | The element's category name |
+| `BoundingBox` | `BoundingBox` | The element's bounding box |
+
+### Methods
+
+#### `get_parameter(name)`
+Gets a parameter value by name.
+
+```python
+height = wall.get_parameter('Unconnected Height')
+print(height.value, height.unit)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` | Parameter name |
+
+**Returns:** `ParameterValue` - The parameter value with unit information
+**Raises:** `ParameterNotFound` - If parameter doesn't exist
+
+#### `set_parameter(name, value)`
+Sets a parameter value. Must be called within a transaction.
+
+```python
+with context.transaction("Update") as txn:
+    wall.set_parameter('Comments', 'Updated by RevitPy')
+    txn.commit()
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` | Parameter name |
+| `value` | `any` | New value |
+
+**Raises:** `ParameterNotFound`, `ReadOnlyParameter`
+
+#### `get_geometry(options=None)`
+Returns the element's geometry.
+
+**Returns:** `GeometryElement` - The element's geometry
+
+#### `delete()`
+Deletes the element. Must be called within a transaction.
+
+---
+
+## Transaction
+
+Manages Revit transactions for model modifications.
+
+### Usage
+
+```python
+with context.transaction("My Changes") as txn:
+    # Make modifications
+    wall.set_parameter('Comments', 'Updated')
+
+    # Commit or rollback
+    txn.commit()
+    # or txn.rollback()
+```
+
+### Methods
+
+#### `commit()`
+Commits all changes made within the transaction.
+
+#### `rollback()`
+Rolls back all changes made within the transaction.
+
+#### `get_status()`
+Returns the current transaction status.
+
+**Returns:** `str` - One of: `'Started'`, `'Committed'`, `'RolledBack'`
+
+---
+
+## QueryResult
+
+Result of an element query operation.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `elements` | `list[Element]` | The queried elements |
+| `count` | `int` | Number of elements |
+| `execution_time` | `float` | Query execution time in seconds |
+
+### Methods
+
+#### `to_list()`
+Converts results to a Python list.
+
+**Returns:** `list[Element]`
+
+#### `to_dict()`
+Converts results to a dictionary keyed by element ID.
+
+**Returns:** `dict[int, Element]`
+
+---
 
 ## Usage Examples
 
 ### Basic Element Access
+
 ```python
 from revitpy import RevitContext
 
@@ -117,11 +205,12 @@ def list_all_walls():
         for wall in walls:
             print(f"Wall ID: {wall.Id}")
             print(f"Wall Name: {wall.Name}")
-            print(f"Wall Height: {wall.get_parameter('Height').AsDouble()}")
+            print(f"Wall Height: {wall.get_parameter('Height').value}")
             print("---")
 ```
 
 ### Transaction Management
+
 ```python
 def update_wall_comments():
     """Update comments for all walls."""
@@ -130,48 +219,17 @@ def update_wall_comments():
 
         with context.transaction("Update Wall Comments") as txn:
             for wall in walls:
-                height = wall.get_parameter('Height').AsDouble()
+                height = wall.get_parameter('Height').value
                 comment = f"Height: {height:.1f} ft"
                 wall.set_parameter('Comments', comment)
 
             txn.commit()
 ```
 
-### Element Creation
-```python
-def create_wall(start_point, end_point, height):
-    """Create a new wall between two points."""
-    with RevitContext() as context:
-        with context.transaction("Create Wall") as txn:
-            # Get wall type
-            wall_types = context.elements.of_category('WallTypes')
-            wall_type = wall_types.first()
-
-            # Create wall using Revit API
-            from Autodesk.Revit.DB import Wall, Line, XYZ
-
-            line = Line.CreateBound(
-                XYZ(start_point[0], start_point[1], 0),
-                XYZ(end_point[0], end_point[1], 0)
-            )
-
-            wall = Wall.Create(
-                context.get_active_document(),
-                line,
-                wall_type.Id,
-                context.get_active_document().ActiveView.GenLevel.Id,
-                height,
-                0,
-                False,
-                False
-            )
-
-            txn.commit()
-            return context.wrap_element(wall)
-```
-
 ### Error Handling
+
 ```python
+from revitpy import RevitContext
 from revitpy.exceptions import ElementNotFound, TransactionFailed
 
 def safe_element_access(element_id):
@@ -188,9 +246,12 @@ def safe_element_access(element_id):
         return None
 ```
 
+---
+
 ## Performance Tips
 
 ### 1. Use Context Managers
+
 Always use `with RevitContext()` to ensure proper resource cleanup:
 
 ```python
@@ -198,13 +259,13 @@ Always use `with RevitContext()` to ensure proper resource cleanup:
 with RevitContext() as context:
     elements = context.elements.of_category('Walls')
 
-# Bad
+# Bad - resources may not be cleaned up
 context = RevitContext()
 elements = context.elements.of_category('Walls')
-# Resources may not be properly cleaned up
 ```
 
 ### 2. Minimize Transactions
+
 Group related operations in a single transaction:
 
 ```python
@@ -215,7 +276,7 @@ with RevitContext() as context:
             wall.set_parameter('Comments', 'Updated')
         txn.commit()
 
-# Bad - Multiple transactions
+# Bad - Multiple transactions (slower)
 with RevitContext() as context:
     for wall in walls:
         with context.transaction("Update Wall") as txn:
@@ -224,6 +285,7 @@ with RevitContext() as context:
 ```
 
 ### 3. Cache Frequently Used Data
+
 Store commonly accessed data to avoid repeated queries:
 
 ```python
@@ -238,39 +300,41 @@ def process_elements_efficiently():
             # Process wall with cached type data
 ```
 
+---
+
 ## Thread Safety
 
-The Core API is designed to be thread-safe within the constraints of the Revit API:
+<div class="callout callout-warning">
+  <div class="callout-title">Revit API Limitations</div>
+  <p>The Revit API has threading limitations. Operations that modify the model must be performed on the main UI thread. Use RevitPy's async support for better concurrency patterns.</p>
+</div>
+
+Each thread needs its own RevitContext:
 
 ```python
 import threading
 from revitpy import RevitContext
 
 def process_in_thread():
-    """Process elements in a background thread."""
-    # Each thread needs its own RevitContext
     with RevitContext() as context:
         walls = context.elements.of_category('Walls')
         return len(walls)
 
-# Create and start threads
 threads = []
 for i in range(4):
     thread = threading.Thread(target=process_in_thread)
     threads.append(thread)
     thread.start()
 
-# Wait for completion
 for thread in threads:
     thread.join()
 ```
 
-!!! warning "Revit API Limitations"
-    The Revit API itself has threading limitations. Operations that modify the Revit model must be performed on the main UI thread. Use RevitPy's async support for better concurrency patterns.
+---
 
 ## Next Steps
 
-- **[ORM Layer](orm.md)**: Learn about the object-relational mapping capabilities
-- **[Element Sets](element-sets.md)**: Work with collections of elements efficiently
-- **[Transaction Management](transaction-api.md)**: Master transaction patterns
-- **[Error Handling](../guides/error-handling.md)**: Implement robust error handling
+- **[ORM Layer]({{ '/reference/api/orm/' | relative_url }})**: Learn about LINQ-style queries
+- **[Async Support]({{ '/reference/api/async/' | relative_url }})**: Asynchronous operations
+- **[Events]({{ '/reference/api/events/' | relative_url }})**: Event handling
+- **[Testing]({{ '/reference/api/testing/' | relative_url }})**: Testing utilities

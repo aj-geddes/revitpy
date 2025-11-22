@@ -19,76 +19,238 @@ The Event System enables:
 - **Event priority**: Control handler execution order
 - **Event pipelines**: Chain event handlers
 
-## Core Classes
+---
 
-### EventManager
+## EventManager
 
 Central manager for all events in the application.
 
-::: revitpy.events.EventManager
-    options:
-      members:
-        - subscribe
-        - unsubscribe
-        - dispatch
-        - dispatch_async
-        - get_subscribers
-        - clear_all_subscribers
+### Constructor
 
-### EventHandler
+```python
+EventManager()
+```
+
+### Methods
+
+#### `subscribe(event_type, handler)`
+Subscribes a handler to an event type.
+
+```python
+event_mgr.subscribe(EventType.ELEMENT_ADDED, on_element_added)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event_type` | `EventType` or `str` | The event type to subscribe to |
+| `handler` | `Callable` | Handler function or object |
+
+#### `unsubscribe(event_type, handler)`
+Unsubscribes a handler from an event type.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event_type` | `EventType` or `str` | The event type |
+| `handler` | `Callable` | Handler to remove |
+
+#### `dispatch(event_type, event_data)`
+Dispatches an event to all subscribers.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event_type` | `EventType` or `str` | The event type |
+| `event_data` | `EventData` | The event data |
+
+#### `dispatch_async(event_type, event_data)`
+Dispatches an event asynchronously.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event_type` | `EventType` or `str` | The event type |
+| `event_data` | `EventData` | The event data |
+
+**Returns:** `Awaitable` - Awaitable result
+
+#### `dispatch_batch(event_type, events)`
+Dispatches multiple events efficiently.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event_type` | `EventType` or `str` | The event type |
+| `events` | `list[EventData]` | List of event data objects |
+
+#### `get_subscribers(event_type)`
+Returns all subscribers for an event type.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event_type` | `EventType` or `str` | The event type |
+
+**Returns:** `list[Callable]` - List of handlers
+
+#### `clear_all_subscribers()`
+Removes all event subscriptions.
+
+#### `configure(**options)`
+Configures event manager behavior.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `stop_on_error` | `bool` | Stop processing on handler error |
+| `log_errors` | `bool` | Log handler errors |
+| `error_handler` | `Callable` | Custom error handler |
+
+#### `add_transformer(event_type, transformer)`
+Adds an event transformer for enriching events.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event_type` | `EventType` | Event type to transform |
+| `transformer` | `EventTransformer` | Transformer instance |
+
+---
+
+## BaseEventHandler
 
 Base class for event handlers.
 
-::: revitpy.events.handlers.BaseEventHandler
-    options:
-      members:
-        - handle
-        - can_handle
-        - get_priority
-        - get_name
+### Methods
 
-### EventType
+#### `handle(event_data)`
+Processes the event. Override in subclasses.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event_data` | `EventData` | The event data |
+
+#### `can_handle(event_data)`
+Checks if this handler can process the event.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event_data` | `EventData` | The event data |
+
+**Returns:** `bool` - True if handler can process
+
+#### `get_priority()`
+Returns the handler priority.
+
+**Returns:** `int` - Priority value (higher = runs first)
+
+#### `get_name()`
+Returns the handler name.
+
+**Returns:** `str` - Handler name
+
+---
+
+## EventType
 
 Enumeration of available event types.
 
-::: revitpy.events.types.EventType
-    options:
-      members:
-        - DOCUMENT_OPENED
-        - DOCUMENT_CLOSED
-        - DOCUMENT_SAVING
-        - DOCUMENT_SAVED
-        - ELEMENT_ADDED
-        - ELEMENT_MODIFIED
-        - ELEMENT_DELETED
-        - VIEW_ACTIVATED
-        - SELECTION_CHANGED
+| Event | Description |
+|-------|-------------|
+| `DOCUMENT_OPENED` | Document was opened |
+| `DOCUMENT_CLOSED` | Document was closed |
+| `DOCUMENT_SAVING` | Document is being saved (cancellable) |
+| `DOCUMENT_SAVED` | Document was saved |
+| `ELEMENT_ADDED` | Element was added |
+| `ELEMENT_MODIFIED` | Element was modified |
+| `ELEMENT_DELETED` | Element was deleted |
+| `VIEW_ACTIVATED` | View was activated |
+| `SELECTION_CHANGED` | Selection changed |
 
-### EventData
+---
+
+## EventData
 
 Container for event data.
 
-::: revitpy.events.types.EventData
-    options:
-      members:
-        - event_type
-        - timestamp
-        - source
-        - data
-        - is_cancellable
-        - cancel
+### Constructor
 
-### EventFilter
+```python
+EventData(event_type, source=None, data=None, is_cancellable=False)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event_type` | `EventType` or `str` | Type of event |
+| `source` | `str` | Event source identifier |
+| `data` | `dict` | Event payload data |
+| `is_cancellable` | `bool` | Whether event can be cancelled |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `event_type` | `EventType` | The event type |
+| `timestamp` | `datetime` | When the event occurred |
+| `source` | `str` | Source of the event |
+| `data` | `dict` | Event payload |
+| `is_cancellable` | `bool` | Whether event can be cancelled |
+
+### Methods
+
+#### `cancel()`
+Cancels the event (if cancellable).
+
+---
+
+## EventFilter
 
 Filter events based on criteria.
 
-::: revitpy.events.filters.EventFilter
-    options:
-      members:
-        - matches
-        - add_condition
-        - and_filter
-        - or_filter
+### Methods
+
+#### `matches(event_data)`
+Checks if event matches filter criteria.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event_data` | `EventData` | Event to check |
+
+**Returns:** `bool` - True if matches
+
+#### `add_condition(condition)`
+Adds a filter condition.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `condition` | `Callable` | Condition function |
+
+**Returns:** `EventFilter` - Self for chaining
+
+#### `and_filter(other)`
+Combines with another filter using AND logic.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `other` | `EventFilter` | Other filter |
+
+**Returns:** `EventFilter` - Combined filter
+
+#### `or_filter(other)`
+Combines with another filter using OR logic.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `other` | `EventFilter` | Other filter |
+
+**Returns:** `EventFilter` - Combined filter
+
+---
+
+## EventPriority
+
+Priority constants for handler execution order.
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `HIGH` | `100` | Runs first |
+| `NORMAL` | `50` | Default priority |
+| `LOW` | `10` | Runs last |
+
+---
 
 ## Basic Usage
 
@@ -170,6 +332,8 @@ async def on_document_saving_async(event_data):
 event_mgr.subscribe(EventType.DOCUMENT_SAVING, on_document_saving_async)
 ```
 
+---
+
 ## Event Filtering
 
 ### Basic Filtering
@@ -244,6 +408,8 @@ def setup_composite_filters():
     event_mgr.subscribe(EventType.ELEMENT_MODIFIED, on_wall_height_changed)
 ```
 
+---
+
 ## Event Priority
 
 ### Priority-Based Execution
@@ -273,6 +439,8 @@ def update_statistics(event_data):
     """Update statistics after all other handlers."""
     update_element_count()
 ```
+
+---
 
 ## Custom Events
 
@@ -373,6 +541,8 @@ class DocumentExportPipeline:
 
         await self.pipeline.execute(event_data)
 ```
+
+---
 
 ## Advanced Patterns
 
@@ -489,6 +659,8 @@ transformer = ElementChangeTransformer()
 event_mgr.add_transformer(EventType.ELEMENT_MODIFIED, transformer)
 ```
 
+---
+
 ## Error Handling
 
 ### Handling Event Errors
@@ -521,6 +693,8 @@ event_mgr.configure(
 )
 ```
 
+---
+
 ## Performance Optimization
 
 ### Efficient Event Dispatching
@@ -546,6 +720,8 @@ await event_mgr.dispatch_async(
     EventData(data={'document': doc})
 )
 ```
+
+---
 
 ## Testing Events
 
@@ -579,6 +755,8 @@ def test_event_handler():
     assert handler_called
 ```
 
+---
+
 ## Best Practices
 
 1. **Use event filters**: Filter events early to improve performance
@@ -588,8 +766,10 @@ def test_event_handler():
 5. **Keep handlers focused**: Each handler should do one thing well
 6. **Use async for I/O**: Use async handlers for network or file operations
 
+---
+
 ## Next Steps
 
-- **[Extensions Framework](extensions.md)**: Build extensions with event support
-- **[Async Support](async.md)**: Use async/await with events
-- **[Testing Events](../../guides/testing-events.md)**: Test event-driven code
+- **[Extensions Framework]({{ '/reference/api/extensions/' | relative_url }})**: Build extensions with event support
+- **[Async Support]({{ '/reference/api/async/' | relative_url }})**: Use async/await with events
+- **[Testing Events]({{ '/guides/testing-events/' | relative_url }})**: Test event-driven code

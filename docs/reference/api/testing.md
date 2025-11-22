@@ -19,74 +19,291 @@ The Testing Framework includes:
 - **Snapshot testing**: Compare element states
 - **Async test support**: Test async operations
 
-## Core Classes
+---
 
-### MockRevit
+## MockRevit
 
 Complete mock Revit environment for testing.
 
-::: revitpy.testing.MockRevit
-    options:
-      members:
-        - create_document
-        - create_element
-        - create_application
-        - get_active_document
-        - set_active_document
+### Constructor
 
-### MockDocument
+```python
+MockRevit()
+```
+
+### Methods
+
+#### `create_document(name=None)`
+Creates a mock Revit document.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` | Optional document name |
+
+**Returns:** `MockDocument` - The mock document
+
+#### `create_element(category, **properties)`
+Creates a mock element.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `category` | `str` | Element category |
+| `**properties` | `any` | Element properties |
+
+**Returns:** `MockElement` - The mock element
+
+#### `create_application()`
+Creates a mock Revit application.
+
+**Returns:** `MockApplication` - The mock application
+
+#### `get_active_document()`
+Returns the active mock document.
+
+**Returns:** `MockDocument` - The active document
+
+#### `set_active_document(document)`
+Sets the active mock document.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `document` | `MockDocument` | Document to activate |
+
+#### `cleanup()`
+Cleans up all mock resources.
+
+---
+
+## MockDocument
 
 Mock Revit document.
 
-::: revitpy.testing.MockDocument
-    options:
-      members:
-        - create_element
-        - get_element
-        - delete_element
-        - get_elements
-        - start_transaction
-        - save
+### Methods
 
-### MockElement
+#### `create_element(category, properties=None)`
+Creates an element in the document.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `category` | `str` | Element category |
+| `properties` | `dict` | Element properties |
+
+**Returns:** `MockElement` - The created element
+
+#### `get_element(element_id)`
+Gets an element by ID.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element_id` | `int` | Element ID |
+
+**Returns:** `MockElement` - The element or `None`
+
+#### `delete_element(element_id)`
+Deletes an element.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element_id` | `int` | Element ID |
+
+#### `get_elements(category=None)`
+Gets elements, optionally filtered by category.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `category` | `str` | Optional category filter |
+
+**Returns:** `list[MockElement]` - List of elements
+
+#### `start_transaction(name)`
+Starts a mock transaction.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` | Transaction name |
+
+**Returns:** `MockTransaction` - The transaction context manager
+
+#### `save(path=None)`
+Saves the mock document.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `path` | `str` | Optional save path |
+
+---
+
+## MockElement
 
 Mock Revit element with configurable properties.
 
-::: revitpy.testing.MockElement
-    options:
-      members:
-        - Id
-        - Name
-        - Category
-        - get_parameter
-        - set_parameter
-        - delete
+### Constructor
 
-### RevitTestCase
+```python
+MockElement(category, **properties)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `category` | `str` | Element category |
+| `**properties` | `any` | Element properties |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Id` | `int` | Element ID |
+| `Name` | `str` | Element name |
+| `Category` | `str` | Element category |
+
+### Methods
+
+#### `get_parameter(name)`
+Gets a parameter value.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` | Parameter name |
+
+**Returns:** `MockParameter` - The parameter
+
+#### `set_parameter(name, value)`
+Sets a parameter value.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` | Parameter name |
+| `value` | `any` | Parameter value |
+
+#### `delete()`
+Marks the element as deleted.
+
+#### `get_all_parameters()`
+Returns all parameters.
+
+**Returns:** `list[MockParameter]` - All parameters
+
+---
+
+## RevitTestCase
 
 Base class for Revit test cases.
 
-::: revitpy.testing.RevitTestCase
-    options:
-      members:
-        - setUp
-        - tearDown
-        - create_mock_context
-        - create_mock_element
-        - assert_element_exists
-        - assert_parameter_value
+### Methods
 
-### AsyncRevitTestCase
+#### `setUp()`
+Called before each test. Override to set up test environment.
+
+#### `tearDown()`
+Called after each test. Override to clean up.
+
+#### `create_mock_context()`
+Creates a mock RevitContext.
+
+**Returns:** `MockRevitContext` - The mock context
+
+#### `create_mock_element(category, **properties)`
+Creates a mock element.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `category` | `str` | Element category |
+| `**properties` | `any` | Element properties |
+
+**Returns:** `MockElement` - The mock element
+
+#### `assert_element_exists(context, element_id)`
+Asserts that an element exists.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `context` | `RevitContext` | The context |
+| `element_id` | `int` | Element ID |
+
+#### `assert_parameter_value(element, name, expected)`
+Asserts a parameter has an expected value.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element` | `Element` | The element |
+| `name` | `str` | Parameter name |
+| `expected` | `any` | Expected value |
+
+#### `assert_parameter_in_range(element, name, min_val, max_val)`
+Asserts a parameter value is within range.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element` | `Element` | The element |
+| `name` | `str` | Parameter name |
+| `min_val` | `float` | Minimum value |
+| `max_val` | `float` | Maximum value |
+
+#### `assert_element_category(element, expected_category)`
+Asserts an element has the expected category.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element` | `Element` | The element |
+| `expected_category` | `str` | Expected category |
+
+#### `assert_element_has_parameter(element, name)`
+Asserts an element has a parameter.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element` | `Element` | The element |
+| `name` | `str` | Parameter name |
+
+---
+
+## AsyncRevitTestCase
 
 Test case for async operations.
 
-::: revitpy.testing.AsyncRevitTestCase
-    options:
-      members:
-        - setUp
-        - tearDown
-        - run_async
-        - assert_async_completes
+### Methods
+
+#### `setUp()`
+Called before each async test.
+
+#### `tearDown()`
+Called after each async test.
+
+#### `run_async(coroutine)`
+Runs an async coroutine in the test.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `coroutine` | `Coroutine` | Async coroutine |
+
+**Returns:** Result of the coroutine
+
+#### `assert_async_completes(coroutine, timeout=5.0)`
+Asserts an async operation completes within timeout.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `coroutine` | `Coroutine` | Async coroutine |
+| `timeout` | `float` | Timeout in seconds |
+
+#### `add_mock_elements_async(elements)`
+Adds mock elements asynchronously.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `elements` | `list[MockElement]` | Elements to add |
+
+#### `create_mock_element_async(category, **properties)`
+Creates a mock element asynchronously.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `category` | `str` | Element category |
+| `**properties` | `any` | Element properties |
+
+**Returns:** `MockElement` - The mock element
+
+---
 
 ## Basic Testing
 
@@ -183,6 +400,8 @@ class TestElementQueries(RevitTestCase):
             self.assertEqual(walls[1].Name, 'B')
             self.assertEqual(walls[2].Name, 'C')
 ```
+
+---
 
 ## Test Fixtures
 
@@ -292,6 +511,8 @@ class TestWithDocumentFixture(RevitTestCase):
         self.assertEqual(len(rooms), 8)
 ```
 
+---
+
 ## Specialized Assertions
 
 ### Element Assertions
@@ -380,6 +601,8 @@ class TestGeometry(RevitTestCase, GeometryAssertions):
         self.assert_volume_equals(element, 200.0, tolerance=1.0)
 ```
 
+---
+
 ## Snapshot Testing
 
 ### Element Snapshots
@@ -446,6 +669,8 @@ class TestGeometrySnapshots(RevitTestCase):
         is_equal = loaded_snapshot.equals(current, tolerance=0.01)
         self.assertTrue(is_equal)
 ```
+
+---
 
 ## Async Testing
 
@@ -515,6 +740,8 @@ class TestAsyncContextManagers(AsyncRevitTestCase):
 
         # Element automatically cleaned up
 ```
+
+---
 
 ## Test Runners
 
@@ -598,6 +825,8 @@ suite.run_group('core')
 suite.run_all()
 ```
 
+---
+
 ## Mocking Strategies
 
 ### Partial Mocking
@@ -647,6 +876,8 @@ class TestWithSpies(RevitTestCase):
         self.assertEqual(element.get_call_count('get_parameter'), 2)
 ```
 
+---
+
 ## Performance Testing
 
 ### Performance Test Cases
@@ -686,6 +917,8 @@ class TestPerformance(PerformanceTestCase):
             time_per_element = timer.elapsed / len(walls)
             self.assertLess(time_per_element, 0.01, "Update too slow per element")
 ```
+
+---
 
 ## Integration Testing
 
@@ -738,6 +971,8 @@ class IntegrationTestCase(RevitTestCase):
             self.assertEqual(wall.get_parameter('Comments').AsString(), 'Updated')
 ```
 
+---
+
 ## Best Practices
 
 1. **Use appropriate mocks**: Mock only what you need
@@ -748,8 +983,10 @@ class IntegrationTestCase(RevitTestCase):
 6. **Use descriptive test names**: Test names should describe what they test
 7. **Mock external dependencies**: Isolate tests from external systems
 
+---
+
 ## Next Steps
 
-- **[Testing Guide](../../guides/testing.md)**: Comprehensive testing guide
-- **[Test Examples](../../examples/testing/)**: Example test cases
-- **[CI/CD Integration](../../guides/ci-cd.md)**: Integrate tests into CI/CD
+- **[Testing Guide]({{ '/guides/testing/' | relative_url }})**: Comprehensive testing guide
+- **[Test Examples]({{ '/examples/testing/' | relative_url }})**: Example test cases
+- **[CI/CD Integration]({{ '/guides/ci-cd/' | relative_url }})**: Integrate tests into CI/CD

@@ -19,91 +19,297 @@ The Async Support module enables:
 - **Context managers**: Async context management
 - **Thread-safe operations**: Safe concurrent access to Revit API
 
-## Core Classes
+---
 
-### AsyncRevit
+## AsyncRevit
 
 Main class for asynchronous Revit operations.
 
-::: revitpy.async_support.AsyncRevit
-    options:
-      members:
-        - __init__
-        - execute_async
-        - create_task
-        - cancel_all_tasks
-        - wait_for_completion
-        - get_task_status
-        - set_max_concurrent_tasks
+### Constructor
 
-### async_transaction
+```python
+AsyncRevit(max_concurrent_tasks=4)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `max_concurrent_tasks` | `int` | Maximum number of concurrent tasks. Default is `4`. |
+
+### Methods
+
+#### `execute_async(func, *args, **kwargs)`
+Executes a function asynchronously.
+
+```python
+result = await async_revit.execute_async(process_elements, elements)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `func` | `Callable` | Function to execute |
+| `*args` | `any` | Positional arguments for the function |
+| `**kwargs` | `any` | Keyword arguments for the function |
+
+**Returns:** `any` - Result of the function execution
+
+#### `create_task(coroutine, name=None)`
+Creates a new async task.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `coroutine` | `Coroutine` | Async coroutine to execute |
+| `name` | `str` | Optional task name for identification |
+
+**Returns:** `Task` - The created task
+
+#### `cancel_all_tasks()`
+Cancels all running and pending tasks.
+
+#### `wait_for_completion(timeout=None)`
+Waits for all tasks to complete.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `timeout` | `float` | Optional timeout in seconds |
+
+**Returns:** `bool` - True if all tasks completed, False if timeout
+
+#### `get_task_status(task_id)`
+Gets the status of a specific task.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `task_id` | `str` | Task identifier |
+
+**Returns:** `str` - Task status: `'pending'`, `'running'`, `'completed'`, `'cancelled'`, or `'failed'`
+
+#### `set_max_concurrent_tasks(count)`
+Sets the maximum number of concurrent tasks.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `count` | `int` | Maximum concurrent tasks |
+
+#### `get_elements_async(category)`
+Asynchronously retrieves elements by category.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `category` | `str` | Element category name |
+
+**Returns:** `list[Element]` - List of elements
+
+#### `get_element_by_id_async(element_id)`
+Asynchronously retrieves an element by ID.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element_id` | `int` or `ElementId` | Element identifier |
+
+**Returns:** `Element` - The element
+**Raises:** `ElementNotFound` - If element doesn't exist
+
+#### `set_parameter_async(element, name, value)`
+Asynchronously sets a parameter value.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element` | `Element` | Target element |
+| `name` | `str` | Parameter name |
+| `value` | `any` | New value |
+
+---
+
+## async_transaction
 
 Async context manager for transactions.
 
-::: revitpy.async_support.async_transaction
-    options:
-      members:
-        - __aenter__
-        - __aexit__
-        - commit
-        - rollback
+### Usage
 
-### TaskQueue
+```python
+async with async_transaction(async_revit, "Transaction Name") as txn:
+    # Make changes
+    await txn.commit()
+```
+
+### Methods
+
+#### `commit()`
+Commits the transaction asynchronously.
+
+#### `rollback()`
+Rolls back the transaction asynchronously.
+
+---
+
+## TaskQueue
 
 Manages queued asynchronous tasks.
 
-::: revitpy.async_support.task_queue.TaskQueue
-    options:
-      members:
-        - enqueue
-        - dequeue
-        - get_pending_tasks
-        - get_running_tasks
-        - get_completed_tasks
-        - clear_completed
+### Constructor
 
-### Task
+```python
+TaskQueue(max_concurrent=4)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `max_concurrent` | `int` | Maximum concurrent tasks |
+
+### Methods
+
+#### `enqueue(task)`
+Adds a task to the queue.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `task` | `Task` | Task to enqueue |
+
+#### `dequeue()`
+Removes and returns the next task from the queue.
+
+**Returns:** `Task` - The next task
+
+#### `process_all()`
+Processes all queued tasks.
+
+#### `get_pending_tasks()`
+Returns all pending tasks.
+
+**Returns:** `list[Task]` - Pending tasks
+
+#### `get_running_tasks()`
+Returns all running tasks.
+
+**Returns:** `list[Task]` - Running tasks
+
+#### `get_completed_tasks()`
+Returns all completed tasks.
+
+**Returns:** `list[Task]` - Completed tasks
+
+#### `clear_completed()`
+Clears completed tasks from the queue.
+
+---
+
+## Task
 
 Represents an asynchronous task.
 
-::: revitpy.async_support.task_queue.Task
-    options:
-      members:
-        - id
-        - name
-        - status
-        - result
-        - error
-        - progress
-        - created_at
-        - started_at
-        - completed_at
-        - cancel
+### Constructor
 
-### CancellationToken
+```python
+Task(name, coroutine, priority=0)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` | Task name |
+| `coroutine` | `Coroutine` | Async coroutine |
+| `priority` | `int` | Task priority (higher = more important) |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique task identifier |
+| `name` | `str` | Task name |
+| `status` | `str` | Current status |
+| `result` | `any` | Task result (when completed) |
+| `error` | `Exception` | Task error (when failed) |
+| `progress` | `float` | Progress percentage (0-100) |
+| `created_at` | `datetime` | Creation timestamp |
+| `started_at` | `datetime` | Start timestamp |
+| `completed_at` | `datetime` | Completion timestamp |
+
+### Methods
+
+#### `cancel()`
+Cancels the task.
+
+---
+
+## CancellationToken
 
 Provides cancellation support for async operations.
 
-::: revitpy.async_support.cancellation.CancellationToken
-    options:
-      members:
-        - is_cancelled
-        - cancel
-        - throw_if_cancelled
-        - register_callback
+### Constructor
 
-### ProgressReporter
+```python
+CancellationToken()
+```
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `is_cancelled` | `bool` | Whether cancellation was requested |
+
+### Methods
+
+#### `cancel()`
+Requests cancellation.
+
+#### `throw_if_cancelled()`
+Throws `TaskCancelledError` if cancelled.
+
+**Raises:** `TaskCancelledError` - If cancellation was requested
+
+#### `register_callback(callback)`
+Registers a callback to be called on cancellation.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `callback` | `Callable` | Callback function |
+
+---
+
+## ProgressReporter
 
 Reports progress for long-running operations.
 
-::: revitpy.async_support.progress.ProgressReporter
-    options:
-      members:
-        - report
-        - report_progress
-        - report_status
-        - get_progress
-        - is_indeterminate
+### Constructor
+
+```python
+ProgressReporter()
+```
+
+### Methods
+
+#### `report_progress(percentage, message=None)`
+Reports progress percentage and optional message.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `percentage` | `float` | Progress percentage (0-100) |
+| `message` | `str` | Optional status message |
+
+#### `report_status(status)`
+Reports a status change.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `status` | `str` | Status description |
+
+#### `get_progress()`
+Gets current progress.
+
+**Returns:** `tuple[float, str]` - Progress percentage and message
+
+#### `add_callback(callback)`
+Adds a progress callback.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `callback` | `ProgressCallback` | Callback instance |
+
+#### `is_indeterminate()`
+Checks if progress is indeterminate.
+
+**Returns:** `bool` - True if progress cannot be determined
+
+---
 
 ## Basic Usage
 
@@ -194,6 +400,8 @@ token.cancel()
 await task
 ```
 
+---
+
 ## Task Queue Management
 
 ### Creating and Managing Tasks
@@ -249,6 +457,8 @@ async def priority_task_processing():
     # Process queue (critical tasks run first)
     await queue.process_all()
 ```
+
+---
 
 ## Advanced Async Patterns
 
@@ -327,6 +537,8 @@ async def batch_async_updates(updates):
         await txn.commit()
 ```
 
+---
+
 ## Progress Tracking
 
 ### Detailed Progress Reporting
@@ -391,6 +603,8 @@ async def multi_stage_operation():
     progress.report_status("Complete")
 ```
 
+---
+
 ## Error Handling
 
 ### Async Exception Handling
@@ -445,6 +659,8 @@ async def update_element():
 result = await async_retry_operation(update_element)
 ```
 
+---
+
 ## Performance Optimization
 
 ### Concurrent Task Limits
@@ -491,6 +707,8 @@ class AsyncElementCache:
         return self.cache[element_id]
 ```
 
+---
+
 ## Integration with Sync Code
 
 ### Running Async from Sync
@@ -526,6 +744,8 @@ async def mixed_sync_async_operations():
     print(f"Sync found {len(sync_walls)} walls")
     print(f"Async found {len(async_walls)} walls")
 ```
+
+---
 
 ## Testing Async Code
 
@@ -569,6 +789,8 @@ class TestAsyncOperations(AsyncRevitTestCase):
             await task
 ```
 
+---
+
 ## Best Practices
 
 1. **Use async/await consistently**: Don't mix async and sync patterns unnecessarily
@@ -578,8 +800,19 @@ class TestAsyncOperations(AsyncRevitTestCase):
 5. **Clean up resources**: Use async context managers for proper resource management
 6. **Test thoroughly**: Write comprehensive async tests
 
+---
+
+## Thread Safety
+
+<div class="callout callout-warning">
+  <div class="callout-title">Revit API Thread Limitations</div>
+  <p>The Revit API requires model modifications to occur on the main UI thread. RevitPy's async support automatically marshals operations to the correct thread, but be aware of this limitation when designing your async workflows.</p>
+</div>
+
+---
+
 ## Next Steps
 
-- **[Event System](events.md)**: Combine async with event-driven programming
-- **[Performance Guide](../../guides/async-performance.md)**: Optimize async operations
-- **[Testing Async Code](../../guides/testing-async.md)**: Test async operations
+- **[Event System]({{ '/reference/api/events/' | relative_url }})**: Combine async with event-driven programming
+- **[Performance Guide]({{ '/guides/async-performance/' | relative_url }})**: Optimize async operations
+- **[Testing Async Code]({{ '/guides/testing-async/' | relative_url }})**: Test async operations

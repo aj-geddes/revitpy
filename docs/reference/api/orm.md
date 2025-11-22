@@ -18,65 +18,268 @@ The ORM layer abstracts the complexity of the Revit API into familiar patterns:
 - **Change tracking**: Automatic tracking of modifications for efficient updates
 - **Type safety**: Full type annotations for better IDE support
 
-## Core Classes
+---
 
-### RevitContext
+## RevitContext (ORM)
 
 The main ORM context for database-like operations.
 
-::: revitpy.orm.context.RevitContext
-    options:
-      members:
-        - elements
-        - save_changes
-        - track_changes
-        - get_change_tracker
+### Constructor
 
-### ElementSet
+```python
+RevitContext(document=None, track_changes=False)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `document` | `Document` | Optional Revit document. Uses active document if not specified. |
+| `track_changes` | `bool` | Enable automatic change tracking. Default is `False`. |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `elements` | `ElementSet` | Query builder for accessing Revit elements |
+| `track_changes` | `bool` | Whether change tracking is enabled |
+| `enable_caching` | `bool` | Whether query result caching is enabled |
+
+### Methods
+
+#### `save_changes()`
+Saves all tracked changes to the Revit document within a transaction.
+
+**Returns:** `int` - Number of elements saved
+
+#### `has_changes()`
+Checks if there are any tracked changes pending.
+
+**Returns:** `bool` - True if changes exist
+
+#### `get_changes()`
+Returns all tracked changes.
+
+**Returns:** `list[Change]` - List of tracked changes
+
+#### `get_change_tracker()`
+Returns the change tracker instance for manual change management.
+
+**Returns:** `ChangeTracker` - The change tracker
+
+#### `clear_cache()`
+Clears all cached query results.
+
+---
+
+## ElementSet
 
 Represents a queryable collection of Revit elements.
 
-::: revitpy.orm.element_set.ElementSet
-    options:
-      members:
-        - where
-        - select
-        - order_by
-        - group_by
-        - take
-        - skip
-        - first
-        - first_or_default
-        - to_list
-        - to_dict
-        - count
+### Methods
 
-### QueryBuilder
+#### `where(predicate)`
+Filters elements based on a predicate function.
+
+```python
+tall_walls = context.elements.where(lambda w: w.Height > 10.0)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `predicate` | `Callable` | Function that returns True for elements to include |
+
+**Returns:** `ElementSet` - Filtered element set
+
+#### `select(projection)`
+Projects elements to a new form.
+
+```python
+wall_names = context.elements.select(lambda w: w.Name).to_list()
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `projection` | `Callable` | Function to transform each element |
+
+**Returns:** `ElementSet` - Projected element set
+
+#### `order_by(key_selector)`
+Orders elements by a key.
+
+```python
+sorted_walls = context.elements.order_by(lambda w: w.Height).to_list()
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key_selector` | `Callable` | Function to extract the sort key |
+
+**Returns:** `ElementSet` - Ordered element set
+
+#### `then_by(key_selector)`
+Performs secondary ordering on already ordered elements.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key_selector` | `Callable` | Function to extract the secondary sort key |
+
+**Returns:** `ElementSet` - Ordered element set
+
+#### `group_by(key_selector)`
+Groups elements by a key.
+
+```python
+grouped = context.elements.group_by(lambda e: e.Category).to_dict()
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key_selector` | `Callable` | Function to extract the grouping key |
+
+**Returns:** `ElementSet` - Grouped element set
+
+#### `take(count)`
+Returns a specified number of elements.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `count` | `int` | Number of elements to take |
+
+**Returns:** `ElementSet` - Limited element set
+
+#### `skip(count)`
+Skips a specified number of elements.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `count` | `int` | Number of elements to skip |
+
+**Returns:** `ElementSet` - Element set with skipped elements
+
+#### `first()`
+Returns the first element.
+
+**Returns:** `Element` - The first element
+**Raises:** `ElementNotFound` - If no elements exist
+
+#### `first_or_default(default=None)`
+Returns the first element or a default value.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `default` | `any` | Value to return if no elements exist |
+
+**Returns:** `Element` or `default` - The first element or default
+
+#### `to_list()`
+Executes the query and returns results as a list.
+
+**Returns:** `list[Element]` - List of elements
+
+#### `to_dict()`
+Executes the query and returns results as a dictionary.
+
+**Returns:** `dict` - Dictionary of elements
+
+#### `count()`
+Returns the number of elements.
+
+**Returns:** `int` - Element count
+
+---
+
+## QueryBuilder
 
 Builds and optimizes queries for execution.
 
-::: revitpy.orm.query_builder.QueryBuilder
-    options:
-      members:
-        - where
-        - include
-        - order_by
-        - select
-        - build_query
-        - optimize_query
+### Methods
 
-### ChangeTracker
+#### `where(predicate)`
+Adds a filter condition to the query.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `predicate` | `Callable` | Filter predicate function |
+
+**Returns:** `QueryBuilder` - The query builder for chaining
+
+#### `include(relationship)`
+Includes related elements in the query results (eager loading).
+
+```python
+rooms = context.elements.of_category('Rooms').include('Boundaries').to_list()
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `relationship` | `str` | Name of the relationship to include |
+
+**Returns:** `QueryBuilder` - The query builder for chaining
+
+#### `order_by(key_selector)`
+Adds ordering to the query.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key_selector` | `Callable` | Sort key function |
+
+**Returns:** `QueryBuilder` - The query builder for chaining
+
+#### `select(projection)`
+Adds a projection to the query.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `projection` | `Callable` | Projection function |
+
+**Returns:** `QueryBuilder` - The query builder for chaining
+
+#### `build_query()`
+Builds the final query for execution.
+
+**Returns:** `Query` - The built query
+
+#### `optimize_query()`
+Optimizes the query for better performance.
+
+**Returns:** `QueryBuilder` - The optimized query builder
+
+#### `explain_query()`
+Returns the query execution plan.
+
+**Returns:** `QueryPlan` - The execution plan with cost estimation
+
+---
+
+## ChangeTracker
 
 Tracks modifications to elements for efficient updates.
 
-::: revitpy.orm.change_tracker.ChangeTracker
-    options:
-      members:
-        - track_element
-        - get_changes
-        - has_changes
-        - accept_changes
-        - reject_changes
+### Methods
+
+#### `track_element(element)`
+Begins tracking an element for changes.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element` | `Element` | Element to track |
+
+#### `get_changes()`
+Returns all tracked changes.
+
+**Returns:** `list[Change]` - List of changes
+
+#### `has_changes()`
+Checks if there are any tracked changes.
+
+**Returns:** `bool` - True if changes exist
+
+#### `accept_changes()`
+Accepts all tracked changes and clears the tracker.
+
+#### `reject_changes()`
+Rejects all tracked changes and reverts elements.
+
+---
 
 ## Query Syntax
 
@@ -171,6 +374,8 @@ room_areas_by_level = (context.elements
                        .to_list())
 ```
 
+---
+
 ## Relationship Navigation
 
 ### Include Related Data
@@ -208,6 +413,8 @@ def analyze_room_walls(room_id):
 
         return wall_analysis
 ```
+
+---
 
 ## Change Tracking
 
@@ -258,6 +465,8 @@ def batch_update_elements(updates):
                 txn.rollback()
                 tracker.reject_changes()
 ```
+
+---
 
 ## Performance Optimization
 
@@ -319,6 +528,8 @@ def efficient_bulk_updates(element_updates):
             txn.commit()
 ```
 
+---
+
 ## Advanced Features
 
 ### Custom Query Extensions
@@ -376,6 +587,8 @@ def build_dynamic_query(filters):
         return query.to_list()
 ```
 
+---
+
 ## Testing ORM Operations
 
 ### Mock Context for Testing
@@ -404,6 +617,8 @@ def test_wall_query():
         assert tall_walls[0].Height == 12.0
         assert tall_walls[1].Height == 15.0
 ```
+
+---
 
 ## Migration from Traditional Approaches
 
@@ -445,9 +660,11 @@ The ORM approach is:
 - **Automatically optimized** for performance
 - **Easier to test** with built-in mocking support
 
+---
+
 ## Next Steps
 
-- **[Query Builder](query-builder.md)**: Deep dive into query construction
-- **[Element Sets](element-sets.md)**: Work with element collections
-- **[Relationships](relationships.md)**: Navigate element relationships
-- **[Performance Guide](../../guides/orm-performance.md)**: Optimize ORM usage
+- **[Query Builder]({{ '/reference/api/query-builder/' | relative_url }})**: Deep dive into query construction
+- **[Element Sets]({{ '/reference/api/element-sets/' | relative_url }})**: Work with element collections
+- **[Relationships]({{ '/reference/api/relationships/' | relative_url }})**: Navigate element relationships
+- **[Performance Guide]({{ '/guides/orm-performance/' | relative_url }})**: Optimize ORM usage
