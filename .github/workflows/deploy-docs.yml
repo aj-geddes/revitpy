@@ -36,8 +36,7 @@ jobs:
 
       - name: Build documentation
         run: |
-          cd docs
-          mkdocs build --site-dir ../site
+          mkdocs build --config-file docs/mkdocs.yml --site-dir site
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
