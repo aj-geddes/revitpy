@@ -142,3 +142,4 @@ dev-server/cache/
 # Proof of concepts - might contain experimental code
 proof-of-concepts/experimental/
 proof-of-concepts/temp/
+.playwright-mcp/

@@ -12,7 +12,7 @@ baseurl: "/revitpy"
 url: "https://aj-geddes.github.io"
 author: RevitPy Team
 email: support@revitpy.org
-repository: revitpy/revitpy
+repository: aj-geddes/revitpy
 
 # Branding
 logo: /assets/images/logo.svg
@@ -79,7 +79,7 @@ navigation:
     - title: Documentation
       url: /documentation/
     - title: GitHub
-      url: https://github.com/revitpy/revitpy
+      url: https://github.com/aj-geddes/revitpy
       external: true
 
   footer:
@@ -94,11 +94,11 @@ navigation:
         url: /pyrevit-integration/
     community:
       - title: GitHub
-        url: https://github.com/revitpy/revitpy
+        url: https://github.com/aj-geddes/revitpy
       - title: Discussions
-        url: https://github.com/revitpy/revitpy/discussions
+        url: https://github.com/aj-geddes/revitpy/discussions
       - title: Issues
-        url: https://github.com/revitpy/revitpy/issues
+        url: https://github.com/aj-geddes/revitpy/issues
       - title: Contributing
         url: /contributing/
     resources:
