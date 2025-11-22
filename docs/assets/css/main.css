@@ -547,7 +547,7 @@ img {
 /* ===== Hero Section ===== */
 .hero {
   position: relative;
-  padding: var(--space-16) var(--space-6);
+  padding: var(--space-8) var(--space-6);
   background: linear-gradient(135deg, var(--color-primary) 0%, #7c3aed 50%, var(--color-accent) 100%);
   color: white;
   overflow: hidden;
@@ -681,11 +681,11 @@ img {
 
 @media (min-width: 768px) {
   .hero {
-    padding: var(--space-24) var(--space-6);
+    padding: var(--space-12) var(--space-6);
   }
 
   .hero-title {
-    font-size: var(--text-6xl);
+    font-size: var(--text-5xl);
   }
 }
 
@@ -923,6 +923,7 @@ img {
 .main-content {
   min-width: 0;
   max-width: var(--content-width);
+  margin: 0 auto;
 }
 
 .page-header {
