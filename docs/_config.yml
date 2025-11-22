@@ -132,7 +132,6 @@ exclude:
   - mkdocs.yml
   - requirements-docs.txt
   - README.md
-  - reference/api
 
 # Include files
 include:
