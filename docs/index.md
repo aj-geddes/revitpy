@@ -245,5 +245,5 @@ RevitPy Framework is released under the **MIT License**, enabling both personal 
     </div>
 </section>
 
-    </div>
+</div>
 </div>
