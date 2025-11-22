@@ -5,9 +5,10 @@ description: Complete API reference and documentation for RevitPy. Explore core 
 permalink: /documentation/
 ---
 
-<div class="container">
-  <div class="main-content">
-    <div class="page-header">
+<div class="container" markdown="1">
+<div class="main-content" markdown="1">
+
+<div class="page-header">
       <h1 class="page-title">Documentation</h1>
       <p class="page-description">
         Complete API reference and guides for building with RevitPy. Select a topic to get started.
@@ -287,5 +288,5 @@ config.transaction.timeout = 30
 - **Discussions**: [Ask questions](https://github.com/revitpy/revitpy/discussions)
 - **Examples**: [View examples]({{ '/examples/' | relative_url }})
 
-  </div>
+</div>
 </div>

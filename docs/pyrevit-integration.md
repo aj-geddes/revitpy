@@ -5,9 +5,10 @@ description: Complete guide to integrating RevitPy with PyRevit. Learn hybrid de
 permalink: /pyrevit-integration/
 ---
 
-<div class="container">
-  <div class="main-content">
-    <div class="page-header">
+<div class="container" markdown="1">
+<div class="main-content" markdown="1">
+
+<div class="page-header">
       <h1 class="page-title">PyRevit Integration</h1>
       <p class="page-description">
         RevitPy complements PyRevit rather than replacing it. Learn how to use both frameworks together for powerful hybrid workflows.
@@ -413,5 +414,5 @@ sys.path.insert(0, r'C:\Users\{user}\AppData\Local\RevitPy\lib')</code></pre>
   <p>Join the <a href="https://github.com/revitpy/revitpy/discussions">discussions</a> for integration questions and to share your patterns.</p>
 </div>
 
-  </div>
+</div>
 </div>

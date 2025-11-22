@@ -5,9 +5,10 @@ description: Real-world RevitPy examples covering energy analysis, machine learn
 permalink: /examples/
 ---
 
-<div class="container">
-  <div class="main-content">
-    <div class="page-header">
+<div class="container" markdown="1">
+<div class="main-content" markdown="1">
+
+<div class="page-header">
       <h1 class="page-title">Examples</h1>
       <p class="page-description">
         Learn from real-world examples that demonstrate RevitPy's capabilities across different use cases and industries.
@@ -619,5 +620,5 @@ Explore the complete examples repository:
   <p>Have a useful example? <a href="https://github.com/revitpy/revitpy/blob/main/CONTRIBUTING.md">Contribute it</a> to help the community!</p>
 </div>
 
-  </div>
+</div>
 </div>

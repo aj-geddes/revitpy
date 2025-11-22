@@ -5,9 +5,10 @@ description: Install RevitPy and build your first Revit automation script in und
 permalink: /getting-started/
 ---
 
-<div class="container">
-  <div class="main-content">
-    <div class="page-header">
+<div class="container" markdown="1">
+<div class="main-content" markdown="1">
+
+<div class="page-header">
       <h1 class="page-title">Getting Started with RevitPy</h1>
       <p class="page-description">
         Get up and running with RevitPy in under 10 minutes. This guide covers installation, prerequisites, and creating your first project.
@@ -278,5 +279,5 @@ Now that you have RevitPy set up, explore these resources:
 - **GitHub Issues**: [github.com/revitpy/revitpy/issues](https://github.com/revitpy/revitpy/issues)
 - **Discussions**: [github.com/revitpy/revitpy/discussions](https://github.com/revitpy/revitpy/discussions)
 
-  </div>
+</div>
 </div>
