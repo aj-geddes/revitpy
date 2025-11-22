@@ -302,7 +302,7 @@ class BuildingPerformanceWorkflow:
 
             # Energy Performance Analysis
             if interactive:
-                progress_dialog = BridgeUIHelpers.show_analysis_progress(
+                BridgeUIHelpers.show_analysis_progress(
                     "Energy Performance Analysis", len(elements)
                 )
 
@@ -320,7 +320,7 @@ class BuildingPerformanceWorkflow:
 
             # Thermal Analysis
             if interactive:
-                progress_dialog = BridgeUIHelpers.show_analysis_progress(
+                BridgeUIHelpers.show_analysis_progress(
                     "Thermal Analysis", len(elements)
                 )
 
@@ -348,7 +348,7 @@ class BuildingPerformanceWorkflow:
 
             if spaces_and_windows:
                 if interactive:
-                    progress_dialog = BridgeUIHelpers.show_analysis_progress(
+                    BridgeUIHelpers.show_analysis_progress(
                         "Daylight Analysis", len(spaces_and_windows)
                     )
 
@@ -679,7 +679,7 @@ class BuildingPerformanceWorkflow:
 
             # Try to get estimated savings
             savings = rec.get("energy_savings", rec.get("estimated_savings", 0))
-            if isinstance(savings, (int, float)):
+            if isinstance(savings, int | float):
                 savings_weight = savings / 1000  # Normalize
             else:
                 savings_weight = 0
@@ -911,7 +911,7 @@ ANALYSIS RESULTS
             if "overall_metrics" in results:
                 metrics = results["overall_metrics"]
                 for metric, value in metrics.items():
-                    if isinstance(value, (int, float)):
+                    if isinstance(value, int | float):
                         report += f"{metric}: {value:.2f}\n"
                     else:
                         report += f"{metric}: {value}\n"

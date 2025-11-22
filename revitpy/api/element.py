@@ -64,7 +64,7 @@ class ParameterValue(BaseModel):
         """Validate parameter value based on storage type."""
         storage_type = values.get("storage_type", "String")
 
-        if storage_type == "Double" and not isinstance(v, (int, float)):
+        if storage_type == "Double" and not isinstance(v, int | float):
             try:
                 return float(v)
             except (ValueError, TypeError):
@@ -294,9 +294,7 @@ class Element(metaclass=ElementMetaclass):
 
         for param_name in self._get_all_parameter_names():
             try:
-                value = self.get_parameter_value(
-                    param_name, use_cache=not refresh_cache
-                )
+                self.get_parameter_value(param_name, use_cache=not refresh_cache)
                 parameters[param_name] = self._parameter_cache[param_name]
             except ElementNotFoundError:
                 continue

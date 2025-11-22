@@ -605,10 +605,10 @@ class TaskQueue:
             self._completed_tasks.clear()
             return count
 
-        cutoff_time = datetime.now() - older_than
+        datetime.now() - older_than
         to_remove = []
 
-        for task_id, result in self._completed_tasks.items():
+        for task_id, _result in self._completed_tasks.items():
             # Check if we have completion time info (would need to be added to TaskResult)
             # For now, just clear all if older_than is specified
             to_remove.append(task_id)

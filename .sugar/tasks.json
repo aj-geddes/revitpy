@@ -1,0 +1,609 @@
+{
+  "version": "1.0",
+  "last_updated": "2025-10-28T04:45:17.345549",
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Implement package publishing to registry",
+      "type": "feature",
+      "priority": 5,
+      "status": "completed",
+      "context": "The package manager builder CLI has a stubbed-out publish function that does not actually upload packages to the registry. This is a core feature required for the package distribution system.",
+      "business_context": "Without package publishing, users cannot distribute their RevitPy packages through the official registry, severely limiting the ecosystem growth and adoption.",
+      "technical_requirements": [
+        "Implement upload logic in revitpy-package-manager/revitpy_package_manager/builder/cli/main.py:329",
+        "Add authentication and authorization for registry uploads",
+        "Implement file upload to registry storage backend",
+        "Add validation of package format before upload",
+        "Implement retry logic for failed uploads",
+        "Add progress reporting for large package uploads"
+      ],
+      "agent_assignments": {
+        "backend_developer": "Design and implement registry upload API integration",
+        "qa_test_engineer": "Test upload scenarios including failures and large files"
+      },
+      "success_criteria": [
+        "Packages can be successfully uploaded to registry via CLI",
+        "Upload includes authentication and authorization checks",
+        "Progress is reported during upload",
+        "Failed uploads are properly handled with retry logic",
+        "Integration tests verify end-to-end publishing workflow"
+      ],
+      "files": [
+        "revitpy-package-manager/revitpy_package_manager/builder/cli/main.py"
+      ],
+      "created_at": "2025-10-27T21:00:00Z",
+      "updated_at": "2025-10-27T21:16:39.103306",
+      "completed_at": "2025-10-27T21:16:39.103306"
+    },
+    {
+      "id": "task-002",
+      "title": "Implement package installation logic for Revit",
+      "type": "feature",
+      "priority": 5,
+      "status": "completed",
+      "context": "The desktop CLI installer has stubbed-out installation logic that doesn't actually extract and install .rpyx packages to Revit. This is a core feature for the package manager.",
+      "business_context": "Users cannot install RevitPy packages, making the entire package distribution system non-functional. This blocks ecosystem adoption.",
+      "technical_requirements": [
+        "Implement .rpyx extraction logic in revitpy-package-manager/revitpy_package_manager/installer/cli/desktop_cli.py:237",
+        "Add Revit installation directory detection",
+        "Implement package file deployment to correct Revit directories",
+        "Add version conflict detection and resolution",
+        "Implement rollback on installation failure",
+        "Add post-installation verification"
+      ],
+      "agent_assignments": {
+        "backend_developer": "Implement package extraction and deployment logic",
+        "qa_test_engineer": "Test installation across multiple Revit versions"
+      },
+      "success_criteria": [
+        "Packages are successfully extracted from .rpyx format",
+        "Files are deployed to correct Revit directories",
+        "Version conflicts are detected and handled",
+        "Failed installations can be rolled back",
+        "Installation is verified post-deployment"
+      ],
+      "files": [
+        "revitpy-package-manager/revitpy_package_manager/installer/cli/desktop_cli.py"
+      ],
+      "created_at": "2025-10-27T21:00:00Z",
+      "updated_at": "2025-10-27T21:16:39.103306",
+      "completed_at": "2025-10-27T21:16:39.103306"
+    },
+    {
+      "id": "task-003",
+      "title": "Implement package uninstallation logic",
+      "type": "feature",
+      "priority": 5,
+      "status": "completed",
+      "context": "Uninstallation currently only removes packages from cache but doesn't remove them from Revit installation. Users need complete uninstall functionality.",
+      "business_context": "Incomplete uninstallation leaves orphaned files and can cause conflicts. Professional users need clean package management.",
+      "technical_requirements": [
+        "Implement actual uninstallation in revitpy-package-manager/revitpy_package_manager/installer/cli/desktop_cli.py:267",
+        "Track installed files during installation for later removal",
+        "Add dependency checking before uninstall",
+        "Implement safe removal of package files from Revit",
+        "Add backup creation before uninstall",
+        "Implement partial uninstall recovery"
+      ],
+      "agent_assignments": {
+        "backend_developer": "Implement file tracking and removal logic",
+        "qa_test_engineer": "Test uninstall scenarios including dependencies"
+      },
+      "success_criteria": [
+        "All package files are removed from Revit directories",
+        "Dependencies are checked before uninstall",
+        "Backup is created before removal",
+        "Failed uninstalls can be recovered",
+        "Cache is properly cleaned up"
+      ],
+      "files": [
+        "revitpy-package-manager/revitpy_package_manager/installer/cli/desktop_cli.py"
+      ],
+      "created_at": "2025-10-27T21:00:00Z",
+      "updated_at": "2025-10-27T21:16:39.103306",
+      "completed_at": "2025-10-27T21:16:39.103306"
+    },
+    {
+      "id": "task-004",
+      "title": "Implement package statistics aggregation system",
+      "type": "feature",
+      "priority": 5,
+      "status": "completed",
+      "context": "Package registry statistics endpoint is not properly implemented. Analytics are important for package discovery and ecosystem health monitoring.",
+      "business_context": "Package statistics help users discover popular packages and help maintainers understand usage patterns.",
+      "technical_requirements": [
+        "Implement statistics aggregation in revitpy-package-manager/revitpy_package_manager/registry/api/routers/packages.py:425",
+        "Add download count tracking",
+        "Implement time-series data collection",
+        "Add trending package calculation",
+        "Implement caching for expensive queries",
+        "Add analytics dashboard data endpoints"
+      ],
+      "agent_assignments": {
+        "backend_developer": "Implement statistics collection and aggregation",
+        "qa_test_engineer": "Test statistics accuracy and performance"
+      },
+      "success_criteria": [
+        "Download counts are accurately tracked",
+        "Trending packages are calculated correctly",
+        "Statistics queries perform well with caching",
+        "Time-series data is properly aggregated",
+        "API returns comprehensive package analytics"
+      ],
+      "files": [
+        "revitpy-package-manager/revitpy_package_manager/registry/api/routers/packages.py"
+      ],
+      "created_at": "2025-10-27T21:00:00Z",
+      "updated_at": "2025-10-27T21:16:39.103306",
+      "completed_at": "2025-10-27T21:16:39.103306"
+    },
+    {
+      "id": "task-005",
+      "title": "Improve test coverage for core modules",
+      "type": "test",
+      "priority": 4,
+      "status": "pending",
+      "context": "Core revitpy package has only ~27% test coverage with critical modules undertested. Need comprehensive test coverage for reliability.",
+      "business_context": "Low test coverage increases bug risk and makes refactoring dangerous. Professional tools require high confidence in code quality.",
+      "technical_requirements": [
+        "Add tests for revitpy/api/transaction.py (critical for data integrity)",
+        "Add tests for revitpy/api/wrapper.py (core API wrapper)",
+        "Add tests for revitpy/orm/query_builder.py (complex query logic)",
+        "Add tests for revitpy/orm/relationships.py (relationship handling)",
+        "Add tests for revitpy/events/dispatcher.py (event system)",
+        "Add tests for revitpy/async_support/ modules",
+        "Target minimum 80% coverage for core modules"
+      ],
+      "agent_assignments": {
+        "qa_test_engineer": "Design and implement comprehensive test suites for critical modules",
+        "backend_developer": "Refactor code for better testability if needed"
+      },
+      "success_criteria": [
+        "Core revitpy modules have 80%+ test coverage",
+        "All critical paths in transaction.py are tested",
+        "Query builder has comprehensive unit tests",
+        "Event system tests cover all event types",
+        "Async support modules have async test coverage",
+        "pytest coverage report shows improvement"
+      ],
+      "files": [
+        "revitpy/api/transaction.py",
+        "revitpy/api/wrapper.py",
+        "revitpy/orm/query_builder.py",
+        "revitpy/orm/relationships.py",
+        "revitpy/events/dispatcher.py"
+      ],
+      "created_at": "2025-10-27T21:00:00Z",
+      "updated_at": "2025-10-27T21:00:00Z"
+    },
+    {
+      "id": "task-006",
+      "title": "Run code quality checks and fix issues",
+      "type": "refactor",
+      "priority": 4,
+      "status": "pending",
+      "context": "Code quality tools (ruff, black, isort, mypy) are configured but need to be run to identify and fix issues. Type hints may be incomplete.",
+      "business_context": "Code quality issues reduce maintainability and increase technical debt. Type safety improves IDE support and catches errors early.",
+      "technical_requirements": [
+        "Run ruff linting on entire codebase",
+        "Run black formatting checks",
+        "Run isort import sorting checks",
+        "Run mypy strict type checking",
+        "Fix identified style violations",
+        "Add missing type hints",
+        "Configure pre-commit hooks for enforcement"
+      ],
+      "agent_assignments": {
+        "tech_lead": "Review and prioritize quality issues, establish standards",
+        "backend_developer": "Fix code quality issues and add type hints"
+      },
+      "success_criteria": [
+        "Ruff reports zero errors",
+        "Black formatting is consistent across codebase",
+        "Imports are properly sorted with isort",
+        "Mypy strict mode passes with minimal ignores",
+        "Pre-commit hooks are configured and working",
+        "CI pipeline includes quality checks"
+      ],
+      "files": [
+        "pyproject.toml",
+        ".pre-commit-config.yaml"
+      ],
+      "created_at": "2025-10-27T21:00:00Z",
+      "updated_at": "2025-10-27T21:00:00Z"
+    },
+    {
+      "id": "task-007",
+      "title": "Centralize configuration and environment variable management",
+      "type": "refactor",
+      "priority": 4,
+      "status": "pending",
+      "context": "Multiple files use os.getenv() directly without validation. This creates security risks and makes configuration hard to manage.",
+      "business_context": "Scattered configuration makes deployment difficult and creates security vulnerabilities through information disclosure.",
+      "technical_requirements": [
+        "Create centralized configuration module",
+        "Add environment variable validation",
+        "Implement configuration schema with pydantic",
+        "Replace direct os.getenv() calls with config access",
+        "Add configuration documentation",
+        "Implement different configs for dev/prod environments",
+        "Add sensitive data protection"
+      ],
+      "agent_assignments": {
+        "tech_lead": "Design configuration architecture and security requirements",
+        "backend_developer": "Implement centralized configuration system"
+      },
+      "success_criteria": [
+        "All environment variables go through centralized config",
+        "Configuration is validated with pydantic schemas",
+        "Debug mode is properly controlled per environment",
+        "Sensitive data is not exposed in production",
+        "Configuration documentation is complete",
+        "No direct os.getenv() calls remain in code"
+      ],
+      "files": [
+        "revitpy-package-manager/revitpy_package_manager/builder/cli/main.py",
+        "revitpy-package-manager/revitpy_package_manager/registry/api/main.py",
+        "bridge/core/config.py",
+        "cli/src/revitpy_cli/core/config.py"
+      ],
+      "created_at": "2025-10-27T21:00:00Z",
+      "updated_at": "2025-10-27T21:00:00Z"
+    },
+    {
+      "id": "task-008",
+      "title": "Update and consolidate API documentation",
+      "type": "documentation",
+      "priority": 3,
+      "status": "pending",
+      "context": "API documentation exists but may be incomplete. Some modules lack comprehensive API docs.",
+      "business_context": "Complete documentation is essential for developer adoption and reduces support burden.",
+      "technical_requirements": [
+        "Review and update docs/reference/api/orm.md",
+        "Review and update docs/reference/api/core.md",
+        "Add missing module documentation",
+        "Generate API docs from docstrings using mkdocstrings",
+        "Add code examples for all major APIs",
+        "Update mkdocs.yml with complete API reference structure",
+        "Review and publish documentation site"
+      ],
+      "agent_assignments": {
+        "tech_lead": "Review documentation completeness and accuracy",
+        "backend_developer": "Add missing docstrings and code examples"
+      },
+      "success_criteria": [
+        "All public APIs have complete docstrings",
+        "API reference docs are auto-generated from code",
+        "Every major feature has code examples",
+        "Documentation builds without warnings",
+        "Navigation structure is logical and complete",
+        "Documentation is published and accessible"
+      ],
+      "files": [
+        "docs/reference/api/orm.md",
+        "docs/reference/api/core.md",
+        "docs/mkdocs.yml"
+      ],
+      "created_at": "2025-10-27T21:00:00Z",
+      "updated_at": "2025-10-27T21:00:00Z"
+    },
+    {
+      "id": "task-009",
+      "title": "Document C# and .NET build process",
+      "type": "documentation",
+      "priority": 3,
+      "status": "pending",
+      "context": "Project includes C# components in src/ directory for Revit integration. Build process needs clear documentation.",
+      "business_context": "Contributors need to understand how to build the complete solution including .NET components.",
+      "technical_requirements": [
+        "Document C# project structure in src/",
+        "Add build instructions for .NET components",
+        "Document RevitPy.Bridge, RevitPy.Core, RevitPy.Host projects",
+        "Add prerequisites (VS, .NET SDK versions)",
+        "Document build script usage (build.sh, build.ps1)",
+        "Add troubleshooting guide for common build issues",
+        "Update main README with build section"
+      ],
+      "agent_assignments": {
+        "tech_lead": "Document architecture and build process",
+        "backend_developer": "Test build instructions and add examples"
+      },
+      "success_criteria": [
+        "Build process is fully documented",
+        "Prerequisites are clearly listed",
+        "Build scripts are explained",
+        "Common issues have solutions",
+        "New contributors can build successfully",
+        "CI/CD pipeline is documented"
+      ],
+      "files": [
+        "README.md",
+        "docs/guides/",
+        "build.sh",
+        "build.ps1",
+        "RevitPy.sln"
+      ],
+      "created_at": "2025-10-27T21:00:00Z",
+      "updated_at": "2025-10-27T21:00:00Z"
+    },
+    {
+      "id": "task-010",
+      "title": "Clean up old documentation files",
+      "type": "documentation",
+      "priority": 2,
+      "status": "pending",
+      "context": "Old documentation file exists: docs/guides/migration-from-pyrevit_OLD.md. This can cause confusion.",
+      "business_context": "Outdated documentation confuses users and reduces trust in current documentation.",
+      "technical_requirements": [
+        "Review migration-from-pyrevit_OLD.md content",
+        "Compare with current migration-from-pyrevit.md",
+        "Merge any missing useful content into current doc",
+        "Remove _OLD.md file",
+        "Check for other duplicate or outdated docs",
+        "Update documentation changelog if needed"
+      ],
+      "agent_assignments": {
+        "tech_lead": "Review and approve documentation cleanup"
+      },
+      "success_criteria": [
+        "No duplicate documentation files exist",
+        "All useful content is preserved in current docs",
+        "Documentation structure is clean",
+        "No _OLD or _backup files in docs/",
+        "Documentation changelog is updated"
+      ],
+      "files": [
+        "docs/guides/migration-from-pyrevit_OLD.md",
+        "docs/guides/migration-from-pyrevit.md"
+      ],
+      "created_at": "2025-10-27T21:00:00Z",
+      "updated_at": "2025-10-27T21:00:00Z"
+    },
+    {
+      "id": "task-011",
+      "title": "Add comprehensive tests for package publishing",
+      "type": "test",
+      "priority": 4,
+      "status": "completed",
+      "context": "Package publishing functionality was implemented with ~250 lines of code but has 0% test coverage. Critical upload, authentication, and retry logic needs testing.",
+      "business_context": "Untested publishing could lead to failed uploads, data corruption, or security issues. Users depend on reliable package distribution.",
+      "technical_requirements": [
+        "Test metadata extraction from tar.gz files",
+        "Test SHA256/MD5 hash calculation accuracy",
+        "Test authentication with valid and invalid tokens",
+        "Test multipart file upload with progress tracking",
+        "Test retry logic with exponential backoff",
+        "Test error handling for 401, 409, and 5xx responses",
+        "Test timeout scenarios",
+        "Test dry-run mode",
+        "Mock httpx client for unit tests"
+      ],
+      "agent_assignments": {
+        "qa_test_engineer": "Design and implement comprehensive test suite for publishing",
+        "backend_developer": "Add test fixtures and mock data"
+      },
+      "success_criteria": [
+        "80%+ code coverage for publish() function",
+        "All authentication scenarios tested",
+        "Retry logic verified with mocked failures",
+        "Error handling tested for all status codes",
+        "Integration tests with mock registry",
+        "pytest suite passes consistently"
+      ],
+      "files": [
+        "revitpy-package-manager/tests/test_publisher.py",
+        "revitpy-package-manager/revitpy_package_manager/builder/cli/main.py"
+      ],
+      "source": "post_implementation_analysis",
+      "created_at": "2025-10-27T21:20:32.373946",
+      "updated_at": "2025-10-28T04:45:17.345549",
+      "completed_at": "2025-10-28T04:45:17.345549"
+    },
+    {
+      "id": "task-012",
+      "title": "Add comprehensive tests for package installation",
+      "type": "test",
+      "priority": 4,
+      "status": "pending",
+      "context": "Package installation functionality was implemented with ~350 lines of code but has 0% test coverage. Critical file deployment, version management, and rollback logic needs testing.",
+      "business_context": "Untested installation could corrupt Revit installations, lose data, or fail to detect conflicts. This is a critical user-facing feature.",
+      "technical_requirements": [
+        "Test Revit installation detection (2020-2025)",
+        "Test .rpyx package extraction and validation",
+        "Test version conflict detection",
+        "Test backup creation before installation",
+        "Test file deployment to correct directories",
+        "Test installation registry tracking",
+        "Test post-install hook execution",
+        "Test rollback on failure",
+        "Mock file system operations",
+        "Mock RPYXExtractor for unit tests"
+      ],
+      "agent_assignments": {
+        "qa_test_engineer": "Design and implement comprehensive test suite for installation",
+        "backend_developer": "Create test fixtures and mock Revit environments"
+      },
+      "success_criteria": [
+        "80%+ code coverage for _install_from_cache()",
+        "All Revit detection scenarios tested",
+        "Version conflict handling verified",
+        "Backup and rollback tested",
+        "File deployment tested with various structures",
+        "Registry tracking verified",
+        "pytest suite passes consistently"
+      ],
+      "files": [
+        "revitpy-package-manager/tests/test_installer.py",
+        "revitpy-package-manager/revitpy_package_manager/installer/cli/desktop_cli.py"
+      ],
+      "source": "post_implementation_analysis",
+      "created_at": "2025-10-27T21:20:32.373946",
+      "updated_at": "2025-10-27T21:20:32.373946"
+    },
+    {
+      "id": "task-013",
+      "title": "Add comprehensive tests for package uninstallation",
+      "type": "test",
+      "priority": 4,
+      "status": "pending",
+      "context": "Package uninstallation functionality was implemented with ~100 lines of code but has 0% test coverage. Dependency checking and file removal logic needs testing.",
+      "business_context": "Untested uninstallation could leave orphaned files, break dependencies, or fail to clean up properly. Professional users need reliable cleanup.",
+      "technical_requirements": [
+        "Test uninstall across multiple Revit versions",
+        "Test dependency checking before uninstall",
+        "Test file removal from tracked list",
+        "Test empty directory cleanup",
+        "Test registry updates after uninstall",
+        "Test backup creation before uninstall",
+        "Test pre-uninstall hook execution",
+        "Test cache cleanup",
+        "Mock file system operations",
+        "Mock dependency graph scenarios"
+      ],
+      "agent_assignments": {
+        "qa_test_engineer": "Design and implement comprehensive test suite for uninstallation",
+        "backend_developer": "Create test fixtures for dependency scenarios"
+      },
+      "success_criteria": [
+        "80%+ code coverage for uninstall_package()",
+        "Dependency checking verified with various graphs",
+        "File removal tested thoroughly",
+        "Registry updates verified",
+        "Backup and recovery tested",
+        "Edge cases handled (missing files, broken registry)",
+        "pytest suite passes consistently"
+      ],
+      "files": [
+        "revitpy-package-manager/tests/test_uninstaller.py",
+        "revitpy-package-manager/revitpy_package_manager/installer/cli/desktop_cli.py"
+      ],
+      "source": "post_implementation_analysis",
+      "created_at": "2025-10-27T21:20:32.373946",
+      "updated_at": "2025-10-27T21:20:32.373946"
+    },
+    {
+      "id": "task-014",
+      "title": "Add comprehensive tests for statistics aggregation",
+      "type": "test",
+      "priority": 4,
+      "status": "pending",
+      "context": "Statistics aggregation was implemented with ~150 lines of code but has 0% test coverage. Query logic, caching, and data accuracy needs testing.",
+      "business_context": "Incorrect statistics could mislead users about package popularity and trends. Analytics must be accurate and performant.",
+      "technical_requirements": [
+        "Test download count queries by time period",
+        "Test version breakdown calculation",
+        "Test country breakdown aggregation",
+        "Test platform breakdown aggregation",
+        "Test cache hit and miss scenarios",
+        "Test cache TTL expiration",
+        "Test SQL query performance",
+        "Test data accuracy with various datasets",
+        "Mock database queries",
+        "Mock cache service"
+      ],
+      "agent_assignments": {
+        "qa_test_engineer": "Design and implement comprehensive test suite for statistics",
+        "backend_developer": "Create test data and fixtures"
+      },
+      "success_criteria": [
+        "80%+ code coverage for statistics endpoint",
+        "All time-based queries tested",
+        "Aggregation accuracy verified",
+        "Caching behavior tested thoroughly",
+        "Performance benchmarks established",
+        "Edge cases handled (no data, large datasets)",
+        "pytest suite passes consistently"
+      ],
+      "files": [
+        "revitpy-package-manager/tests/test_statistics.py",
+        "revitpy-package-manager/revitpy_package_manager/registry/api/routers/packages.py"
+      ],
+      "source": "post_implementation_analysis",
+      "created_at": "2025-10-27T21:20:32.373946",
+      "updated_at": "2025-10-27T21:20:32.373946"
+    },
+    {
+      "id": "task-015",
+      "title": "Update package dependencies to include httpx",
+      "type": "refactor",
+      "priority": 4,
+      "status": "completed",
+      "context": "The httpx library is used in the package publishing implementation but is not declared in pyproject.toml. This will cause ImportError at runtime.",
+      "business_context": "Missing dependencies cause installation failures and frustrate users. All dependencies must be properly declared.",
+      "technical_requirements": [
+        "Add httpx to dependencies in pyproject.toml",
+        "Specify appropriate version constraint (e.g., >=0.24.0)",
+        "Update requirements.txt files if present",
+        "Add httpx to dev dependencies if needed for testing",
+        "Verify no other undeclared dependencies exist",
+        "Document httpx usage in comments",
+        "Test installation from clean environment"
+      ],
+      "agent_assignments": {
+        "backend_developer": "Update dependency declarations and test"
+      },
+      "success_criteria": [
+        "httpx is declared in pyproject.toml",
+        "Version constraint is appropriate",
+        "All requirements files updated",
+        "Fresh install works without errors",
+        "No other missing dependencies found",
+        "CI/CD pipeline includes dependency check"
+      ],
+      "files": [
+        "pyproject.toml",
+        "revitpy-package-manager/revitpy_package_manager/builder/cli/main.py"
+      ],
+      "source": "post_implementation_analysis",
+      "created_at": "2025-10-27T21:20:32.373946",
+      "updated_at": "2025-10-28T04:17:16.210391",
+      "completed_at": "2025-10-28T04:17:16.210391"
+    },
+    {
+      "id": "task-016",
+      "title": "Add integration tests for package workflows",
+      "type": "test",
+      "priority": 3,
+      "status": "pending",
+      "context": "Individual features have unit tests but end-to-end workflows need integration testing. Publish -> install -> uninstall workflow needs verification.",
+      "business_context": "Integration tests catch issues that unit tests miss. End-to-end verification ensures features work together correctly.",
+      "technical_requirements": [
+        "Create end-to-end test for publish workflow",
+        "Create end-to-end test for install workflow",
+        "Create end-to-end test for uninstall workflow",
+        "Test complete lifecycle: publish -> install -> use -> uninstall",
+        "Test upgrade scenario: install v1 -> install v2",
+        "Test multi-version Revit scenario",
+        "Mock or use test registry",
+        "Mock or use test Revit installation",
+        "Add integration test markers for pytest"
+      ],
+      "agent_assignments": {
+        "qa_test_engineer": "Design and implement integration test suite",
+        "backend_developer": "Set up test infrastructure and fixtures"
+      },
+      "success_criteria": [
+        "Complete lifecycle test passes",
+        "Upgrade scenario tested",
+        "Multi-version scenario tested",
+        "Integration tests run in CI/CD",
+        "Test fixtures are maintainable",
+        "Integration tests are well-documented"
+      ],
+      "files": [
+        "revitpy-package-manager/tests/integration/test_package_lifecycle.py"
+      ],
+      "source": "post_implementation_analysis",
+      "created_at": "2025-10-27T21:20:32.373946",
+      "updated_at": "2025-10-27T21:20:32.373946"
+    }
+  ],
+  "metadata": {
+    "total_tasks": 16,
+    "pending": 10,
+    "active": 0,
+    "completed": 6,
+    "failed": 0
+  }
+}

@@ -450,7 +450,7 @@ def retry_transaction(
 
     for attempt in range(max_retries + 1):
         try:
-            with transaction_scope(provider, name) as trans:
+            with transaction_scope(provider, name):
                 return operation()
 
         except Exception as e:

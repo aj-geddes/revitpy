@@ -177,7 +177,7 @@ class RevitPyBridgeInterface:
             Bridge status information
         """
         manager_status = self.bridge_manager.get_status()
-        handler_stats = self.handler_registry.get_statistics()
+        self.handler_registry.get_statistics()
 
         return BridgeStatus(
             is_running=manager_status["running"],

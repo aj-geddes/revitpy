@@ -376,7 +376,7 @@ class BridgeUIHelpers:
         # Add main results
         data = results.get("data", {})
         for key, value in data.items():
-            if isinstance(value, (int, float)):
+            if isinstance(value, int | float):
                 if isinstance(value, float):
                     formatted.append(f"{key}: {value:.3f}")
                 else:

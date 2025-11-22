@@ -324,7 +324,6 @@ def analyze_energy_performance(
 
         # Initialize results
         total_energy_usage = 0.0
-        thermal_ratings = []
         recommendations = []
 
         # Process each element
@@ -504,7 +503,7 @@ def detect_element_clashes(
         tolerance = parameters.get("tolerance", 0.01)
         clash_types = parameters.get("clash_types", ["hard_clash", "soft_clash"])
         ignore_rules = parameters.get("ignore_rules", [])
-        priority_levels = parameters.get("priority_levels", True)
+        parameters.get("priority_levels", True)
 
         clash_reports = []
         severity_counts = {"critical": 0, "major": 0, "minor": 0}

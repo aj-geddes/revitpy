@@ -610,7 +610,7 @@ class PackageInstaller:
                 "Downloading packages...", total=len(all_packages)
             )
             downloaded_packages = []
-            for i, pkg_spec in enumerate(all_packages):
+            for _i, pkg_spec in enumerate(all_packages):
                 if not self._is_local_path(pkg_spec["name"]):
                     download_info = self._download_package(pkg_spec)
                     downloaded_packages.append(download_info)
@@ -628,7 +628,7 @@ class PackageInstaller:
             task5 = progress.add_task(
                 "Installing packages...", total=len(downloaded_packages)
             )
-            for i, pkg_info in enumerate(downloaded_packages):
+            for _i, pkg_info in enumerate(downloaded_packages):
                 try:
                     self._install_single_package(
                         pkg_info,
@@ -814,7 +814,7 @@ class PackageInstaller:
         cmd.append(pkg_info["path"])
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
@@ -905,7 +905,7 @@ class PackageUninstaller:
                 if user_install:
                     cmd.append("--user")
 
-                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                subprocess.run(cmd, capture_output=True, text=True, check=True)
                 uninstalled.append(package)
 
             except subprocess.CalledProcessError as e:
@@ -1003,7 +1003,7 @@ class PackageLister:
             tree = Tree("Installed Packages")
 
             for pkg in packages:
-                pkg_node = tree.add(f"[cyan]{pkg['name']}[/cyan] {pkg['version']}")
+                tree.add(f"[cyan]{pkg['name']}[/cyan] {pkg['version']}")
                 # Would add dependencies here
 
             console.print(tree)
@@ -1288,7 +1288,7 @@ class PackageUpdater:
 
                 cmd.append(update["name"])
 
-                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                subprocess.run(cmd, capture_output=True, text=True, check=True)
 
                 updated.append(
                     {

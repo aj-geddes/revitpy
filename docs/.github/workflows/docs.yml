@@ -282,8 +282,3 @@ jobs:
           # Validate configuration
           mkdocs build --strict --quiet
           echo "✅ MkDocs configuration is valid"
-
-# Schedule link checking weekly
-on:
-  schedule:
-    - cron: '0 9 * * 1'  # Monday at 9 AM UTC

@@ -241,7 +241,7 @@ class MetricsCollector:
     def _collect_system_metrics(self) -> list[dict[str, Any]]:
         """Collect standard system performance metrics."""
         metrics = []
-        current_time = time.time()
+        time.time()
 
         if HAS_PSUTIL:
             try:
@@ -612,7 +612,7 @@ class AlertingSystem:
 
     def _check_alert_auto_resolution(self):
         """Check if any alerts should be auto-resolved."""
-        current_time = time.time()
+        time.time()
         auto_resolve_window = 300  # 5 minutes
 
         with self._lock:
@@ -871,7 +871,7 @@ class PerformanceMonitor:
             optimizer_metrics = self.performance_optimizer.get_performance_metrics()
 
             metrics = []
-            current_time = time.time()
+            time.time()
 
             # Convert optimizer metrics to collector format
             metric_mappings = {

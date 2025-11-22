@@ -79,7 +79,9 @@ def create_app() -> FastAPI:
             content={
                 "error": "Internal Server Error",
                 "message": "An unexpected error occurred",
-                "details": {"type": type(exc).__name__} if settings.server.debug else None,
+                "details": {"type": type(exc).__name__}
+                if settings.server.debug
+                else None,
             },
         )
 

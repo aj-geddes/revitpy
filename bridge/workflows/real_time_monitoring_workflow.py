@@ -366,7 +366,7 @@ class RealTimeMonitoringWorkflow:
                 )
                 total_sensors = sum(len(sensors) for sensors in baselines.values())
                 baseline_summary += f"• Total sensors: {total_sensors}\n"
-                baseline_summary += f"• Sensor types: {', '.join(set(s['sensor_type'] for element_sensors in baselines.values() for s in element_sensors.values()))}\n"
+                baseline_summary += f"• Sensor types: {', '.join({s['sensor_type'] for element_sensors in baselines.values() for s in element_sensors.values()})}\n"
 
                 UI.TaskDialog.Show("Baselines Established", baseline_summary)
 
@@ -404,9 +404,7 @@ class RealTimeMonitoringWorkflow:
                 current_readings = await self._collect_sensor_readings(sensor_config)
 
                 # Update Revit parameters
-                updates_applied = await self._update_revit_parameters(
-                    elements, current_readings
-                )
+                await self._update_revit_parameters(elements, current_readings)
 
                 # Perform anomaly detection
                 alerts = await self._detect_anomalies(current_readings)

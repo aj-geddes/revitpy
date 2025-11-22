@@ -14,12 +14,16 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import (
+    TYPE_CHECKING,
     Any,
     Generic,
     TypeVar,
 )
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from ..api.element import Element
 
 from .cache import CacheManager
 from .exceptions import QueryError

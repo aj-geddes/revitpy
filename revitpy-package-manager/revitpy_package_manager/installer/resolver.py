@@ -4,7 +4,6 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
-from packaging import version as packaging_version
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 

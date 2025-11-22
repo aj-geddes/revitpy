@@ -932,12 +932,12 @@ class PerformanceChecker:
         """
         # Simple CPU benchmark
         start_time = time.time()
-        result = sum(i * i for i in range(100000))
+        sum(i * i for i in range(100000))
         cpu_time = time.time() - start_time
 
         # Memory benchmark
         start_time = time.time()
-        data = [i for i in range(100000)]
+        data = list(range(100000))
         del data
         memory_time = time.time() - start_time
 

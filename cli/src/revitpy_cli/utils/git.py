@@ -242,7 +242,7 @@ def clone_repository(
         if branch:
             kwargs["branch"] = branch
 
-        repo = Repo.clone_from(url, destination, **kwargs)
+        Repo.clone_from(url, destination, **kwargs)
         logger.info(f"Cloned repository from {url} to {destination}")
         return GitManager(destination)
 

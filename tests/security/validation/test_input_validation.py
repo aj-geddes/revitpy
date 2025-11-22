@@ -411,7 +411,8 @@ class TestSecurityScanner:
     def test_file_scanning(self, scanner):
         """Test file scanning for security issues."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-            f.write("""
+            f.write(
+                """
 import subprocess
 import os
 
@@ -420,7 +421,8 @@ def dangerous_function():
     subprocess.call(user_input, shell=True)
     os.system(untrusted_command)
     exec(user_provided_code)
-""")
+"""
+            )
             temp_file = f.name
 
         try:

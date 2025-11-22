@@ -168,7 +168,7 @@ class TestElementSet:
         element_set = ElementSet(elements_with_duplicates, lazy=False)
 
         distinct_by_category = element_set.distinct(lambda x: x.category)
-        categories = set(elem.category for elem in distinct_by_category)
+        categories = {elem.category for elem in distinct_by_category}
 
         assert len(categories) == len(distinct_by_category.to_list())
         assert categories == {"Wall", "Door", "Window"}
@@ -391,7 +391,7 @@ class TestElementSet:
         assert not mock_builder.to_list.called
 
         # Only when materializing should the query execute
-        results = filtered.to_list()
+        filtered.to_list()
         assert mock_builder.where.called
 
     def test_chained_operations(self, sample_elements):

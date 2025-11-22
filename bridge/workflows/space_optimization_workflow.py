@@ -245,7 +245,7 @@ class SpaceOptimizationWorkflow:
             # Define constraints for each space
             for space in spaces:
                 space_id = self._get_element_id(space)
-                space_name = self._get_element_name(space)
+                self._get_element_name(space)
                 current_area = self._get_element_area(space)
 
                 space_constraints = {
@@ -292,7 +292,7 @@ class SpaceOptimizationWorkflow:
 
             # Show progress if interactive
             if interactive:
-                progress_dialog = BridgeUIHelpers.show_analysis_progress(
+                BridgeUIHelpers.show_analysis_progress(
                     "ML Space Optimization", len(spaces)
                 )
 

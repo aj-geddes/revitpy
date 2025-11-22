@@ -4,11 +4,15 @@ Event types and data structures for the RevitPy event system.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, Union
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from .handlers import AsyncEventHandler, BaseEventHandler
 
 
 class EventType(Enum):
@@ -266,5 +270,5 @@ def create_event_data(event_type: EventType, **kwargs) -> EventData:
 
 
 # Type aliases
-EventHandler = Union["BaseEventHandler", "AsyncEventHandler", callable]
-EventCallback = callable
+EventHandler = Union["BaseEventHandler", "AsyncEventHandler", Callable]
+EventCallback = Callable

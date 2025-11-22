@@ -131,7 +131,7 @@ class FilterCriteria:
                 b = str(b)
             elif isinstance(b, str) and not isinstance(a, str):
                 a = str(a)
-            elif isinstance(a, (int, float)) and isinstance(b, (int, float)):
+            elif isinstance(a, int | float) and isinstance(b, int | float):
                 pass  # Numeric comparison is fine
 
             return comparator(a, b)
@@ -321,7 +321,7 @@ class QueryBuilder(Generic[T]):
                         # For descending, we need to reverse the comparison
                         if isinstance(key, str):
                             key = key[::-1] if key else ""
-                        elif isinstance(key, (int, float)):
+                        elif isinstance(key, int | float):
                             key = -key
                     keys.append(key)
                 return tuple(keys)

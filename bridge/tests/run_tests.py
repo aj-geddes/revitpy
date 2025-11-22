@@ -146,9 +146,6 @@ def validate_test_environment():
     print("Validating test environment...")
 
     # Check Python version
-    if sys.version_info < (3, 7):
-        print("ERROR: Python 3.7+ required for testing")
-        return False
 
     # Check required modules
     required_modules = ["pytest", "asyncio", "unittest.mock"]

@@ -12,11 +12,15 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import (
+    TYPE_CHECKING,
     Any,
     TypeVar,
 )
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from ..api.element import Element
 
 from .async_support import AsyncRevitContext
 from .cache import CacheConfiguration, CacheManager

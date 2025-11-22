@@ -3,8 +3,8 @@
 import fnmatch
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List, Optional
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -19,8 +19,8 @@ class PatternMatchingHandler(FileSystemEventHandler):
 
     def __init__(
         self,
-        patterns: List[str],
-        ignore_patterns: List[str],
+        patterns: list[str],
+        ignore_patterns: list[str],
         callback: Callable[[Path, str], None],
     ) -> None:
         """Initialize pattern matching handler.
@@ -91,7 +91,9 @@ class PatternMatchingHandler(FileSystemEventHandler):
         file_name = file_path.name
 
         for pattern in self.patterns:
-            if fnmatch.fnmatch(file_name, pattern) or fnmatch.fnmatch(file_str, pattern):
+            if fnmatch.fnmatch(file_name, pattern) or fnmatch.fnmatch(
+                file_str, pattern
+            ):
                 return True
 
         return False
@@ -112,7 +114,9 @@ class PatternMatchingHandler(FileSystemEventHandler):
         file_name = file_path.name
 
         for pattern in self.ignore_patterns:
-            if fnmatch.fnmatch(file_name, pattern) or fnmatch.fnmatch(file_str, pattern):
+            if fnmatch.fnmatch(file_name, pattern) or fnmatch.fnmatch(
+                file_str, pattern
+            ):
                 return True
 
         return False
@@ -141,8 +145,8 @@ class FileWatcher:
     def __init__(
         self,
         watch_path: Path,
-        patterns: List[str],
-        ignore_patterns: List[str],
+        patterns: list[str],
+        ignore_patterns: list[str],
         callback: Callable[[Path, str], None],
     ) -> None:
         """Initialize file watcher.
@@ -158,8 +162,8 @@ class FileWatcher:
         self.ignore_patterns = ignore_patterns
         self.callback = callback
 
-        self.observer: Optional[Observer] = None
-        self.handler: Optional[PatternMatchingHandler] = None
+        self.observer: Observer | None = None
+        self.handler: PatternMatchingHandler | None = None
         self.running = False
 
     def start(self) -> None:
@@ -168,17 +172,11 @@ class FileWatcher:
             return
 
         self.handler = PatternMatchingHandler(
-            self.patterns,
-            self.ignore_patterns,
-            self.callback
+            self.patterns, self.ignore_patterns, self.callback
         )
 
         self.observer = Observer()
-        self.observer.schedule(
-            self.handler,
-            str(self.watch_path),
-            recursive=True
-        )
+        self.observer.schedule(self.handler, str(self.watch_path), recursive=True)
 
         self.observer.start()
         self.running = True
@@ -214,9 +212,9 @@ class BatchedFileWatcher(FileWatcher):
     def __init__(
         self,
         watch_path: Path,
-        patterns: List[str],
-        ignore_patterns: List[str],
-        callback: Callable[[List[tuple[Path, str]], None],
+        patterns: list[str],
+        ignore_patterns: list[str],
+        callback: Callable[[list[tuple[Path, str]]], None],
         batch_delay: float = 0.5,
     ) -> None:
         """Initialize batched file watcher.
@@ -230,17 +228,12 @@ class BatchedFileWatcher(FileWatcher):
         """
         self.batch_callback = callback
         self.batch_delay = batch_delay
-        self.pending_changes: List[tuple[Path, str]] = []
-        self.batch_timer: Optional[threading.Timer] = None
+        self.pending_changes: list[tuple[Path, str]] = []
+        self.batch_timer: threading.Timer | None = None
         self.lock = threading.Lock()
 
         # Initialize parent with our internal callback
-        super().__init__(
-            watch_path,
-            patterns,
-            ignore_patterns,
-            self._on_single_change
-        )
+        super().__init__(watch_path, patterns, ignore_patterns, self._on_single_change)
 
     def _on_single_change(self, file_path: Path, event_type: str) -> None:
         """Handle single file change event.
@@ -257,10 +250,7 @@ class BatchedFileWatcher(FileWatcher):
                 self.batch_timer.cancel()
 
             # Start new timer
-            self.batch_timer = threading.Timer(
-                self.batch_delay,
-                self._process_batch
-            )
+            self.batch_timer = threading.Timer(self.batch_delay, self._process_batch)
             self.batch_timer.start()
 
     def _process_batch(self) -> None:

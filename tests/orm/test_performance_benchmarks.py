@@ -191,7 +191,7 @@ class TestQueryPerformance:
             return (
                 query.where(lambda w: w.height > 10)
                 .where(lambda w: w.width > 0.3)
-                .where(lambda w: w.structural == True)
+                .where(lambda w: w.structural is True)
                 .order_by(lambda w: w.length)
                 .order_by(lambda w: w.height)
                 .take(100)
@@ -531,7 +531,7 @@ class TestIntegratedContextPerformance:
         with measure_time() as get_time:
             tall_structural_walls = (
                 self.context.where(WallElement, lambda w: w.height > 12)
-                .where(lambda w: w.structural == True)
+                .where(lambda w: w.structural is True)
                 .to_list()
             )
         complex_time = get_time() * 1000
@@ -655,7 +655,7 @@ class TestRegressionBenchmarks:
         # Complex query
         with measure_time() as get_time:
             query.where(lambda w: w.height > 10).where(
-                lambda w: w.structural == True
+                lambda w: w.structural is True
             ).to_list()
         complex_time = get_time() * 1000
 

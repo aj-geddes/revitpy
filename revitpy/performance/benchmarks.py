@@ -610,11 +610,9 @@ class BenchmarkSuite:
                     errors.append(f"Iteration {i}: Result validation failed")
                     continue
 
-                success = True
                 error = None
 
             except Exception as e:
-                success = False
                 error = str(e)
                 errors.append(f"Iteration {i}: {error}")
                 continue
@@ -623,7 +621,7 @@ class BenchmarkSuite:
             iteration_memory_end = self._get_memory_usage()
 
             latency_ms = (iteration_end - iteration_start) * 1000
-            memory_delta = iteration_memory_end - iteration_memory_start
+            iteration_memory_end - iteration_memory_start
 
             latencies.append(latency_ms)
             memory_usages.append(iteration_memory_end)
@@ -1125,7 +1123,7 @@ class BenchmarkSuite:
 
         # Simulate module imports and initialization
         dummy_modules = [f"module_{i}" for i in range(10)]
-        for module in dummy_modules:
+        for _module in dummy_modules:
             time.sleep(0.001)  # 1ms per module
 
         return "framework_initialized"
@@ -1193,7 +1191,7 @@ class BenchmarkSuite:
             temp_data.append(
                 {
                     "id": i,
-                    "data": [j for j in range(100)],
+                    "data": list(range(100)),
                     "metadata": {"created": time.time(), "processed": False},
                 }
             )

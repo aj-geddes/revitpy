@@ -349,7 +349,7 @@ class MemoryCache(CacheBackend):
 
     def _cleanup_expired(self) -> None:
         """Remove expired entries."""
-        current_time = datetime.utcnow()
+        datetime.utcnow()
         expired_keys = []
 
         for key_str, entry in self._cache.items():

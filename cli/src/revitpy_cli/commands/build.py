@@ -360,7 +360,7 @@ class PackageBuilder:
             Path to built wheel or None if failed
         """
         try:
-            result = subprocess.run(
+            subprocess.run(
                 ["python", "-m", "build", "--wheel", "--outdir", str(self.output_path)],
                 cwd=self.project_path,
                 capture_output=True,
@@ -385,7 +385,7 @@ class PackageBuilder:
             Path to built sdist or None if failed
         """
         try:
-            result = subprocess.run(
+            subprocess.run(
                 ["python", "-m", "build", "--sdist", "--outdir", str(self.output_path)],
                 cwd=self.project_path,
                 capture_output=True,

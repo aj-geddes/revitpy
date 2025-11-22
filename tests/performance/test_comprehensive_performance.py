@@ -265,7 +265,7 @@ class TestAPILatencyPerformance:
             # Benchmark
             for _ in range(performance_config.BENCHMARK_ITERATIONS):
                 start_time = time.perf_counter()
-                result = operation()
+                operation()
                 end_time = time.perf_counter()
 
                 latency_ms = (end_time - start_time) * 1000
@@ -348,7 +348,7 @@ class TestAPILatencyPerformance:
                 min(50, performance_config.BENCHMARK_ITERATIONS)
             ):  # Fewer iterations for complex ops
                 start_time = time.perf_counter()
-                result = operation()
+                operation()
                 end_time = time.perf_counter()
 
                 latency_ms = (end_time - start_time) * 1000
@@ -379,7 +379,7 @@ class TestMemoryPerformance:
         """Test idle memory usage meets ≤50MB target."""
 
         # Take baseline snapshot
-        baseline_snapshot = memory_manager.take_snapshot("idle_baseline")
+        memory_manager.take_snapshot("idle_baseline")
 
         # Let system settle
         time.sleep(2)
@@ -402,7 +402,7 @@ class TestMemoryPerformance:
         """Test peak memory usage under load meets ≤500MB target."""
 
         # Take baseline
-        baseline_snapshot = memory_manager.take_snapshot("load_baseline")
+        memory_manager.take_snapshot("load_baseline")
 
         def memory_intensive_operation():
             """Simulate memory-intensive operation."""
@@ -431,7 +431,7 @@ class TestMemoryPerformance:
         peak_memory_mb = 0
 
         for i in range(10):  # Multiple operations to build up memory
-            start_memory = memory_manager.take_snapshot(f"load_start_{i}")
+            memory_manager.take_snapshot(f"load_start_{i}")
 
             result, data = memory_intensive_operation()
 
@@ -594,13 +594,11 @@ class TestScalabilityPerformance:
                     performance_optimizer._cache.set(
                         f"session_{session_id}_key", f"data_{session_ops}"
                     )
-                    result = performance_optimizer._cache.get(
-                        f"session_{session_id}_key"
-                    )
+                    performance_optimizer._cache.get(f"session_{session_id}_key")
 
                     # Pool operations
                     with performance_optimizer.pooled_object(dict):
-                        temp_data = {"session": session_id, "operation": session_ops}
+                        pass
 
                     session_ops += 1
                     time.sleep(0.01)  # Simulate work
@@ -849,7 +847,7 @@ class TestEndurancePerformance:
 
         # Take initial measurements
         initial_snapshot = memory_manager.take_snapshot("endurance_start")
-        initial_metrics = performance_optimizer.get_performance_metrics()
+        performance_optimizer.get_performance_metrics()
 
         # Track performance over time
         performance_samples = []
@@ -868,15 +866,15 @@ class TestEndurancePerformance:
                 # Cache operations
                 key = f"endurance_{operation_count % 1000}"
                 performance_optimizer._cache.set(key, f"data_{operation_count}")
-                result = performance_optimizer._cache.get(key)
+                performance_optimizer._cache.get(key)
 
                 # Pool operations
                 with performance_optimizer.pooled_object(dict) as obj:
                     obj["operation"] = operation_count
 
                 # Memory-using operations
-                temp_data = [i for i in range(100)]
-                processed = sum(temp_data)
+                temp_data = list(range(100))
+                sum(temp_data)
 
                 operation_count += 1
 
@@ -913,7 +911,7 @@ class TestEndurancePerformance:
 
         # Take final measurements
         final_snapshot = memory_manager.take_snapshot("endurance_end")
-        final_metrics = performance_optimizer.get_performance_metrics()
+        performance_optimizer.get_performance_metrics()
 
         total_duration = time.time() - start_time
         avg_ops_per_second = operation_count / total_duration

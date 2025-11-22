@@ -143,11 +143,29 @@ ignore = [
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
+    "B904",  # raise from within except - TODO: fix these
+    "E722",  # bare except - TODO: fix these
+    "E741",  # ambiguous variable name
+    "UP007", # Use X | Y for type annotations
+    "B007",  # unused loop variable
+    "B023",  # function not binding loop variable
+    "B017",  # pytest.raises(Exception)
+    "F811",  # redefinition of unused
+    "S110",  # try-except-pass
+    "S112",  # try-except-continue
+    "S603",  # subprocess call
+    "S607",  # partial executable path
+    "N802",  # function name should be lowercase
+    "N805",  # first argument should be self
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-"tests/**/*" = ["S101", "D"]
+"tests/**/*" = ["S101", "D", "F401", "E402"]
+"bridge/**/*" = ["F401", "E402"]
+"revitpy/performance/**/*" = ["F401"]
+"cli/**/*" = ["F401", "E402", "B904"]
+"revitpy-package-manager/**/*" = ["F401", "E402", "F403", "F405"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"

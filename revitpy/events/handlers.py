@@ -221,9 +221,9 @@ class AsyncEventHandler(BaseEventHandler):
     def handle_event(self, event_data: EventData) -> EventResult:
         """Sync version calls async version."""
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # If we're in an async context, create a task
-            task = asyncio.create_task(self.handle_event_async(event_data))
+            asyncio.create_task(self.handle_event_async(event_data))
             return EventResult.CONTINUE  # Let async handler complete in background
         except RuntimeError:
             # No event loop, run synchronously

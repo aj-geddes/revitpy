@@ -221,8 +221,6 @@ class TestQueryBuilderIntegration:
         # Check cache statistics
         stats = self.cache_manager.statistics
         if stats:
-            initial_hits = stats.hits
-
             # Second execution with same query - should hit cache
             result2 = query.where(lambda w: w.height > 9).to_list()
 
@@ -462,6 +460,6 @@ class TestPerformanceAndOptimization:
         assert len(lazy_result) == len(eager_result)
 
         # Results should be equivalent (though order might differ)
-        lazy_ids = set(w.id for w in lazy_result)
-        eager_ids = set(w.id for w in eager_result)
+        lazy_ids = {w.id for w in lazy_result}
+        eager_ids = {w.id for w in eager_result}
         assert lazy_ids == eager_ids

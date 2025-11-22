@@ -286,7 +286,7 @@ class GeneticAlgorithm(OptimizationAlgorithm):
                         "from": orig_space[key],
                         "to": opt_space[key],
                         "change": opt_space[key] - orig_space[key]
-                        if isinstance(orig_space[key], (int, float))
+                        if isinstance(orig_space[key], int | float)
                         else "modified",
                     }
 

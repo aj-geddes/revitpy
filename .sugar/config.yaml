@@ -1,0 +1,194 @@
+# Sugar Configuration for RevitPy
+# Autonomous Development System Configuration
+
+# Project Information
+project:
+  name: "revitpy"
+  description: "Modern Python Framework for Revit Development"
+  repository: "https://github.com/aj-geddes/revitpy"
+
+# Autonomous Execution Settings
+execution:
+  enabled: true
+  loop_interval: 300  # Check for new tasks every 5 minutes
+  max_concurrent_tasks: 2  # Run up to 2 tasks in parallel
+  timeout_per_task: 1800  # 30 minutes max per task
+  dry_run: false  # Set to true for testing
+
+# Agent Configuration
+agents:
+  backend_developer:
+    enabled: true
+    max_concurrent: 1
+    specialization: "Server architecture, API design, database work"
+
+  frontend_developer:
+    enabled: true
+    max_concurrent: 1
+    specialization: "UI/UX, user-facing features, PyRevit integration"
+
+  qa_test_engineer:
+    enabled: true
+    max_concurrent: 1
+    specialization: "Testing, validation, test coverage improvements"
+
+  tech_lead:
+    enabled: true
+    max_concurrent: 1
+    specialization: "Architecture decisions, code review, security"
+
+  ux_design_specialist:
+    enabled: false  # Enable if needed
+    max_concurrent: 1
+    specialization: "User experience, design patterns"
+
+# Code Discovery Settings
+discovery:
+  # Error log monitoring
+  error_logs:
+    enabled: true
+    paths:
+      - "logs/"
+      - ".sugar/logs/"
+    patterns:
+      - "*.log"
+      - "*.json"
+      - "error*.txt"
+    max_age_hours: 24
+    scan_interval: 3600  # Check hourly
+
+  # Code quality analysis
+  code_quality:
+    enabled: true
+    file_extensions:
+      - ".py"
+      - ".cs"  # C# files for Revit integration
+    excluded_dirs:
+      - "node_modules"
+      - "venv"
+      - ".venv"
+      - "__pycache__"
+      - ".git"
+      - "dist"
+      - "build"
+    max_complexity: 10
+    max_files_per_scan: 50
+    scan_interval: 86400  # Daily
+
+  # Test coverage analysis
+  test_coverage:
+    enabled: true
+    source_dirs:
+      - "revitpy"
+      - "bridge"
+      - "cli/src"
+    test_dirs:
+      - "tests"
+      - "bridge/tests"
+    coverage_threshold: 80  # Target 80% coverage
+    scan_interval: 86400  # Daily
+
+  # GitHub integration (optional)
+  github:
+    enabled: false  # Enable if you want to sync with GitHub issues
+    repo: "aj-geddes/revitpy"
+    issue_labels:
+      - "bug"
+      - "enhancement"
+      - "good first issue"
+    sync_interval: 3600  # Check hourly
+
+# Task Prioritization
+prioritization:
+  auto_prioritize: true
+  rules:
+    - condition: "type == 'bug_fix' and severity == 'critical'"
+      priority: 5
+    - condition: "type == 'security'"
+      priority: 5
+    - condition: "type == 'bug_fix'"
+      priority: 4
+    - condition: "type == 'test' and coverage < 50"
+      priority: 4
+    - condition: "type == 'feature' and business_value == 'high'"
+      priority: 4
+    - condition: "type == 'refactor'"
+      priority: 3
+    - condition: "type == 'documentation'"
+      priority: 2
+
+# Code Quality Standards
+quality:
+  linters:
+    python:
+      - "ruff"
+      - "black"
+      - "isort"
+      - "mypy"
+    run_before_commit: true
+
+  testing:
+    framework: "pytest"
+    coverage_tool: "pytest-cov"
+    min_coverage: 80
+    run_before_commit: false  # Can be slow
+
+  formatting:
+    auto_format: true
+    check_before_commit: true
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file: ".sugar/sugar.log"
+  max_size_mb: 10
+  backup_count: 5
+  console_output: true
+
+# Notification Settings
+notifications:
+  enabled: true
+  on_task_complete: true
+  on_task_failed: true
+  on_discovery: true
+  channels:
+    - type: "file"
+      path: ".sugar/notifications.log"
+
+# Safety Settings
+safety:
+  require_approval_for:
+    - "delete_files"
+    - "modify_config"
+    - "system_commands"
+
+  protected_files:
+    - ".git/**"
+    - ".sugar/**"
+    - "pyproject.toml"
+    - "*.sln"
+
+  protected_dirs:
+    - ".git"
+    - "node_modules"
+
+  max_file_changes_per_task: 10
+  backup_before_changes: true
+
+# Integration Settings
+integrations:
+  git:
+    auto_commit: false  # User controls commits
+    auto_branch: true  # Create branches for features
+    branch_prefix: "sugar/"
+
+  vscode:
+    enabled: true
+    open_files_after_changes: false
+
+# Performance Settings
+performance:
+  cache_enabled: true
+  cache_dir: ".sugar/cache"
+  max_cache_size_mb: 100
+  parallel_analysis: true

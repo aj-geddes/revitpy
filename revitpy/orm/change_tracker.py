@@ -14,11 +14,15 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import (
+    TYPE_CHECKING,
     Any,
     TypeVar,
 )
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from ..api.element import Element
 
 from .exceptions import ChangeTrackingError
 from .types import (
@@ -230,9 +234,9 @@ class EntityTracker:
     def _deep_copy_value(self, value: Any) -> Any:
         """Create a deep copy of a value for tracking."""
         # Simplified deep copy - in practice you might want to use copy.deepcopy
-        if isinstance(value, (str, int, float, bool, type(None))):
+        if isinstance(value, str | int | float | bool | type(None)):
             return value
-        elif isinstance(value, (list, tuple)):
+        elif isinstance(value, list | tuple):
             return type(value)(self._deep_copy_value(item) for item in value)
         elif isinstance(value, dict):
             return {k: self._deep_copy_value(v) for k, v in value.items()}

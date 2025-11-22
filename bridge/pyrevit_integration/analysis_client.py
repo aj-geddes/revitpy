@@ -367,7 +367,7 @@ class AnalysisClient:
 
             # Show configuration if interactive
             if interactive:
-                element_summary = self.element_selector.create_element_summary(elements)
+                self.element_selector.create_element_summary(elements)
                 estimated_time = workflow.estimate_total_time(len(elements))
 
                 # Show confirmation dialog
@@ -379,9 +379,7 @@ class AnalysisClient:
                     return {"success": False, "error": "Analysis cancelled by user"}
 
                 # Show progress dialog
-                progress_dialog = BridgeUIHelpers.show_analysis_progress(
-                    workflow.name, len(elements)
-                )
+                BridgeUIHelpers.show_analysis_progress(workflow.name, len(elements))
 
             # Execute analysis
             try:

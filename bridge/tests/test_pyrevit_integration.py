@@ -119,7 +119,7 @@ class TestElementSelector:
 
     def test_element_selection_by_category(self, selector):
         """Test selecting elements by category."""
-        with patch("pyrevit.revit.doc") as mock_doc:
+        with patch("pyrevit.revit.doc"):
             # Mock filtered element collector
             mock_collector = Mock()
             mock_elements = [Mock() for _ in range(5)]

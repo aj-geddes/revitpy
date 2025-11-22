@@ -292,7 +292,7 @@ class AdaptiveCache:
             # Simple size estimation
             if isinstance(obj, str):
                 return len(obj.encode("utf-8"))
-            elif isinstance(obj, (list, tuple)):
+            elif isinstance(obj, list | tuple):
                 return sum(self._estimate_size(item) for item in obj) + 64
             elif isinstance(obj, dict):
                 return (
@@ -672,18 +672,14 @@ class PerformanceOptimizer:
         latencies = []
         memory_deltas = []
 
-        for i in range(iterations):
+        for _i in range(iterations):
             memory_before = self._get_memory_usage_mb()
             start_time = time.perf_counter()
 
             try:
-                result = operation()
-                success = True
-                error = None
+                operation()
             except Exception as e:
-                success = False
-                error = str(e)
-                result = None
+                str(e)
 
             end_time = time.perf_counter()
             memory_after = self._get_memory_usage_mb()

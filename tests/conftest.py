@@ -142,11 +142,11 @@ class MockParameter:
 
     @property
     def AsDouble(self):
-        return float(self._value) if isinstance(self._value, (int, float)) else 0.0
+        return float(self._value) if isinstance(self._value, int | float) else 0.0
 
     @property
     def AsInteger(self):
-        return int(self._value) if isinstance(self._value, (int, float)) else 0
+        return int(self._value) if isinstance(self._value, int | float) else 0
 
 
 class MockParameterDefinition:
@@ -517,7 +517,7 @@ def concurrent_test_runner():
 
         def run_stress_test(self, func, iterations: int = 100, max_workers: int = 20):
             """Run stress test with many concurrent operations."""
-            args_list = [i for i in range(iterations)]
+            args_list = list(range(iterations))
             return self.run_concurrent(func, args_list, max_workers)
 
     return ConcurrentTestRunner()
@@ -651,13 +651,15 @@ def test_database():
 
     try:
         conn = sqlite3.connect(db_path)
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS test_table (
                 id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
                 value REAL
             )
-        """)
+        """
+        )
         conn.commit()
 
         yield {"path": db_path, "connection": conn}

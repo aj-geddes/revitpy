@@ -2,6 +2,7 @@
 Parameter serialization for Revit elements.
 """
 
+import time
 from enum import Enum
 from typing import Any
 
@@ -376,7 +377,7 @@ class ParameterSerializer:
                 "parameter_groups": set(),
             }
 
-            for param_name, param_data in parameters.items():
+            for _param_name, param_data in parameters.items():
                 # Count by type
                 param_type = param_data.get("type", "unknown")
                 summary["type_distribution"][param_type] = (
@@ -436,7 +437,7 @@ class ParameterSerializer:
                         f"Value {value} is not an integer for parameter type {param_type}"
                     )
                 elif param_type == ParameterType.NUMBER.value and not isinstance(
-                    value, (int, float)
+                    value, int | float
                 ):
                     errors.append(
                         f"Value {value} is not a number for parameter type {param_type}"

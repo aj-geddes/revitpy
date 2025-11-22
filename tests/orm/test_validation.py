@@ -436,13 +436,13 @@ class TestElementValidator:
 
     def test_validate_invalid_element(self):
         """Test validating invalid elements."""
-        validator = ElementValidator(ValidationLevel.STANDARD)
+        ElementValidator(ValidationLevel.STANDARD)
 
         # Create invalid wall (negative height)
         try:
-            wall = WallElement(id=1, height=-10, length=20, width=0.5)
+            WallElement(id=1, height=-10, length=20, width=0.5)
             # Should not reach here
-            assert False, "Expected validation error"
+            raise AssertionError("Expected validation error")
         except ValidationError:
             pass  # Expected
 

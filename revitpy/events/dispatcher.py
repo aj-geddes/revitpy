@@ -403,7 +403,7 @@ class EventDispatcher:
                         *async_tasks, return_exceptions=True
                     )
 
-                    for i, async_result in enumerate(async_results):
+                    for _i, async_result in enumerate(async_results):
                         if isinstance(async_result, Exception):
                             result.handlers_failed += 1
                             result.errors.append(async_result)

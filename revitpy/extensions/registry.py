@@ -227,7 +227,7 @@ class ExtensionRegistry:
         return {
             "total_extensions": len(self._extensions),
             "unique_authors": len(
-                set(ext.author for ext in self._extensions.values() if ext.author)
+                {ext.author for ext in self._extensions.values() if ext.author}
             ),
             "with_dependencies": len(
                 [ext for ext in self._extensions.values() if ext.dependencies]

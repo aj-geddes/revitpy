@@ -262,13 +262,13 @@ class TestCommunicationPerformance:
         # Process multiple large datasets
         datasets = [performance_test_data for _ in range(5)]
 
-        for i, dataset in enumerate(datasets):
+        for _i, dataset in enumerate(datasets):
             with patch.object(serializer, "_extract_element_data") as mock_extract:
                 mock_extract.side_effect = dataset
                 mock_elements = [Mock() for _ in range(len(dataset))]
 
                 # Process dataset
-                serialized = serializer.serialize_elements(mock_elements)
+                serializer.serialize_elements(mock_elements)
 
                 # Check memory after each dataset
                 current_memory = process.memory_info().rss / 1024 / 1024  # MB
@@ -345,7 +345,7 @@ class TestStressTests:
                 successful_handles += 1
             except Exception as e:
                 # Expected for some inputs, but shouldn't crash
-                assert isinstance(e, (ValueError, TypeError, KeyError))
+                assert isinstance(e, ValueError | TypeError | KeyError)
                 successful_handles += 1
 
         # Should handle all malformed inputs gracefully
@@ -376,7 +376,7 @@ class TestStressTests:
 
         for request in requests:
             try:
-                result = await asyncio.wait_for(
+                await asyncio.wait_for(
                     variable_delay_handler(request), timeout=timeout_duration
                 )
                 completed += 1

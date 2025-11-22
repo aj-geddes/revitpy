@@ -344,11 +344,11 @@ class WebSocketBridgeServer:
                 self.logger.error(f"Error in heartbeat task: {e}")
                 await asyncio.sleep(60)
 
-    def get_active_connections(self) -> List[str]:
+    def get_active_connections(self) -> list[str]:
         """Get list of active connection IDs."""
         return [conn_id for conn_id, conn in self.connections.items() if conn.is_active]
 
-    def get_connection_info(self) -> List[dict[str, Any]]:
+    def get_connection_info(self) -> list[dict[str, Any]]:
         """Get detailed connection information."""
         connection_info = []
 
@@ -529,7 +529,7 @@ class WebSocketBridgeClient:
         start_time = time.time()
 
         ping_message = {"type": "ping"}
-        response = await self.send_message(ping_message, expect_response=True)
+        await self.send_message(ping_message, expect_response=True)
 
         end_time = time.time()
         return end_time - start_time

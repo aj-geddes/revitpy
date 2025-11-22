@@ -474,7 +474,7 @@ class TestRegressionBenchmarks:
         async def api_call():
             return await api_wrapper.call_api("TestMethod", {})
 
-        result = benchmark(asyncio.run, api_call())
+        benchmark(asyncio.run, api_call())
 
         # Regression assertions (allow 20% performance degradation)
         assert benchmark.stats.mean <= baseline_metrics["api_call_mean"] * 1.2
@@ -501,7 +501,7 @@ class TestRegressionBenchmarks:
                 elements.append(element)
             return elements
 
-        result = benchmark(create_elements)
+        benchmark(create_elements)
 
         # Calculate creation rate
         creation_rate = 1000 / benchmark.stats.mean

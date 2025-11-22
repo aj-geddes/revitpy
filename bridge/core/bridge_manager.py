@@ -164,7 +164,7 @@ class BridgeManager:
         self.is_running = False
 
         # Cancel pending requests
-        for request_id, future in self.request_futures.items():
+        for _request_id, future in self.request_futures.items():
             if not future.done():
                 future.cancel()
 

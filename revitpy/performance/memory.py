@@ -539,7 +539,7 @@ class MemoryManager:
             # Get top memory differences
             top_stats = after_snapshot.compare_to(before_snapshot, "lineno")[:10]
 
-            profile_result = {
+            {
                 "operation": operation_name,
                 "duration_seconds": duration,
                 "memory_delta_mb": memory_delta,
@@ -962,7 +962,7 @@ class MemoryLeakDetector:
                 current_time = time.time()
 
                 if current_time >= next_snapshot_time:
-                    snapshot = self.memory_manager.take_snapshot(
+                    self.memory_manager.take_snapshot(
                         f"leak_detection_{detection_results['snapshots_taken']}"
                     )
                     detection_results["snapshots_taken"] += 1
@@ -1234,7 +1234,7 @@ class MemoryLeakDetector:
         for i in range(50):
             obj = {
                 "id": i,
-                "data": [j for j in range(50)],
+                "data": list(range(50)),
                 "metadata": {"created": time.time()},
             }
             temp_objects.append(obj)

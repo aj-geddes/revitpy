@@ -81,7 +81,7 @@ def async_revit_operation(
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an async context
                 return async_wrapper(*args, **kwargs)
             except RuntimeError:
@@ -150,7 +150,7 @@ def background_task(
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 return async_wrapper(*args, **kwargs)
             except RuntimeError:
                 return sync_wrapper(*args, **kwargs)
@@ -205,7 +205,7 @@ def revit_transaction(
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 return async_wrapper(*args, **kwargs)
             except RuntimeError:
                 return sync_wrapper(*args, **kwargs)
@@ -264,7 +264,7 @@ def rate_limited(max_calls: int, time_window: timedelta) -> Callable[[F], F]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 return async_wrapper(*args, **kwargs)
             except RuntimeError:
                 return sync_wrapper(*args, **kwargs)
@@ -352,7 +352,7 @@ def cache_result(ttl: timedelta | None = None, max_size: int = 128) -> Callable[
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 return async_wrapper(*args, **kwargs)
             except RuntimeError:
                 return sync_wrapper(*args, **kwargs)
@@ -375,7 +375,7 @@ def get_default_task_queue() -> TaskQueue:
 
         # Start the queue (this would be managed by RevitPy initialization)
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             asyncio.create_task(_default_task_queue.start())
         except RuntimeError:
             # No event loop, create one temporarily

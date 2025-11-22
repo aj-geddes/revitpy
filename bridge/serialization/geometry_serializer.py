@@ -428,7 +428,7 @@ class GeometrySerializer:
                 if hasattr(geometry, prop):
                     try:
                         value = getattr(geometry, prop)
-                        if isinstance(value, (int, float)):
+                        if isinstance(value, int | float):
                             data["properties"][prop.lower()] = round(
                                 value, self.precision
                             )

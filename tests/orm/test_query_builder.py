@@ -232,7 +232,7 @@ class TestQueryBuilder:
         distinct = builder.distinct(lambda x: x.category)
         results = distinct.to_list()
 
-        categories = set(elem.category for elem in results)
+        categories = {elem.category for elem in results}
         assert len(categories) == len(results)  # All should be unique by category
 
     def test_first(self, mock_provider, cache_manager):
