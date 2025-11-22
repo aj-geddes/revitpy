@@ -8,8 +8,8 @@ description: >-
   RevitPy is an enterprise-grade Python framework for Autodesk Revit development.
   Build faster with async/await, LINQ-style queries, machine learning integration,
   and comprehensive type safety.
-baseurl: ""
-url: "https://revitpy.org"
+baseurl: "/revitpy"
+url: "https://aj-geddes.github.io"
 author: RevitPy Team
 email: support@revitpy.org
 repository: revitpy/revitpy
