@@ -175,9 +175,9 @@ class TestQueryPerformance:
         print(f"Simple query - Average: {avg_time:.2f}ms, Max: {max_time:.2f}ms")
 
         # Performance requirement: <10ms for simple operations
-        assert (
-            avg_time < 10
-        ), f"Simple query too slow: {avg_time:.2f}ms (requirement: <10ms)"
+        assert avg_time < 10, (
+            f"Simple query too slow: {avg_time:.2f}ms (requirement: <10ms)"
+        )
         assert max_time < 20, f"Simple query max time too slow: {max_time:.2f}ms"
 
     def test_complex_query_performance_requirement(self):
@@ -221,9 +221,9 @@ class TestQueryPerformance:
         print(f"Complex query - Average: {avg_time:.2f}ms, Max: {max_time:.2f}ms")
 
         # Performance requirement: <100ms for complex queries
-        assert (
-            avg_time < 100
-        ), f"Complex query too slow: {avg_time:.2f}ms (requirement: <100ms)"
+        assert avg_time < 100, (
+            f"Complex query too slow: {avg_time:.2f}ms (requirement: <100ms)"
+        )
         assert max_time < 200, f"Complex query max time too slow: {max_time:.2f}ms"
 
     def test_large_result_set_performance(self):
@@ -315,9 +315,9 @@ class TestElementSetPerformance:
         )
 
         assert len(element_set) == len(self.walls)
-        assert (
-            creation_time < 50
-        ), f"ElementSet creation too slow: {creation_time:.2f}ms"
+        assert creation_time < 50, (
+            f"ElementSet creation too slow: {creation_time:.2f}ms"
+        )
 
     def test_element_set_operations_performance(self):
         """Test ElementSet operation performance."""
@@ -372,9 +372,9 @@ class TestElementSetPerformance:
 
         assert updated_count == len(element_set) * len(updates)
         assert batch_time < 200, f"Batch update too slow: {batch_time:.2f}ms"
-        assert (
-            throughput > 5000
-        ), f"Batch update throughput too low: {throughput:.0f} updates/sec"
+        assert throughput > 5000, (
+            f"Batch update throughput too low: {throughput:.0f} updates/sec"
+        )
 
 
 class TestCachePerformance:
@@ -423,12 +423,12 @@ class TestCachePerformance:
         # Performance requirements for cache operations
         assert set_time < 100, f"Cache set too slow: {set_time:.2f}ms"
         assert get_time_ms < 50, f"Cache get too slow: {get_time_ms:.2f}ms"
-        assert (
-            set_throughput > 5000
-        ), f"Cache set throughput too low: {set_throughput:.0f}/sec"
-        assert (
-            get_throughput > 10000
-        ), f"Cache get throughput too low: {get_throughput:.0f}/sec"
+        assert set_throughput > 5000, (
+            f"Cache set throughput too low: {set_throughput:.0f}/sec"
+        )
+        assert get_throughput > 10000, (
+            f"Cache get throughput too low: {get_throughput:.0f}/sec"
+        )
 
     def test_cache_invalidation_performance(self):
         """Test cache invalidation performance."""
@@ -452,9 +452,9 @@ class TestCachePerformance:
         )
 
         assert invalidated_count > 0
-        assert (
-            invalidation_time < 100
-        ), f"Cache invalidation too slow: {invalidation_time:.2f}ms"
+        assert invalidation_time < 100, (
+            f"Cache invalidation too slow: {invalidation_time:.2f}ms"
+        )
 
 
 class TestChangeTrackerPerformance:
@@ -496,12 +496,12 @@ class TestChangeTrackerPerformance:
         assert change_tracker.change_count == len(elements)
         assert attach_time < 200, f"Change tracker attach too slow: {attach_time:.2f}ms"
         assert track_time < 100, f"Change tracking too slow: {track_time:.2f}ms"
-        assert (
-            attach_throughput > 2000
-        ), f"Attach throughput too low: {attach_throughput:.0f}/sec"
-        assert (
-            track_throughput > 5000
-        ), f"Track throughput too low: {track_throughput:.0f}/sec"
+        assert attach_throughput > 2000, (
+            f"Attach throughput too low: {attach_throughput:.0f}/sec"
+        )
+        assert track_throughput > 5000, (
+            f"Track throughput too low: {track_throughput:.0f}/sec"
+        )
 
 
 class TestIntegratedContextPerformance:
@@ -545,9 +545,9 @@ class TestIntegratedContextPerformance:
 
         # Performance requirements
         assert simple_time < 15, f"Simple context query too slow: {simple_time:.2f}ms"
-        assert (
-            complex_time < 150
-        ), f"Complex context query too slow: {complex_time:.2f}ms"
+        assert complex_time < 150, (
+            f"Complex context query too slow: {complex_time:.2f}ms"
+        )
 
     def test_context_change_tracking_performance(self):
         """Test RevitContext change tracking performance."""
@@ -613,19 +613,19 @@ class TestScalabilityBenchmarks:
 
         # Performance should scale reasonably
         if element_count <= 10000:
-            assert (
-                query_time < 200
-            ), f"Query too slow for {element_count} elements: {query_time:.2f}ms"
+            assert query_time < 200, (
+                f"Query too slow for {element_count} elements: {query_time:.2f}ms"
+            )
         else:
             # For very large datasets, allow more time but should still be reasonable
-            assert (
-                query_time < 1000
-            ), f"Query too slow for {element_count} elements: {query_time:.2f}ms"
+            assert query_time < 1000, (
+                f"Query too slow for {element_count} elements: {query_time:.2f}ms"
+            )
 
         # Throughput should be maintained
-        assert (
-            elements_per_ms > 50
-        ), f"Processing rate too low: {elements_per_ms:.0f} elements/ms"
+        assert elements_per_ms > 50, (
+            f"Processing rate too low: {elements_per_ms:.0f} elements/ms"
+        )
 
 
 @pytest.mark.benchmark
@@ -667,9 +667,9 @@ class TestRegressionBenchmarks:
         )
 
         # Ensure performance hasn't regressed beyond acceptable thresholds
-        assert (
-            simple_time <= baseline_metrics["simple_query_ms"] * 1.5
-        ), f"Simple query regression: {simple_time:.2f}ms"
-        assert (
-            complex_time <= baseline_metrics["complex_query_ms"] * 1.5
-        ), f"Complex query regression: {complex_time:.2f}ms"
+        assert simple_time <= baseline_metrics["simple_query_ms"] * 1.5, (
+            f"Simple query regression: {simple_time:.2f}ms"
+        )
+        assert complex_time <= baseline_metrics["complex_query_ms"] * 1.5, (
+            f"Complex query regression: {complex_time:.2f}ms"
+        )

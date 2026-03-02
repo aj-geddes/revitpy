@@ -7,11 +7,11 @@ that provides Pythonic access to Revit elements.
 from unittest.mock import MagicMock
 
 import pytest
-
-from revitpy.api.exceptions import RevitValidationError
 from revitpy.orm.models import Door, Element, Parameter, Wall, Window
 from revitpy.orm.query import QueryBuilder
 from revitpy.orm.session import RevitSession
+
+from revitpy.api.exceptions import RevitValidationError
 
 
 class TestElement:

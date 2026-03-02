@@ -10,11 +10,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from revitpy.security.sanitizer import DataSanitizer
+from revitpy.security.validator import InputValidator, SecurityScanner
 
 from revitpy.api.exceptions import RevitSecurityError, RevitValidationError
 from revitpy.api.wrapper import RevitAPIWrapper
-from revitpy.security.sanitizer import DataSanitizer
-from revitpy.security.validator import InputValidator, SecurityScanner
 
 
 class TestInputValidation:

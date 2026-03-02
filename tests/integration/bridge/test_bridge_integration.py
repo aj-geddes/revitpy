@@ -11,11 +11,11 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from revitpy.orm.models import Door, Wall, Window
+from revitpy.orm.session import RevitSession
 
 from revitpy.api.exceptions import RevitAPIException, RevitConnectionError
 from revitpy.api.wrapper import RevitAPIWrapper
-from revitpy.orm.models import Door, Wall, Window
-from revitpy.orm.session import RevitSession
 
 
 class TestPythonCSharpBridge:

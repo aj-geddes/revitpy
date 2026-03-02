@@ -161,13 +161,13 @@ class TestStartupPerformance:
         )
 
         # Validate against target
-        assert (
-            avg_latency <= performance_config.PYTHON_INIT_TARGET_MS
-        ), f"Python framework initialization too slow: {avg_latency:.1f}ms > {performance_config.PYTHON_INIT_TARGET_MS}ms"
+        assert avg_latency <= performance_config.PYTHON_INIT_TARGET_MS, (
+            f"Python framework initialization too slow: {avg_latency:.1f}ms > {performance_config.PYTHON_INIT_TARGET_MS}ms"
+        )
 
-        assert (
-            max_latency <= performance_config.PYTHON_INIT_TARGET_MS * 1.5
-        ), f"Python framework max initialization time too slow: {max_latency:.1f}ms"
+        assert max_latency <= performance_config.PYTHON_INIT_TARGET_MS * 1.5, (
+            f"Python framework max initialization time too slow: {max_latency:.1f}ms"
+        )
 
     def test_component_startup_sequence(
         self, performance_config, performance_optimizer, memory_manager
@@ -209,17 +209,17 @@ class TestStartupPerformance:
         logger.info(f"Startup sequence timing: {result}")
 
         # Validate components start quickly
-        assert (
-            result["total_time_ms"] <= performance_config.STARTUP_TIME_TARGET_MS
-        ), f"Total startup time too slow: {result['total_time_ms']:.1f}ms"
+        assert result["total_time_ms"] <= performance_config.STARTUP_TIME_TARGET_MS, (
+            f"Total startup time too slow: {result['total_time_ms']:.1f}ms"
+        )
 
-        assert (
-            result["optimizer_time_ms"] <= 100
-        ), f"Optimizer initialization too slow: {result['optimizer_time_ms']:.1f}ms"
+        assert result["optimizer_time_ms"] <= 100, (
+            f"Optimizer initialization too slow: {result['optimizer_time_ms']:.1f}ms"
+        )
 
-        assert (
-            result["memory_time_ms"] <= 50
-        ), f"Memory manager initialization too slow: {result['memory_time_ms']:.1f}ms"
+        assert result["memory_time_ms"] <= 50, (
+            f"Memory manager initialization too slow: {result['memory_time_ms']:.1f}ms"
+        )
 
 
 class TestAPILatencyPerformance:
@@ -280,13 +280,13 @@ class TestAPILatencyPerformance:
             )
 
             # Validate against target
-            assert (
-                avg_latency <= performance_config.API_LATENCY_SIMPLE_TARGET_MS
-            ), f"Simple {op_name} too slow: {avg_latency:.3f}ms > {performance_config.API_LATENCY_SIMPLE_TARGET_MS}ms"
+            assert avg_latency <= performance_config.API_LATENCY_SIMPLE_TARGET_MS, (
+                f"Simple {op_name} too slow: {avg_latency:.3f}ms > {performance_config.API_LATENCY_SIMPLE_TARGET_MS}ms"
+            )
 
-            assert (
-                p95_latency <= performance_config.API_LATENCY_SIMPLE_TARGET_MS * 3
-            ), f"Simple {op_name} P95 too slow: {p95_latency:.3f}ms"
+            assert p95_latency <= performance_config.API_LATENCY_SIMPLE_TARGET_MS * 3, (
+                f"Simple {op_name} P95 too slow: {p95_latency:.3f}ms"
+            )
 
     def test_complex_api_operations_latency(
         self, performance_config, performance_optimizer
@@ -363,9 +363,9 @@ class TestAPILatencyPerformance:
             )
 
             # Validate against target
-            assert (
-                avg_latency <= performance_config.API_LATENCY_COMPLEX_TARGET_MS
-            ), f"Complex {op_name} too slow: {avg_latency:.1f}ms > {performance_config.API_LATENCY_COMPLEX_TARGET_MS}ms"
+            assert avg_latency <= performance_config.API_LATENCY_COMPLEX_TARGET_MS, (
+                f"Complex {op_name} too slow: {avg_latency:.1f}ms > {performance_config.API_LATENCY_COMPLEX_TARGET_MS}ms"
+            )
 
             assert (
                 p95_latency <= performance_config.API_LATENCY_COMPLEX_TARGET_MS * 2
@@ -392,9 +392,9 @@ class TestMemoryPerformance:
         logger.info(f"Idle memory usage: {idle_memory_mb:.1f}MB")
 
         # Validate against target
-        assert (
-            idle_memory_mb <= performance_config.MEMORY_IDLE_TARGET_MB
-        ), f"Idle memory usage too high: {idle_memory_mb:.1f}MB > {performance_config.MEMORY_IDLE_TARGET_MB}MB"
+        assert idle_memory_mb <= performance_config.MEMORY_IDLE_TARGET_MB, (
+            f"Idle memory usage too high: {idle_memory_mb:.1f}MB > {performance_config.MEMORY_IDLE_TARGET_MB}MB"
+        )
 
     def test_peak_memory_usage_under_load(
         self, performance_config, performance_optimizer, memory_manager
@@ -446,9 +446,9 @@ class TestMemoryPerformance:
         logger.info(f"Peak memory usage under load: {peak_memory_mb:.1f}MB")
 
         # Validate against target
-        assert (
-            peak_memory_mb <= performance_config.MEMORY_PEAK_TARGET_MB
-        ), f"Peak memory usage too high: {peak_memory_mb:.1f}MB > {performance_config.MEMORY_PEAK_TARGET_MB}MB"
+        assert peak_memory_mb <= performance_config.MEMORY_PEAK_TARGET_MB, (
+            f"Peak memory usage too high: {peak_memory_mb:.1f}MB > {performance_config.MEMORY_PEAK_TARGET_MB}MB"
+        )
 
     def test_memory_leak_detection(self, performance_config, memory_manager):
         """Test memory leak detection over extended operation."""
@@ -466,23 +466,23 @@ class TestMemoryPerformance:
         )
 
         # Validate no critical leaks
-        assert not leak_results.get(
-            "has_critical_leaks", False
-        ), f"Critical memory leaks detected: {leak_results.get('leak_candidates', [])}"
+        assert not leak_results.get("has_critical_leaks", False), (
+            f"Critical memory leaks detected: {leak_results.get('leak_candidates', [])}"
+        )
 
         # Allow minor memory growth but not excessive
         memory_growth = leak_results.get("total_memory_growth_mb", 0)
         growth_threshold = 20  # Allow up to 20MB growth over test period
 
-        assert (
-            memory_growth <= growth_threshold
-        ), f"Excessive memory growth: {memory_growth:.1f}MB > {growth_threshold}MB"
+        assert memory_growth <= growth_threshold, (
+            f"Excessive memory growth: {memory_growth:.1f}MB > {growth_threshold}MB"
+        )
 
         # Validate overall assessment
         acceptable_assessments = ["no_significant_leaks", "high_memory_growth"]
-        assert (
-            leak_results["overall_assessment"] in acceptable_assessments
-        ), f"Unacceptable memory leak assessment: {leak_results['overall_assessment']}"
+        assert leak_results["overall_assessment"] in acceptable_assessments, (
+            f"Unacceptable memory leak assessment: {leak_results['overall_assessment']}"
+        )
 
 
 class TestScalabilityPerformance:
@@ -551,14 +551,14 @@ class TestScalabilityPerformance:
         max_element_result = scalability_results[performance_config.MAX_ELEMENTS_TARGET]
 
         # Should process 10,000 elements within reasonable time
-        assert (
-            max_element_result["avg_latency_ms"] <= 1000
-        ), f"Processing {performance_config.MAX_ELEMENTS_TARGET} elements too slow: {max_element_result['avg_latency_ms']:.1f}ms"
+        assert max_element_result["avg_latency_ms"] <= 1000, (
+            f"Processing {performance_config.MAX_ELEMENTS_TARGET} elements too slow: {max_element_result['avg_latency_ms']:.1f}ms"
+        )
 
         # Should maintain reasonable throughput
-        assert (
-            max_element_result["throughput_elements_per_sec"] >= 5000
-        ), f"Element processing throughput too low: {max_element_result['throughput_elements_per_sec']:.0f} elements/sec"
+        assert max_element_result["throughput_elements_per_sec"] >= 5000, (
+            f"Element processing throughput too low: {max_element_result['throughput_elements_per_sec']:.0f} elements/sec"
+        )
 
         # Check for linear scalability (processing time should scale roughly linearly)
         small_count = performance_config.SCALABILITY_TEST_ELEMENT_COUNTS[0]
@@ -571,9 +571,9 @@ class TestScalabilityPerformance:
         element_ratio = large_count / small_count
 
         # Scaling should be roughly linear (within factor of 3)
-        assert (
-            scaling_ratio <= element_ratio * 3
-        ), f"Poor scalability: {scaling_ratio:.1f}x latency increase for {element_ratio:.1f}x elements"
+        assert scaling_ratio <= element_ratio * 3, (
+            f"Poor scalability: {scaling_ratio:.1f}x latency increase for {element_ratio:.1f}x elements"
+        )
 
     def test_concurrent_session_scalability(
         self, performance_config, performance_optimizer
@@ -635,15 +635,15 @@ class TestScalabilityPerformance:
             )
 
             # Validate performance scales with concurrent sessions
-            assert all(
-                ops > 0 for ops in results
-            ), "Some sessions failed to perform operations"
+            assert all(ops > 0 for ops in results), (
+                "Some sessions failed to perform operations"
+            )
 
             # Should maintain reasonable operation rate even with concurrency
             min_ops_per_second = 100  # Minimum acceptable throughput
-            assert (
-                ops_per_second >= min_ops_per_second
-            ), f"Concurrent session throughput too low: {ops_per_second:.0f} ops/sec < {min_ops_per_second}"
+            assert ops_per_second >= min_ops_per_second, (
+                f"Concurrent session throughput too low: {ops_per_second:.0f} ops/sec < {min_ops_per_second}"
+            )
 
 
 class TestCachePerformance:
@@ -698,9 +698,9 @@ class TestCachePerformance:
         )
 
         # Validate hit ratio target
-        assert (
-            hit_ratio >= performance_config.CACHE_HIT_RATIO_TARGET
-        ), f"Cache hit ratio too low: {hit_ratio:.3f} < {performance_config.CACHE_HIT_RATIO_TARGET}"
+        assert hit_ratio >= performance_config.CACHE_HIT_RATIO_TARGET, (
+            f"Cache hit ratio too low: {hit_ratio:.3f} < {performance_config.CACHE_HIT_RATIO_TARGET}"
+        )
 
         # Validate cache efficiency
         cache_stats = performance_optimizer._cache.get_stats()
@@ -747,9 +747,9 @@ class TestCachePerformance:
 
         # Cache should still be fast under pressure
         assert avg_latency <= 1.0, f"Cache too slow under pressure: {avg_latency:.3f}ms"
-        assert (
-            p95_latency <= 5.0
-        ), f"Cache P95 too slow under pressure: {p95_latency:.3f}ms"
+        assert p95_latency <= 5.0, (
+            f"Cache P95 too slow under pressure: {p95_latency:.3f}ms"
+        )
 
 
 class TestThroughputPerformance:
@@ -785,9 +785,9 @@ class TestThroughputPerformance:
         )
 
         # Validate throughput target
-        assert (
-            ops_per_second >= performance_config.THROUGHPUT_TARGET_OPS_SEC
-        ), f"Simple operation throughput too low: {ops_per_second:.0f} ops/sec < {performance_config.THROUGHPUT_TARGET_OPS_SEC}"
+        assert ops_per_second >= performance_config.THROUGHPUT_TARGET_OPS_SEC, (
+            f"Simple operation throughput too low: {ops_per_second:.0f} ops/sec < {performance_config.THROUGHPUT_TARGET_OPS_SEC}"
+        )
 
     def test_optimized_operation_throughput(
         self, performance_config, performance_optimizer
@@ -828,9 +828,9 @@ class TestThroughputPerformance:
 
             # Optimized operations should be very fast
             min_throughput = 5000  # Lower threshold for optimized operations
-            assert (
-                ops_per_second >= min_throughput
-            ), f"{op_name} operation throughput too low: {ops_per_second:.0f} ops/sec < {min_throughput}"
+            assert ops_per_second >= min_throughput, (
+                f"{op_name} operation throughput too low: {ops_per_second:.0f} ops/sec < {min_throughput}"
+            )
 
 
 class TestEndurancePerformance:
@@ -940,36 +940,36 @@ class TestEndurancePerformance:
                     ops_per_second_values
                 ) / statistics.mean(ops_per_second_values)
                 logger.info(f"Throughput stability coefficient: {ops_stability:.3f}")
-                assert (
-                    ops_stability < 0.5
-                ), f"Throughput too unstable: {ops_stability:.3f}"
+                assert ops_stability < 0.5, (
+                    f"Throughput too unstable: {ops_stability:.3f}"
+                )
 
             if latency_values:
                 latency_stability = statistics.stdev(latency_values) / statistics.mean(
                     latency_values
                 )
                 logger.info(f"Latency stability coefficient: {latency_stability:.3f}")
-                assert (
-                    latency_stability < 1.0
-                ), f"Latency too unstable: {latency_stability:.3f}"
+                assert latency_stability < 1.0, (
+                    f"Latency too unstable: {latency_stability:.3f}"
+                )
 
             if memory_values:
                 memory_growth = memory_values[-1] - memory_values[0]
                 logger.info(f"Memory growth over test: {memory_growth:.1f}MB")
-                assert (
-                    memory_growth < 50
-                ), f"Excessive memory growth: {memory_growth:.1f}MB"
+                assert memory_growth < 50, (
+                    f"Excessive memory growth: {memory_growth:.1f}MB"
+                )
 
         # Validate overall performance maintained
-        assert (
-            avg_ops_per_second > 1000
-        ), f"Average throughput too low: {avg_ops_per_second:.0f} ops/sec"
+        assert avg_ops_per_second > 1000, (
+            f"Average throughput too low: {avg_ops_per_second:.0f} ops/sec"
+        )
 
         # Memory should not have grown excessively
         memory_growth = final_snapshot.rss_memory_mb - initial_snapshot.rss_memory_mb
-        assert (
-            memory_growth <= 100
-        ), f"Excessive memory growth during endurance test: {memory_growth:.1f}MB"
+        assert memory_growth <= 100, (
+            f"Excessive memory growth during endurance test: {memory_growth:.1f}MB"
+        )
 
 
 class TestPerformanceRegression:
@@ -981,9 +981,9 @@ class TestPerformanceRegression:
         # Run full benchmark suite
         results = benchmark_suite.run_all_benchmarks()
 
-        assert results["summary"][
-            "overall_pass"
-        ], f"Benchmark suite failed: {results['summary']}"
+        assert results["summary"]["overall_pass"], (
+            f"Benchmark suite failed: {results['summary']}"
+        )
 
         # Validate key benchmark results
         benchmark_results = results["benchmarks"]
@@ -991,12 +991,12 @@ class TestPerformanceRegression:
         # Check startup benchmarks
         if "python_framework_startup" in benchmark_results:
             startup_result = benchmark_results["python_framework_startup"]
-            assert startup_result[
-                "success"
-            ], "Python framework startup benchmark failed"
-            assert startup_result[
-                "meets_latency_target"
-            ], "Startup latency target not met"
+            assert startup_result["success"], (
+                "Python framework startup benchmark failed"
+            )
+            assert startup_result["meets_latency_target"], (
+                "Startup latency target not met"
+            )
 
         # Check API benchmarks
         api_benchmarks = [
@@ -1005,9 +1005,9 @@ class TestPerformanceRegression:
         for benchmark_name in api_benchmarks:
             result = benchmark_results[benchmark_name]
             assert result["success"], f"API benchmark {benchmark_name} failed"
-            assert result[
-                "meets_latency_target"
-            ], f"API latency target not met for {benchmark_name}"
+            assert result["meets_latency_target"], (
+                f"API latency target not met for {benchmark_name}"
+            )
 
         # Check memory benchmarks
         memory_benchmarks = [
@@ -1016,9 +1016,9 @@ class TestPerformanceRegression:
         for benchmark_name in memory_benchmarks:
             result = benchmark_results[benchmark_name]
             assert result["success"], f"Memory benchmark {benchmark_name} failed"
-            assert result[
-                "meets_memory_target"
-            ], f"Memory target not met for {benchmark_name}"
+            assert result["meets_memory_target"], (
+                f"Memory target not met for {benchmark_name}"
+            )
 
     def test_performance_target_validation(self, performance_config):
         """Test that all performance targets are validated."""
@@ -1048,9 +1048,9 @@ class TestPerformanceRegression:
         logger.info(f"Validation summary: {validation_results['summary']}")
 
         # Should pass overall validation
-        assert validation_results[
-            "overall_success"
-        ], f"Performance validation failed: {validation_results['summary']}"
+        assert validation_results["overall_success"], (
+            f"Performance validation failed: {validation_results['summary']}"
+        )
 
         # Check individual test categories
         test_results = validation_results.get("test_results", {})
@@ -1069,9 +1069,9 @@ class TestPerformanceRegression:
                 category_success = result.get(
                     "overall_success", result.get("success", False)
                 )
-                assert (
-                    category_success
-                ), f"Performance validation category {category} failed: {result}"
+                assert category_success, (
+                    f"Performance validation category {category} failed: {result}"
+                )
 
 
 # Integration test that runs comprehensive performance validation
@@ -1209,9 +1209,9 @@ class TestComprehensivePerformanceValidation:
 
             # Validate overall health score
             health_score = performance_summary.get("health_score", 0)
-            assert (
-                health_score >= 80
-            ), f"Performance health score too low: {health_score}"
+            assert health_score >= 80, (
+                f"Performance health score too low: {health_score}"
+            )
 
         finally:
             performance_monitor.stop_monitoring()

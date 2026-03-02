@@ -678,15 +678,15 @@ def assert_performance_within_limits(
 ):
     """Assert that performance metrics are within acceptable limits."""
     if max_time is not None:
-        assert (
-            metrics["execution_time"] <= max_time
-        ), f"Execution time {metrics['execution_time']:.3f}s exceeds limit {max_time}s"
+        assert metrics["execution_time"] <= max_time, (
+            f"Execution time {metrics['execution_time']:.3f}s exceeds limit {max_time}s"
+        )
 
     if max_memory_mb is not None:
         memory_mb = metrics["memory_used"] / 1024 / 1024
-        assert (
-            memory_mb <= max_memory_mb
-        ), f"Memory usage {memory_mb:.2f}MB exceeds limit {max_memory_mb}MB"
+        assert memory_mb <= max_memory_mb, (
+            f"Memory usage {memory_mb:.2f}MB exceeds limit {max_memory_mb}MB"
+        )
 
 
 def assert_no_security_vulnerabilities(scanner):

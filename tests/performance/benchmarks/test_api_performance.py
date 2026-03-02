@@ -12,10 +12,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import psutil
 import pytest
-
-from revitpy.api.wrapper import RevitAPIWrapper
 from revitpy.orm.models import Element
 from revitpy.orm.session import RevitSession
+
+from revitpy.api.wrapper import RevitAPIWrapper
 
 
 class TestAPIPerformance:

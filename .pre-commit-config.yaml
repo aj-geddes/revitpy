@@ -5,13 +5,15 @@
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+    rev: v0.15.4
     hooks:
-      # Run the linter with auto-fix
+      # Run the linter with auto-fix (scoped to match CI)
       - id: ruff
         args: [--fix]
-      # Run the formatter
+        files: '^(revitpy|tests)/'
+      # Run the formatter (scoped to match CI)
       - id: ruff-format
+        files: '^(revitpy|tests)/'
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.2
