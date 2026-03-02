@@ -15,12 +15,17 @@ from .types import EventData, EventPriority, EventResult, EventType
 
 F = TypeVar("F", bound=Callable[..., Any])
 
+DEFAULT_HANDLER_MAX_ERRORS = 10
+DEFAULT_THROTTLE_INTERVAL_SECONDS = 0.1
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_RETRY_DELAY_SECONDS = 1.0
+
 
 def event_handler(
     event_types: list[EventType] | None = None,
     priority: EventPriority = EventPriority.NORMAL,
     event_filter: EventFilter | None = None,
-    max_errors: int = 10,
+    max_errors: int = DEFAULT_HANDLER_MAX_ERRORS,
     enabled: bool = True,
 ) -> Callable[[F], F]:
     """
@@ -81,7 +86,7 @@ def async_event_handler(
     event_types: list[EventType] | None = None,
     priority: EventPriority = EventPriority.NORMAL,
     event_filter: EventFilter | None = None,
-    max_errors: int = 10,
+    max_errors: int = DEFAULT_HANDLER_MAX_ERRORS,
     enabled: bool = True,
 ) -> Callable[[F], F]:
     """
@@ -170,7 +175,9 @@ def event_filter(filter_instance: EventFilter) -> Callable[[F], F]:
     return decorator
 
 
-def throttled_handler(interval_seconds: float = 0.1) -> Callable[[F], F]:
+def throttled_handler(
+    interval_seconds: float = DEFAULT_THROTTLE_INTERVAL_SECONDS,
+) -> Callable[[F], F]:
     """
     Decorator to throttle event handler execution.
 
@@ -300,7 +307,8 @@ def conditional_handler(condition: Callable[[EventData], bool]) -> Callable[[F],
 
 
 def retry_on_error(
-    max_retries: int = 3, delay_seconds: float = 1.0
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    delay_seconds: float = DEFAULT_RETRY_DELAY_SECONDS,
 ) -> Callable[[F], F]:
     """
     Decorator to retry event handler on errors.

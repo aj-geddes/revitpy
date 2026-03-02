@@ -17,6 +17,8 @@ from .task_queue import Task, TaskPriority, TaskQueue
 T = TypeVar("T")
 F = TypeVar("F", bound=Callable[..., Any])
 
+DEFAULT_CACHE_MAX_SIZE = 128
+
 
 def async_revit_operation(
     timeout: timedelta | None = None,
@@ -274,7 +276,9 @@ def rate_limited(max_calls: int, time_window: timedelta) -> Callable[[F], F]:
     return decorator
 
 
-def cache_result(ttl: timedelta | None = None, max_size: int = 128) -> Callable[[F], F]:
+def cache_result(
+    ttl: timedelta | None = None, max_size: int = DEFAULT_CACHE_MAX_SIZE
+) -> Callable[[F], F]:
     """
     Decorator to cache function results.
 

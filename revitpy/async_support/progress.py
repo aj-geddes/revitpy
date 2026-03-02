@@ -12,6 +12,8 @@ from typing import Any
 
 from loguru import logger
 
+DEFAULT_PROGRESS_THROTTLE_MS = 100
+
 
 class ProgressState(Enum):
     """Progress state enumeration."""
@@ -109,7 +111,7 @@ class ProgressReporter(IProgressReporter):
         self._last_report: ProgressReport | None = None
         self._start_time: datetime | None = None
         self._throttle_interval = timedelta(
-            milliseconds=100
+            milliseconds=DEFAULT_PROGRESS_THROTTLE_MS
         )  # Throttle to 10 updates per second
         self._last_report_time: datetime | None = None
 
