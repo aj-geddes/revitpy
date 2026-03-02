@@ -117,7 +117,7 @@ class LazyQueryExecutor(Generic[T]):
                 [(op, str(details)) for op, details in self._query_plan.operations],
                 sort_keys=True,
             )
-            self._query_hash = hashlib.md5(plan_str.encode()).hexdigest()
+            self._query_hash = hashlib.md5(plan_str.encode()).hexdigest()  # noqa: S324
         return self._query_hash
 
     def execute(self) -> list[T]:

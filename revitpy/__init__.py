@@ -13,8 +13,8 @@ from .async_support import AsyncRevit, async_transaction
 from .config import Config, ConfigManager
 from .events import EventManager, event_handler
 from .extensions import Extension, ExtensionManager
-from .orm import ElementSet, Query
-from .testing import MockRevit, RevitTestCase
+from .orm import ElementSet, QueryBuilder
+from .testing import MockRevit
 
 # Core framework components
 __all__ = [
@@ -33,11 +33,10 @@ __all__ = [
     "Extension",
     # Testing
     "MockRevit",
-    "RevitTestCase",
     # Configuration
     "Config",
     "ConfigManager",
     # ORM
-    "Query",
+    "QueryBuilder",
     "ElementSet",
 ]

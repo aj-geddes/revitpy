@@ -37,7 +37,7 @@ class TestBaseElement:
         assert element.id == 123
         assert element.name == "Test Element"
         assert element.category == "TestCategory"
-        assert element.state == ElementState.UNCHANGED
+        assert element.state == ElementState.UNCHANGED.value
         assert element.version == 1
         assert element.is_valid is True
 
@@ -48,7 +48,7 @@ class TestBaseElement:
         assert element.id == 456
         assert element.name is None
         assert element.category is None
-        assert element.state == ElementState.UNCHANGED
+        assert element.state == ElementState.UNCHANGED.value
         assert element.version == 1
         assert isinstance(element.created_at, datetime)
         assert isinstance(element.modified_at, datetime)
@@ -75,7 +75,7 @@ class TestBaseElement:
 
         element.mark_dirty()
 
-        assert element.state == ElementState.MODIFIED
+        assert element.state == ElementState.MODIFIED.value
         assert element.modified_at > original_modified
         assert element.version == original_version + 1
         assert element.is_dirty() is True
@@ -86,7 +86,7 @@ class TestBaseElement:
         element.mark_dirty()
 
         element.mark_clean()
-        assert element.state == ElementState.UNCHANGED
+        assert element.state == ElementState.UNCHANGED.value
         assert element.is_dirty() is False
 
 

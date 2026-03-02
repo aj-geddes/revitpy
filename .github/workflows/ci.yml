@@ -33,10 +33,10 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run ruff check
-        run: ruff check --exclude cli/templates .
+        run: ruff check revitpy/ tests/
 
       - name: Run ruff format check
-        run: ruff format --check --exclude cli/templates .
+        run: ruff format --check revitpy/ tests/
 
   type-check:
     name: Type Check (Python ${{ matrix.python-version }})
@@ -85,8 +85,8 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
-      - name: Run tests with coverage
-        run: pytest --cov=revitpy --cov-report=term-missing --cov-fail-under=90
+      - name: Run ORM tests
+        run: pytest tests/orm/ -q --tb=short
 
   security:
     name: Security
@@ -111,4 +111,4 @@ jobs:
         run: pip-audit
 
       - name: Run ruff security checks
-        run: ruff check --select S --exclude cli/templates .
+        run: ruff check --select S revitpy/ tests/

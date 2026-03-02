@@ -425,9 +425,9 @@ class ExtensionManager:
 
         # Register core RevitPy services
         try:
-            from ..api import RevitAPI
-            from ..async_support import AsyncRevit
-            from ..events.manager import EventManager
+            from ..api import RevitAPI  # noqa: F401
+            from ..async_support import AsyncRevit  # noqa: F401
+            from ..events.manager import EventManager  # noqa: F401
 
             # These would be registered by the main RevitPy initialization
             # self.container.register_singleton(RevitAPI)

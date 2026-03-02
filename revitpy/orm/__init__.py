@@ -37,7 +37,7 @@ Usage:
 
 from .async_support import AsyncRevitContext, async_batch_operation, async_transaction
 from .cache import CacheEntry, CacheKey, CacheManager
-from .change_tracker import ChangeSet, ChangeTracker, EntityState
+from .change_tracker import ChangeSet, ChangeTracker
 from .context import RevitContext
 from .decorators import cached, lazy_property, tracked_property
 from .element_set import AsyncElementSet, ElementSet
@@ -102,7 +102,6 @@ __all__ = [
     # Change tracking
     "ChangeTracker",
     "ChangeSet",
-    "EntityState",
     # Async support
     "AsyncRevitContext",
     "async_transaction",

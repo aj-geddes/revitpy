@@ -434,7 +434,7 @@ class MockRevit:
 
         for i in range(count):
             element = self.create_element(
-                name=f"{name_prefix}_{i+1}",
+                name=f"{name_prefix}_{i + 1}",
                 category=category,
                 element_type=element_type,
             )

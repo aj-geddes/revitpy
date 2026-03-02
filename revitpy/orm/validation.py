@@ -128,18 +128,22 @@ class BaseElement(BaseModel):
 
     def is_dirty(self) -> bool:
         """Check if element has unsaved changes."""
-        return self.state in (ElementState.ADDED, ElementState.MODIFIED)
+        # use_enum_values=True stores the string value at runtime
+        return self.state in (  # type: ignore[comparison-overlap]
+            ElementState.ADDED.value,
+            ElementState.MODIFIED.value,
+        )
 
     def mark_dirty(self) -> None:
         """Mark element as modified."""
-        if self.state == ElementState.UNCHANGED:
-            self.state = ElementState.MODIFIED
+        if self.state == ElementState.UNCHANGED.value:  # type: ignore[comparison-overlap]
+            self.state = ElementState.MODIFIED.value
         self.modified_at = datetime.utcnow()
         self.version += 1
 
     def mark_clean(self) -> None:
         """Mark element as clean (saved)."""
-        self.state = ElementState.UNCHANGED
+        self.state = ElementState.UNCHANGED.value
 
 
 class WallElement(BaseElement):
@@ -268,7 +272,7 @@ class DoorElement(BaseElement):
 
     # Operational properties
     hand: str | None = Field(
-        None, regex=r"^(Left|Right)$", description="Door hand (Left/Right)"
+        None, pattern=r"^(Left|Right)$", description="Door hand (Left/Right)"
     )
     operation_type: str | None = Field(
         None, description="Operation type (Swing, Sliding, etc.)"

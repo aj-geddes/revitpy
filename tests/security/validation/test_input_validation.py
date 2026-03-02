@@ -515,7 +515,7 @@ class TestAccessControlValidation:
             assert is_secure
 
             # Test with overly permissive file
-            os.chmod(temp_file.name, 0o777)  # World writable
+            os.chmod(temp_file.name, 0o777)  # noqa: S103 — deliberately testing insecure permissions
             is_secure = validator.validate_file_permissions(temp_file.name)
             assert not is_secure
 
