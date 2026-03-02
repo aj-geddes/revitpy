@@ -41,6 +41,31 @@ except ImportError:
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
+# Default estimated memory size per cached object (bytes)
+DEFAULT_ESTIMATED_OBJECT_SIZE = 64
+# Factor used to approximate cache hit ratio from access patterns
+HIT_RATIO_ESTIMATION_FACTOR = 0.1
+# Cache hit ratio below which the cache size is auto-increased
+LOW_CACHE_HIT_RATIO_THRESHOLD = 0.7
+# Fraction of memory_cleanup_threshold used as headroom check
+MEMORY_HEADROOM_FACTOR = 0.8
+# Pool hit ratio below which pool sizes are auto-increased
+LOW_POOL_HIT_RATIO_THRESHOLD = 0.8
+# Upper limit when auto-expanding cache size
+MAX_ADAPTIVE_CACHE_SIZE = 50000
+# Upper limit when auto-expanding pool size
+MAX_ADAPTIVE_POOL_SIZE = 2000
+# Aggressive GC thresholds for generation 0, 1, 2
+GC_THRESHOLD_GEN0 = 700
+GC_THRESHOLD_GEN1 = 10
+GC_THRESHOLD_GEN2 = 10
+# Maximum number of latency samples kept per operation before trimming
+MAX_LATENCY_HISTORY_SIZE = 1000
+# Number of most recent latency samples to retain after trimming
+LATENCY_HISTORY_TRIM_SIZE = 500
+# Fraction of memory threshold that triggers a warning in monitoring
+MEMORY_WARNING_FACTOR = 0.9
+
 
 @dataclass
 class OptimizationConfig:
@@ -123,7 +148,9 @@ class ObjectPool(Generic[T]):
                 with self._lock:
                     self._returned_count += 1
                 return True
-        except:
+        except Exception:
+            # Safe to swallow: reset_func is user-provided and put_nowait may raise Full;
+            # failure to return object to pool is non-critical
             pass
         return False
 
@@ -293,19 +320,29 @@ class AdaptiveCache:
             if isinstance(obj, str):
                 return len(obj.encode("utf-8"))
             elif isinstance(obj, list | tuple):
-                return sum(self._estimate_size(item) for item in obj) + 64
+                return (
+                    sum(self._estimate_size(item) for item in obj)
+                    + DEFAULT_ESTIMATED_OBJECT_SIZE
+                )
             elif isinstance(obj, dict):
                 return (
                     sum(
                         self._estimate_size(k) + self._estimate_size(v)
                         for k, v in obj.items()
                     )
-                    + 64
+                    + DEFAULT_ESTIMATED_OBJECT_SIZE
                 )
             else:
-                return 64  # Default size estimate
-        except:
-            return 64
+                return DEFAULT_ESTIMATED_OBJECT_SIZE
+        except (
+            TypeError,
+            RecursionError,
+            UnicodeEncodeError,
+            AttributeError,
+            ValueError,
+        ):
+            # Safe to swallow: size estimation is best-effort; fallback to default
+            return DEFAULT_ESTIMATED_OBJECT_SIZE
 
     def _calculate_hit_ratio(self) -> float:
         """Calculate cache hit ratio."""
@@ -316,7 +353,9 @@ class AdaptiveCache:
             return 0.0
 
         # Estimate hit ratio based on access patterns
-        return min(1.0, len(self._cache) / max(1, total_accesses * 0.1))
+        return min(
+            1.0, len(self._cache) / max(1, total_accesses * HIT_RATIO_ESTIMATION_FACTOR)
+        )
 
 
 class PerformanceOptimizer:
@@ -501,7 +540,9 @@ class PerformanceOptimizer:
                 try:
                     result = future.result()
                     batch_results.append(result)
-                except Exception as e:
+                except (
+                    Exception
+                ) as e:  # User-provided batch operation may raise any exception
                     logger.warning("Batch operation failed: %s", e)
                     batch_results.append(e)
 
@@ -536,7 +577,7 @@ class PerformanceOptimizer:
             # Record memory snapshot
             self._record_memory_snapshot()
 
-        except Exception as e:
+        except (OSError, RuntimeError, TypeError, ValueError) as e:
             logger.warning("Memory optimization failed: %s", e)
 
     def get_performance_metrics(self) -> dict[str, Any]:
@@ -646,7 +687,7 @@ class PerformanceOptimizer:
 
             return profile_data
 
-        except Exception as e:
+        except Exception as e:  # User-provided operation may raise any exception
             profiler.disable()
             return {
                 "error": str(e),
@@ -665,8 +706,8 @@ class PerformanceOptimizer:
         for _ in range(warmup_iterations):
             try:
                 operation()
-            except:
-                pass
+            except Exception:
+                pass  # Safe to swallow: warmup errors are expected and non-critical
 
         # Benchmark
         latencies = []
@@ -678,7 +719,7 @@ class PerformanceOptimizer:
 
             try:
                 operation()
-            except Exception as e:
+            except Exception as e:  # User-provided operation may raise any exception
                 str(e)
 
             end_time = time.perf_counter()
@@ -732,19 +773,24 @@ class PerformanceOptimizer:
         try:
             # Optimize cache based on hit ratio
             cache_hit_ratio = metrics.get("cache_hit_ratio", 0)
-            if cache_hit_ratio < 0.7:  # Low hit ratio
+            if cache_hit_ratio < LOW_CACHE_HIT_RATIO_THRESHOLD:
                 # Increase cache size if memory allows
                 current_memory = metrics.get("memory_usage_mb", 0)
-                if current_memory < self.config.memory_cleanup_threshold_mb * 0.8:
-                    self._cache.max_size = min(self._cache.max_size * 2, 50000)
+                if (
+                    current_memory
+                    < self.config.memory_cleanup_threshold_mb * MEMORY_HEADROOM_FACTOR
+                ):
+                    self._cache.max_size = min(
+                        self._cache.max_size * 2, MAX_ADAPTIVE_CACHE_SIZE
+                    )
                     optimizations.append("Increased cache size due to low hit ratio")
 
             # Optimize object pools based on miss ratio
             pool_hit_ratio = metrics.get("pool_hit_ratio", 1.0)
-            if pool_hit_ratio < 0.8:  # Low pool hit ratio
+            if pool_hit_ratio < LOW_POOL_HIT_RATIO_THRESHOLD:
                 for pool_name, pool in self._object_pools.items():
-                    if pool.max_size < 2000:
-                        pool.max_size = min(pool.max_size * 2, 2000)
+                    if pool.max_size < MAX_ADAPTIVE_POOL_SIZE:
+                        pool.max_size = min(pool.max_size * 2, MAX_ADAPTIVE_POOL_SIZE)
                         optimizations.append(f"Increased {pool_name} pool size")
 
             # Memory optimization
@@ -757,7 +803,9 @@ class PerformanceOptimizer:
 
             # Adjust GC settings based on allocation patterns
             if self.config.gc_optimization_enabled:
-                gc.set_threshold(700, 10, 10)  # More aggressive GC
+                gc.set_threshold(
+                    GC_THRESHOLD_GEN0, GC_THRESHOLD_GEN1, GC_THRESHOLD_GEN2
+                )
                 optimizations.append("Optimized GC thresholds")
 
             return {
@@ -767,7 +815,7 @@ class PerformanceOptimizer:
                 "timestamp": time.time(),
             }
 
-        except Exception as e:
+        except (OSError, RuntimeError, TypeError, ValueError, AttributeError) as e:
             logger.error("Auto-optimization failed: %s", e)
             return {
                 "success": False,
@@ -808,15 +856,16 @@ class PerformanceOptimizer:
             # Keep only recent latencies to prevent memory bloat
             latencies = self._metrics["operation_latencies"][operation_name]
             latencies.append(duration)
-            if len(latencies) > 1000:
-                latencies[:] = latencies[-500:]  # Keep last 500
+            if len(latencies) > MAX_LATENCY_HISTORY_SIZE:
+                latencies[:] = latencies[-LATENCY_HISTORY_TRIM_SIZE:]
 
     def _get_memory_usage_mb(self) -> float:
         """Get current memory usage in MB."""
         try:
             process = psutil.Process()
             return process.memory_info().rss / 1024 / 1024
-        except:
+        except OSError:
+            # Safe to swallow: psutil may fail if process state changes
             return 0.0
 
     def _record_memory_snapshot(self):
@@ -856,7 +905,7 @@ class PerformanceOptimizer:
                     time.sleep(self.config.pool_cleanup_interval_seconds)
                     if self._running:
                         self.optimize_memory()
-                except Exception as e:
+                except (OSError, RuntimeError, TypeError, ValueError) as e:
                     logger.warning("Cleanup thread error: %s", e)
 
         self._cleanup_thread = threading.Thread(target=cleanup_worker, daemon=True)
@@ -876,13 +925,17 @@ class PerformanceOptimizer:
                         metrics = self.get_performance_metrics()
                         memory_usage = metrics.get("memory_usage_mb", 0)
 
-                        if memory_usage > self.config.memory_cleanup_threshold_mb * 0.9:
+                        if (
+                            memory_usage
+                            > self.config.memory_cleanup_threshold_mb
+                            * MEMORY_WARNING_FACTOR
+                        ):
                             logger.warning(
                                 "High memory usage detected: %.1fMB", memory_usage
                             )
                             self.optimize_memory()
 
-                except Exception as e:
+                except (OSError, RuntimeError, TypeError, ValueError) as e:
                     logger.warning("Monitoring thread error: %s", e)
 
         self._monitoring_thread = threading.Thread(

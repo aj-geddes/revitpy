@@ -302,7 +302,7 @@ class TestElementSetIntegration:
         element_set = ElementSet(self.walls, element_type=WallElement, lazy=False)
 
         # Count
-        assert element_set.count() == 3
+        assert element_set.count == 3
 
         # Any/All
         assert element_set.any(lambda w: w.height > 11) is True

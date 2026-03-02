@@ -299,15 +299,22 @@ class ElementSet(Generic[T], Sequence[T], IQueryable[T]):
             self._ensure_materialized()
             return all(predicate(elem) for elem in self._elements)
 
-    def count(self, predicate: QueryPredicate[T] | None = None) -> int:
-        """Get count of elements, optionally matching a predicate."""
-        if predicate is None:
-            if self._query_builder:
-                return self._query_builder.count()
-            else:
-                return len(self._elements)
-        else:
-            return self.where(predicate).count()
+    @property
+    def count(self) -> int:
+        """Get the number of elements in the collection.
+
+        This is a property (not a method) because ElementSet represents an
+        already-materialized or lazily-materialized collection. To count
+        elements matching a predicate, chain with ``where``::
+
+            element_set.where(lambda x: x.category == "Wall").count
+
+        Note: ``QueryBuilder.count()`` is a method because it is a terminal
+        operation that triggers query execution and supports an optional
+        predicate parameter.
+        """
+        self._ensure_materialized()
+        return len(self._elements)
 
     def to_list(self) -> list[T]:
         """Convert to list."""
@@ -581,8 +588,11 @@ class AsyncElementSet(Generic[T], IAsyncQueryable[T]):
         if self._query_builder:
             return await self._query_builder.count_async(predicate)
         else:
+            source = (
+                self._element_set.where(predicate) if predicate else self._element_set
+            )
             return await asyncio.get_event_loop().run_in_executor(
-                None, self._element_set.count, predicate
+                None, lambda: source.count
             )
 
     async def any_async(self, predicate: QueryPredicate[T] | None = None) -> bool:

@@ -1,670 +1,426 @@
 ---
 layout: api
 title: ORM Layer
-description: ORM Layer reference documentation
+description: High-level ORM context for querying, change tracking, caching, and relationship management
 ---
 
 # ORM Layer
 
-RevitPy's Object-Relational Mapping (ORM) layer provides a modern, intuitive interface for querying and manipulating Revit elements using LINQ-style syntax.
+The ORM layer provides a high-level context for working with Revit elements using LINQ-style queries, automatic change tracking, intelligent caching, relationship navigation, and transaction management.
 
-## Overview
-
-The ORM layer abstracts the complexity of the Revit API into familiar patterns:
-
-- **LINQ-style queries**: Fluent API for filtering and querying elements
-- **Lazy loading**: Elements are loaded only when accessed
-- **Relationship navigation**: Navigate between related elements seamlessly
-- **Change tracking**: Automatic tracking of modifications for efficient updates
-- **Type safety**: Full type annotations for better IDE support
+**Module:** `revitpy.orm.context`
 
 ---
 
-## RevitContext (ORM)
+## ContextConfiguration
 
-The main ORM context for database-like operations.
+Configuration dataclass for `RevitContext`.
 
 ### Constructor
 
 ```python
-RevitContext(document=None, track_changes=False)
+ContextConfiguration(
+    auto_track_changes: bool = True,
+    cache_policy: CachePolicy = CachePolicy.MEMORY,
+    cache_max_size: int = 10000,
+    cache_max_memory_mb: int = 500,
+    lazy_loading_enabled: bool = True,
+    batch_size: int = 100,
+    thread_safe: bool = True,
+    validation_enabled: bool = True,
+    performance_monitoring: bool = True
+)
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `auto_track_changes` | `bool` | `True` | Automatically track entity changes. |
+| `cache_policy` | `CachePolicy` | `CachePolicy.MEMORY` | Caching strategy (`NONE`, `MEMORY`). |
+| `cache_max_size` | `int` | `10000` | Maximum number of cached entities. |
+| `cache_max_memory_mb` | `int` | `500` | Maximum cache memory in megabytes. |
+| `lazy_loading_enabled` | `bool` | `True` | Enable lazy loading of relationships. |
+| `batch_size` | `int` | `100` | Default batch size for bulk operations. |
+| `thread_safe` | `bool` | `True` | Enable thread-safe locking. |
+| `validation_enabled` | `bool` | `True` | Enable validation on entity operations. |
+| `performance_monitoring` | `bool` | `True` | Enable cache and performance statistics. |
+
+---
+
+## RevitContext
+
+Main ORM context that orchestrates querying, change tracking, caching, relationships, and transactions. Supports both sync and async workflows.
+
+### Constructor
+
+```python
+RevitContext(
+    provider: IElementProvider,
+    *,
+    config: ContextConfiguration | None = None,
+    cache_manager: CacheManager | None = None,
+    change_tracker: ChangeTracker | None = None,
+    relationship_manager: RelationshipManager | None = None,
+    unit_of_work: IUnitOfWork | None = None
+)
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `document` | `Document` | Optional Revit document. Uses active document if not specified. |
-| `track_changes` | `bool` | Enable automatic change tracking. Default is `False`. |
+| `provider` | `IElementProvider` | The element data source. |
+| `config` | `ContextConfiguration` or `None` | Configuration. Uses defaults if `None`. |
+| `cache_manager` | `CacheManager` or `None` | Custom cache manager. Auto-created if `None`. |
+| `change_tracker` | `ChangeTracker` or `None` | Custom change tracker. Auto-created if `None`. |
+| `relationship_manager` | `RelationshipManager` or `None` | Custom relationship manager. |
+| `unit_of_work` | `IUnitOfWork` or `None` | Unit of work for persisting changes. |
 
 ### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `elements` | `ElementSet` | Query builder for accessing Revit elements |
-| `track_changes` | `bool` | Whether change tracking is enabled |
-| `enable_caching` | `bool` | Whether query result caching is enabled |
+| `is_disposed` | `bool` | Whether the context has been disposed. |
+| `has_changes` | `bool` | Whether there are pending tracked changes. |
+| `change_count` | `int` | Number of pending changes. |
+| `cache_statistics` | `Any` or `None` | Cache hit/miss statistics (if monitoring is enabled). |
 
-### Methods
+### Query Methods
+
+#### `query(element_type=None)`
+
+Creates a new `QueryBuilder` for the given element type.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element_type` | `type[T]` or `None` | Optional element type filter. |
+
+**Returns:** `QueryBuilder[T]`
+
+```python
+walls = ctx.query(Wall).equals("Category", "Walls").to_list()
+```
+
+#### `all(element_type)`
+
+Returns all elements of the specified type as an `ElementSet`. Results are cached per type.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element_type` | `type[T]` | Element type to retrieve. |
+
+**Returns:** `ElementSet[T]`
+
+```python
+all_walls = ctx.all(Wall)
+```
+
+#### `where(element_type, predicate)`
+
+Queries elements of the given type filtered by a predicate.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element_type` | `type[T]` | Element type. |
+| `predicate` | `Callable[[T], bool]` | Filter function. |
+
+**Returns:** `ElementSet[T]`
+
+```python
+tall_walls = ctx.where(Wall, lambda w: w.get_parameter_value("Height") > 10.0)
+```
+
+#### `first(element_type, predicate=None)`
+
+Returns the first element of the specified type, optionally matching a predicate.
+
+**Returns:** `T`
+
+**Raises:** `ElementNotFoundError` if no elements match.
+
+#### `first_or_default(element_type, predicate=None, default=None)`
+
+Returns the first matching element or a default value.
+
+**Returns:** `T` or `None`
+
+#### `single(element_type, predicate=None)`
+
+Returns the single matching element.
+
+**Raises:** `ElementNotFoundError` if none found. `ValidationError` if more than one match.
+
+#### `count(element_type, predicate=None)`
+
+Returns the count of matching elements.
+
+**Returns:** `int`
+
+#### `any(element_type, predicate=None)`
+
+Returns `True` if any elements match.
+
+**Returns:** `bool`
+
+#### `get_by_id(element_type, element_id)`
+
+Gets an element by ID, checking the cache first. Automatically attaches it for change tracking.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element_type` | `type[T]` | Element type. |
+| `element_id` | `ElementId` | The element ID to look up. |
+
+**Returns:** `T` or `None`
+
+**Raises:** `ORMException` if the lookup fails.
+
+### Change Tracking Methods
+
+#### `attach(entity, entity_id=None)`
+
+Attaches an entity to the context for change tracking.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `entity` | `T` | Entity to attach. |
+| `entity_id` | `ElementId` or `None` | Optional ID. Inferred from entity if `None`. |
+
+#### `detach(entity)`
+
+Detaches an entity from change tracking.
+
+#### `add(entity)`
+
+Marks an entity as newly added.
+
+#### `remove(entity)`
+
+Marks an entity as deleted.
+
+#### `get_entity_state(entity)`
+
+Returns the current tracking state of an entity.
+
+**Returns:** `ElementState` -- One of `ADDED`, `MODIFIED`, `DELETED`, `UNCHANGED`, `DETACHED`.
+
+#### `accept_changes(entity=None)`
+
+Accepts changes for a specific entity or all entities, resetting their state to `UNCHANGED`.
+
+#### `reject_changes(entity=None)`
+
+Rejects changes for a specific entity or all entities, reverting modifications.
 
 #### `save_changes()`
-Saves all tracked changes to the Revit document within a transaction.
 
-**Returns:** `int` - Number of elements saved
+Saves all pending changes through the unit of work. Processes added, modified, and deleted entities, then accepts all changes and invalidates affected cache entries.
 
-#### `has_changes()`
-Checks if there are any tracked changes pending.
+**Returns:** `int` -- Number of changes saved.
 
-**Returns:** `bool` - True if changes exist
+**Raises:** `ORMException` if saving fails (automatically attempts rollback).
 
-#### `get_changes()`
-Returns all tracked changes.
+```python
+ctx.add(new_element)
+existing_element.set_parameter_value("Comments", "Updated")
+ctx.remove(old_element)
 
-**Returns:** `list[Change]` - List of tracked changes
+count = ctx.save_changes()
+print(f"Saved {count} changes")
+```
 
-#### `get_change_tracker()`
-Returns the change tracker instance for manual change management.
+### Relationship Methods
 
-**Returns:** `ChangeTracker` - The change tracker
+#### `load_relationship(entity, relationship_name, strategy=LoadStrategy.LAZY)`
+
+Loads relationship data for an entity.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `entity` | `T` | Source entity. |
+| `relationship_name` | `str` | Name of the relationship to load. |
+| `strategy` | `LoadStrategy` | Loading strategy (`LAZY` or `EAGER`). Default `LAZY`. |
+
+**Returns:** Related entity, list of entities, or `None`.
+
+**Raises:** `RelationshipError` if no relationship manager is configured.
+
+#### `configure_relationship(source_type, relationship_name, target_type, **kwargs)`
+
+Configures a relationship between two entity types. Creates the relationship manager if needed.
+
+### Transaction Support
+
+#### `transaction(auto_commit=True)`
+
+Creates a context manager for transactional operations. On successful exit with `auto_commit=True`, pending changes are saved. On exception, changes are rejected.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `auto_commit` | `bool` | Auto-save changes on success. Default `True`. |
+
+```python
+with ctx.transaction(auto_commit=True):
+    element.set_parameter_value("Comments", "Updated in transaction")
+    # auto-saves on exit; rolls back on exception
+```
+
+### Async Interface
+
+#### `as_async()`
+
+Returns an `AsyncRevitContext` wrapping this context's components.
+
+**Returns:** `AsyncRevitContext`
+
+```python
+async_ctx = ctx.as_async()
+```
+
+### Cache Management
 
 #### `clear_cache()`
-Clears all cached query results.
 
----
+Clears all cached data and entity sets.
 
-## ElementSet
+#### `invalidate_cache(entity_type=None, entity_id=None)`
 
-Represents a queryable collection of Revit elements.
+Invalidates specific cache entries or all entries.
 
-### Methods
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `entity_type` | `type` or `None` | Entity type to invalidate. `None` for all. |
+| `entity_id` | `ElementId` or `None` | Specific entity ID. |
 
-#### `where(predicate)`
-Filters elements based on a predicate function.
+### Disposal
+
+#### `dispose()`
+
+Disposes the context. Rejects pending changes, clears the change tracker and cache. After disposal, all operations raise `ORMException`.
+
+### Context Manager
 
 ```python
-tall_walls = context.elements.where(lambda w: w.Height > 10.0)
-```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `predicate` | `Callable` | Function that returns True for elements to include |
-
-**Returns:** `ElementSet` - Filtered element set
-
-#### `select(projection)`
-Projects elements to a new form.
-
-```python
-wall_names = context.elements.select(lambda w: w.Name).to_list()
-```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `projection` | `Callable` | Function to transform each element |
-
-**Returns:** `ElementSet` - Projected element set
-
-#### `order_by(key_selector)`
-Orders elements by a key.
-
-```python
-sorted_walls = context.elements.order_by(lambda w: w.Height).to_list()
-```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `key_selector` | `Callable` | Function to extract the sort key |
-
-**Returns:** `ElementSet` - Ordered element set
-
-#### `then_by(key_selector)`
-Performs secondary ordering on already ordered elements.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `key_selector` | `Callable` | Function to extract the secondary sort key |
-
-**Returns:** `ElementSet` - Ordered element set
-
-#### `group_by(key_selector)`
-Groups elements by a key.
-
-```python
-grouped = context.elements.group_by(lambda e: e.Category).to_dict()
-```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `key_selector` | `Callable` | Function to extract the grouping key |
-
-**Returns:** `ElementSet` - Grouped element set
-
-#### `take(count)`
-Returns a specified number of elements.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `count` | `int` | Number of elements to take |
-
-**Returns:** `ElementSet` - Limited element set
-
-#### `skip(count)`
-Skips a specified number of elements.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `count` | `int` | Number of elements to skip |
-
-**Returns:** `ElementSet` - Element set with skipped elements
-
-#### `first()`
-Returns the first element.
-
-**Returns:** `Element` - The first element
-**Raises:** `ElementNotFound` - If no elements exist
-
-#### `first_or_default(default=None)`
-Returns the first element or a default value.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `default` | `any` | Value to return if no elements exist |
-
-**Returns:** `Element` or `default` - The first element or default
-
-#### `to_list()`
-Executes the query and returns results as a list.
-
-**Returns:** `list[Element]` - List of elements
-
-#### `to_dict()`
-Executes the query and returns results as a dictionary.
-
-**Returns:** `dict` - Dictionary of elements
-
-#### `count()`
-Returns the number of elements.
-
-**Returns:** `int` - Element count
-
----
-
-## QueryBuilder
-
-Builds and optimizes queries for execution.
-
-### Methods
-
-#### `where(predicate)`
-Adds a filter condition to the query.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `predicate` | `Callable` | Filter predicate function |
-
-**Returns:** `QueryBuilder` - The query builder for chaining
-
-#### `include(relationship)`
-Includes related elements in the query results (eager loading).
-
-```python
-rooms = context.elements.of_category('Rooms').include('Boundaries').to_list()
-```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `relationship` | `str` | Name of the relationship to include |
-
-**Returns:** `QueryBuilder` - The query builder for chaining
-
-#### `order_by(key_selector)`
-Adds ordering to the query.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `key_selector` | `Callable` | Sort key function |
-
-**Returns:** `QueryBuilder` - The query builder for chaining
-
-#### `select(projection)`
-Adds a projection to the query.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `projection` | `Callable` | Projection function |
-
-**Returns:** `QueryBuilder` - The query builder for chaining
-
-#### `build_query()`
-Builds the final query for execution.
-
-**Returns:** `Query` - The built query
-
-#### `optimize_query()`
-Optimizes the query for better performance.
-
-**Returns:** `QueryBuilder` - The optimized query builder
-
-#### `explain_query()`
-Returns the query execution plan.
-
-**Returns:** `QueryPlan` - The execution plan with cost estimation
-
----
-
-## ChangeTracker
-
-Tracks modifications to elements for efficient updates.
-
-### Methods
-
-#### `track_element(element)`
-Begins tracking an element for changes.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `element` | `Element` | Element to track |
-
-#### `get_changes()`
-Returns all tracked changes.
-
-**Returns:** `list[Change]` - List of changes
-
-#### `has_changes()`
-Checks if there are any tracked changes.
-
-**Returns:** `bool` - True if changes exist
-
-#### `accept_changes()`
-Accepts all tracked changes and clears the tracker.
-
-#### `reject_changes()`
-Rejects all tracked changes and reverts elements.
-
----
-
-## Query Syntax
-
-### Basic Filtering
-```python
-from revitpy import RevitContext
-
-with RevitContext() as context:
-    # Simple filtering
-    tall_walls = context.elements.where(lambda w: w.Height > 10.0)
-
-    # Multiple conditions
-    exterior_walls = context.elements.where(
-        lambda w: w.Category == 'Walls' and
-                 w.get_parameter('Function').AsInteger() == 1
-    )
-
-    # Complex expressions
-    large_rooms = context.elements.where(
-        lambda r: r.Category == 'Rooms' and
-                 r.Area > 100 and
-                 r.Name.startswith('Office')
-    )
-```
-
-### Projection and Selection
-```python
-# Select specific properties
-wall_info = (context.elements
-             .of_category('Walls')
-             .select(lambda w: {
-                 'name': w.Name,
-                 'height': w.Height,
-                 'area': w.get_parameter('Area').AsDouble()
-             })
-             .to_list())
-
-# Transform results
-wall_names = (context.elements
-              .of_category('Walls')
-              .select(lambda w: w.Name.upper())
-              .to_list())
-```
-
-### Ordering and Pagination
-```python
-# Order by single property
-sorted_walls = (context.elements
-                .of_category('Walls')
-                .order_by(lambda w: w.Height)
-                .to_list())
-
-# Order by multiple properties
-sorted_rooms = (context.elements
-                .of_category('Rooms')
-                .order_by(lambda r: r.Level.Name)
-                .then_by(lambda r: r.Area)
-                .to_list())
-
-# Pagination
-first_10_walls = (context.elements
-                  .of_category('Walls')
-                  .order_by(lambda w: w.Name)
-                  .take(10)
-                  .to_list())
-
-next_10_walls = (context.elements
-                 .of_category('Walls')
-                 .order_by(lambda w: w.Name)
-                 .skip(10)
-                 .take(10)
-                 .to_list())
-```
-
-### Grouping and Aggregation
-```python
-# Group by category
-grouped_elements = (context.elements
-                    .group_by(lambda e: e.Category)
-                    .to_dict())
-
-# Group with aggregation
-room_areas_by_level = (context.elements
-                       .of_category('Rooms')
-                       .group_by(lambda r: r.Level.Name)
-                       .select(lambda g: {
-                           'level': g.key,
-                           'total_area': sum(r.Area for r in g),
-                           'room_count': len(g),
-                           'avg_area': sum(r.Area for r in g) / len(g)
-                       })
-                       .to_list())
+with RevitContext(provider, config=config) as ctx:
+    walls = ctx.all(Wall).to_list()
+    for wall in walls:
+        wall.set_parameter_value("Mark", "A-101")
+    ctx.save_changes()
+# dispose() called on exit
 ```
 
 ---
 
-## Relationship Navigation
+## Factory Functions
 
-### Include Related Data
+**Module:** `revitpy.orm.context`
+
 ```python
-# Eager loading of related elements
-rooms_with_boundaries = (context.elements
-                         .of_category('Rooms')
-                         .include('Boundaries')
-                         .include('Boundaries.Wall')
-                         .to_list())
+from revitpy.orm.context import create_context, create_async_context
 
-for room in rooms_with_boundaries:
-    print(f"Room: {room.Name}")
-    for boundary in room.Boundaries:
-        wall = boundary.Wall  # Already loaded, no additional query
-        print(f"  - Wall: {wall.Name}")
-```
+# Create a sync context
+ctx = create_context(provider, config=config)
 
-### Navigation Properties
-```python
-# Navigate through relationships
-def analyze_room_walls(room_id):
-    with RevitContext() as context:
-        room = context.get_element_by_id(room_id)
-
-        # Navigate to related walls
-        boundary_walls = [boundary.Wall for boundary in room.Boundaries]
-
-        # Analyze wall properties
-        wall_analysis = {
-            'total_walls': len(boundary_walls),
-            'total_length': sum(wall.Length for wall in boundary_walls),
-            'wall_types': set(wall.WallType.Name for wall in boundary_walls)
-        }
-
-        return wall_analysis
+# Create an async context
+async_ctx = create_async_context(provider, config=config)
 ```
 
 ---
 
-## Change Tracking
+## Usage Examples
 
-### Automatic Change Detection
+### Querying with Change Tracking
+
 ```python
-def update_wall_properties():
-    with RevitContext() as context:
-        # Enable change tracking
-        context.track_changes = True
+from revitpy.orm.context import RevitContext, ContextConfiguration
 
-        walls = context.elements.of_category('Walls').to_list()
+config = ContextConfiguration(
+    auto_track_changes=True,
+    cache_policy=CachePolicy.MEMORY,
+)
 
-        # Modify elements
-        for wall in walls:
-            if wall.Height < 10:
-                wall.set_parameter('Comments', 'Low wall')
+with RevitContext(provider, config=config) as ctx:
+    # Query elements
+    walls = ctx.where(Wall, lambda w: w.get_parameter_value("Height") > 10.0)
 
-        # Check for changes
-        if context.has_changes():
-            changes = context.get_changes()
-            print(f"Modified {len(changes)} elements")
+    # Modify elements (changes are tracked automatically)
+    for wall in walls.to_list():
+        wall.set_parameter_value("Comments", "Tall wall")
 
-            # Save all changes at once
-            context.save_changes()
+    # Save all tracked changes
+    count = ctx.save_changes()
+    print(f"Saved {count} changes")
 ```
 
-### Manual Change Management
+### Entity Lifecycle Management
+
 ```python
-def batch_update_elements(updates):
-    with RevitContext() as context:
-        tracker = context.get_change_tracker()
+with RevitContext(provider) as ctx:
+    # Look up by ID
+    element = ctx.get_by_id(Wall, element_id)
 
-        with context.transaction("Batch Update") as txn:
-            for element_id, properties in updates.items():
-                element = context.get_element_by_id(element_id)
-                tracker.track_element(element)
+    # Check state
+    state = ctx.get_entity_state(element)
+    print(f"State: {state}")
 
-                # Apply updates
-                for param, value in properties.items():
-                    element.set_parameter(param, value)
+    # Modify
+    element.set_parameter_value("Mark", "B-202")
+    print(f"Has changes: {ctx.has_changes}")  # True
 
-            # Verify changes before committing
-            changes = tracker.get_changes()
-            if len(changes) == len(updates):
-                txn.commit()
-                tracker.accept_changes()
-            else:
-                txn.rollback()
-                tracker.reject_changes()
+    # Accept or reject
+    ctx.accept_changes(element)
+    # ctx.reject_changes(element)  # to undo
 ```
 
----
+### Transaction with Rollback
 
-## Performance Optimization
-
-### Query Optimization
 ```python
-from revitpy.orm import QueryOptimizer
-
-def optimized_element_query():
-    with RevitContext() as context:
-        # The ORM automatically optimizes queries
-        query = (context.elements
-                .of_category('Walls')
-                .where(lambda w: w.Height > 10)
-                .include('WallType')
-                .order_by(lambda w: w.Name))
-
-        # View query execution plan
-        plan = query.explain_query()
-        print(f"Estimated cost: {plan.cost}")
-        print(f"Index usage: {plan.indexes_used}")
-
-        # Execute optimized query
-        results = query.to_list()
+with RevitContext(provider) as ctx:
+    try:
+        with ctx.transaction(auto_commit=True):
+            element = ctx.get_by_id(Wall, wall_id)
+            element.set_parameter_value("Height", new_height)
+            # If this block exits normally, changes are saved
+            # If an exception occurs, changes are rejected
+    except ORMException as e:
+        print(f"Transaction failed: {e}")
 ```
 
-### Caching Strategies
+### Cache Management
+
 ```python
-from revitpy.orm.cache import QueryCache
+with RevitContext(provider) as ctx:
+    # First query -- hits the provider
+    walls = ctx.all(Wall).to_list()
 
-def cached_element_access():
-    with RevitContext() as context:
-        # Enable query result caching
-        context.enable_caching = True
+    # Second query for same type -- uses cached ElementSet
+    walls_again = ctx.all(Wall).to_list()
 
-        # First query - hits the database
-        walls = context.elements.of_category('Walls').to_list()
+    # Invalidate cache for a specific type
+    ctx.invalidate_cache(entity_type=Wall)
 
-        # Second identical query - uses cache
-        walls_cached = context.elements.of_category('Walls').to_list()
+    # Clear all caches
+    ctx.clear_cache()
 
-        # Clear cache when needed
-        context.clear_cache()
-```
-
-### Batch Operations
-```python
-def efficient_bulk_updates(element_updates):
-    with RevitContext() as context:
-        # Use bulk operations for better performance
-        element_ids = list(element_updates.keys())
-        elements = context.get_elements_by_ids(element_ids)  # Single query
-
-        with context.transaction("Bulk Update") as txn:
-            for element in elements:
-                updates = element_updates.get(element.Id)
-                if updates:
-                    element.update_parameters(updates)  # Batch parameter update
-
-            txn.commit()
+    # View cache statistics
+    stats = ctx.cache_statistics
+    if stats:
+        print(f"Cache stats: {stats}")
 ```
 
 ---
 
-## Advanced Features
+## Best Practices
 
-### Custom Query Extensions
-```python
-from revitpy.orm import QueryExtension
-
-class WallQueryExtensions(QueryExtension):
-    """Custom query extensions for walls."""
-
-    def exterior_walls(self, query):
-        """Filter for exterior walls only."""
-        return query.where(lambda w: w.get_parameter('Function').AsInteger() == 1)
-
-    def by_height_range(self, query, min_height, max_height):
-        """Filter walls by height range."""
-        return query.where(lambda w: min_height <= w.Height <= max_height)
-
-# Register extension
-RevitContext.register_extension('Walls', WallQueryExtensions)
-
-# Use custom extensions
-with RevitContext() as context:
-    exterior_walls = (context.elements
-                      .of_category('Walls')
-                      .exterior_walls()
-                      .by_height_range(8.0, 12.0)
-                      .to_list())
-```
-
-### Dynamic Queries
-```python
-def build_dynamic_query(filters):
-    """Build queries dynamically based on runtime conditions."""
-    with RevitContext() as context:
-        query = context.elements.of_category('Rooms')
-
-        # Apply filters dynamically
-        if 'min_area' in filters:
-            query = query.where(lambda r: r.Area >= filters['min_area'])
-
-        if 'level_name' in filters:
-            query = query.where(lambda r: r.Level.Name == filters['level_name'])
-
-        if 'name_pattern' in filters:
-            pattern = filters['name_pattern']
-            query = query.where(lambda r: pattern in r.Name)
-
-        # Apply ordering if specified
-        if 'order_by' in filters:
-            if filters['order_by'] == 'area':
-                query = query.order_by(lambda r: r.Area)
-            elif filters['order_by'] == 'name':
-                query = query.order_by(lambda r: r.Name)
-
-        return query.to_list()
-```
-
----
-
-## Testing ORM Operations
-
-### Mock Context for Testing
-```python
-from revitpy.testing import MockRevitContext, create_mock_element
-
-def test_wall_query():
-    """Test wall querying with mock data."""
-    with MockRevitContext() as mock_context:
-        # Create mock elements
-        wall1 = create_mock_element('Wall', Height=8.0, Name='Wall-1')
-        wall2 = create_mock_element('Wall', Height=12.0, Name='Wall-2')
-        wall3 = create_mock_element('Wall', Height=15.0, Name='Wall-3')
-
-        mock_context.add_elements([wall1, wall2, wall3])
-
-        # Test query
-        tall_walls = (mock_context.elements
-                      .of_category('Walls')
-                      .where(lambda w: w.Height > 10)
-                      .order_by(lambda w: w.Height)
-                      .to_list())
-
-        # Verify results
-        assert len(tall_walls) == 2
-        assert tall_walls[0].Height == 12.0
-        assert tall_walls[1].Height == 15.0
-```
-
----
-
-## Migration from Traditional Approaches
-
-### Before: Traditional Revit API
-```python
-from Autodesk.Revit.DB import FilteredElementCollector, BuiltInCategory
-
-# Traditional approach - verbose and complex
-collector = FilteredElementCollector(doc)
-walls = collector.OfCategory(BuiltInCategory.OST_Walls).ToElements()
-
-tall_walls = []
-for wall in walls:
-    height_param = wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM)
-    if height_param and height_param.AsDouble() > 10.0:
-        tall_walls.append(wall)
-
-# Sort manually
-tall_walls.sort(key=lambda w: w.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM).AsDouble())
-```
-
-### After: RevitPy ORM
-```python
-from revitpy import RevitContext
-
-# Modern ORM approach - intuitive and concise
-with RevitContext() as context:
-    tall_walls = (context.elements
-                  .of_category('Walls')
-                  .where(lambda w: w.Height > 10.0)
-                  .order_by(lambda w: w.Height)
-                  .to_list())
-```
-
-The ORM approach is:
-- **70% less code** than traditional approaches
-- **Type-safe** with full IntelliSense support
-- **More readable** with natural language syntax
-- **Automatically optimized** for performance
-- **Easier to test** with built-in mocking support
+1. **Use the context manager** -- Ensures `dispose()` is called and pending changes are cleaned up.
+2. **Enable change tracking for write workflows** -- Set `auto_track_changes=True` and call `save_changes()` to persist.
+3. **Use transactions for multi-step operations** -- The `transaction()` context manager auto-commits or rolls back.
+4. **Invalidate cache after external modifications** -- If data changes outside the context, call `invalidate_cache()`.
+5. **Prefer `get_by_id()` for single lookups** -- It checks the cache first for better performance.
+6. **Keep contexts short-lived** -- Dispose contexts when done to free resources.
 
 ---
 
 ## Next Steps
 
-- **[Query Builder]({{ '/reference/api/query-builder/' | relative_url }})**: Deep dive into query construction
-- **[Element Sets]({{ '/reference/api/element-sets/' | relative_url }})**: Work with element collections
-- **[Relationships]({{ '/reference/api/relationships/' | relative_url }})**: Navigate element relationships
-- **[Performance Guide]({{ '/guides/orm-performance/' | relative_url }})**: Optimize ORM usage
+- **[Query API]({{ '/reference/api/query/' | relative_url }})**: The `QueryBuilder` used by `RevitContext.query()`
+- **[Element API]({{ '/reference/api/element-api/' | relative_url }})**: `Element` and `ElementSet` classes
+- **[Transaction API]({{ '/reference/api/transaction-api/' | relative_url }})**: Lower-level transaction management
+- **[Async Support]({{ '/reference/api/async/' | relative_url }})**: Async operations and `AsyncRevitContext`

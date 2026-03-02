@@ -143,7 +143,9 @@ class Transaction:
         except Exception as e:
             self._status = TransactionStatus.FAILED
             logger.error(f"Failed to start transaction {self.name}: {e}")
-            raise TransactionError(f"Failed to start transaction: {e}", self.name, e)
+            raise TransactionError(
+                f"Failed to start transaction: {e}", self.name, e
+            ) from e
 
     def commit(self) -> None:
         """Commit the transaction."""
@@ -160,7 +162,9 @@ class Transaction:
                 except Exception as e:
                     logger.error(f"Operation failed in transaction {self.name}: {e}")
                     self.rollback()
-                    raise TransactionError(f"Operation failed: {e}", self.name, e)
+                    raise TransactionError(
+                        f"Operation failed: {e}", self.name, e
+                    ) from e
 
             # Commit the transaction
             success = self._provider.commit_transaction(self._transaction)
@@ -221,7 +225,9 @@ class Transaction:
         except Exception as e:
             self._status = TransactionStatus.FAILED
             logger.error(f"Failed to rollback transaction {self.name}: {e}")
-            raise TransactionError(f"Failed to rollback transaction: {e}", self.name, e)
+            raise TransactionError(
+                f"Failed to rollback transaction: {e}", self.name, e
+            ) from e
 
     def __enter__(self) -> Transaction:
         """Context manager entry."""
@@ -313,7 +319,7 @@ class TransactionGroup:
             self.rollback_all()
             raise TransactionError(
                 f"Failed to start transaction group: {e}", self.name, e
-            )
+            ) from e
 
     def commit_all(self) -> None:
         """Commit all transactions in the group."""
@@ -343,7 +349,7 @@ class TransactionGroup:
             self._status = TransactionStatus.FAILED
             raise TransactionError(
                 f"Failed to commit transaction group: {e}", self.name, e
-            )
+            ) from e
 
     def rollback_all(self) -> None:
         """Rollback all transactions in the group."""

@@ -335,7 +335,7 @@ class TestElementSetPerformance:
 
         # Test aggregation performance
         with measure_time() as get_time:
-            wall_count = element_set.count()
+            wall_count = element_set.count
         count_time = get_time() * 1000
 
         print(

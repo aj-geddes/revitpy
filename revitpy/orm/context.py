@@ -196,7 +196,7 @@ class RevitContext:
     ) -> int:
         """Get count of elements."""
         query = self.all(element_type)
-        return query.count(predicate) if predicate else query.count()
+        return query.where(predicate).count if predicate else query.count
 
     def any(
         self, element_type: type[T], predicate: Callable[[T], bool] | None = None
@@ -248,7 +248,7 @@ class RevitContext:
                 entity_type=element_type.__name__,
                 entity_id=element_id,
                 cause=e,
-            )
+            ) from e
 
     # Change tracking and persistence
 
@@ -357,7 +357,7 @@ class RevitContext:
 
             raise ORMException(
                 f"Failed to save changes: {e}", operation="save_changes", cause=e
-            )
+            ) from e
 
     # Relationship management
 
@@ -534,15 +534,10 @@ class RevitContext:
             if self._relationship_manager:
                 self._relationship_manager.invalidate_entity(change)
 
+    @contextmanager
     def _no_op(self):
         """No-op context manager for non-thread-safe mode."""
-        return self
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+        yield
 
 
 # Factory functions

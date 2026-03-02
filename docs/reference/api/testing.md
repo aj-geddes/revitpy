@@ -1,29 +1,351 @@
 ---
 layout: api
 title: Testing Framework API
-description: Comprehensive testing tools with mock objects and fixtures
+description: Mock objects and utilities for testing RevitPy applications without Revit
 ---
 
 # Testing Framework API
 
-RevitPy's Testing Framework provides comprehensive tools for testing Revit applications with mock objects, fixtures, and assertions.
+The Testing Framework provides mock implementations of the Revit environment, enabling unit and integration testing of RevitPy applications without a running Revit instance. It includes mock elements, documents, transactions, applications, and state persistence.
 
-## Overview
+**Module:** `revitpy.testing.mock_revit`
 
-The Testing Framework includes:
+---
 
-- **Mock Revit environment**: Test without running Revit
-- **Test fixtures**: Reusable test components
-- **Assertions**: Specialized assertions for Revit elements
-- **Test runners**: Execute and organize tests
-- **Snapshot testing**: Compare element states
-- **Async test support**: Test async operations
+## MockParameter
+
+Dataclass representing a mock Revit parameter with typed value accessors.
+
+### Constructor
+
+```python
+MockParameter(
+    name: str,
+    value: Any = None,
+    type_name: str = "String",
+    storage_type: str = "String",
+    is_read_only: bool = False
+)
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | `str` | | Parameter name. |
+| `value` | `Any` | `None` | The parameter value. |
+| `type_name` | `str` | `"String"` | Python type name of the value. |
+| `storage_type` | `str` | `"String"` | Revit storage type. |
+| `is_read_only` | `bool` | `False` | Whether the parameter is read-only. |
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `AsString()` | `str` | Returns the value as a string. Returns `""` if `None`. |
+| `AsDouble()` | `float` | Returns the value as a float. Returns `0.0` on conversion failure. |
+| `AsInteger()` | `int` | Returns the value as an integer. Returns `0` on conversion failure. |
+| `AsValueString()` | `str` | Alias for `AsString()`. |
+
+```python
+param = MockParameter("Height", 10.5, storage_type="Double")
+print(param.AsDouble())   # 10.5
+print(param.AsString())   # "10.5"
+print(param.AsInteger())  # 10
+```
+
+---
+
+## MockElementId
+
+Mock Revit element ID with equality and hashing support.
+
+### Constructor
+
+```python
+MockElementId(value: int)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `value` | `int` | The integer element ID. |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `IntegerValue` | `int` | The raw integer ID. |
+
+Supports `==`, `hash()`, and `str()`.
+
+```python
+eid = MockElementId(12345)
+print(eid.IntegerValue)  # 12345
+print(str(eid))          # "12345"
+```
+
+---
+
+## MockElement
+
+Mock Revit element with configurable parameters and properties.
+
+### Constructor
+
+```python
+MockElement(
+    element_id: int | None = None,
+    name: str = "MockElement",
+    category: str = "Generic",
+    element_type: str = "Element"
+)
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `element_id` | `int` or `None` | `None` | Element ID. Auto-generated if `None`. |
+| `name` | `str` | `"MockElement"` | Element name. |
+| `category` | `str` | `"Generic"` | Element category. |
+| `element_type` | `str` | `"Element"` | Element type name. |
+
+Default parameters (`Name`, `Category`, `Type`, `Comments`, `Mark`) are created automatically.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Id` | `MockElementId` | The element's ID. |
+| `Name` | `str` | The element name. |
+| `Category` | `str` | The element category. |
+| `ElementType` | `str` | The element type. |
+
+### Methods
+
+#### `GetParameterValue(parameter_name)`
+
+Gets a parameter by name and returns the `MockParameter` object.
+
+**Returns:** `MockParameter`
+
+**Raises:** `KeyError` if the parameter does not exist.
+
+#### `SetParameterValue(parameter_name, value)`
+
+Sets a parameter value. Creates the parameter if it does not exist.
+
+**Raises:** `ValueError` if the parameter is read-only.
+
+```python
+element = MockElement(name="Wall-1", category="Walls")
+element.SetParameterValue("Height", 10.0)
+element.SetParameterValue("Comments", "Test wall")
+
+param = element.GetParameterValue("Height")
+print(param.AsDouble())  # 10.0
+```
+
+#### `GetParameter(parameter_name)`
+
+Gets the `MockParameter` object, or `None` if not found.
+
+**Returns:** `MockParameter` or `None`
+
+#### `SetParameter(parameter_name, parameter)`
+
+Sets a `MockParameter` object directly.
+
+#### `GetAllParameters()`
+
+Returns a copy of all parameters.
+
+**Returns:** `dict[str, MockParameter]`
+
+#### `HasParameter(parameter_name)`
+
+Checks whether a parameter exists.
+
+**Returns:** `bool`
+
+#### `GetProperty(property_name)` / `SetProperty(property_name, value)`
+
+Gets or sets a custom property on the element.
+
+#### `to_dict()` / `from_dict(data)`
+
+Serializes the element to a dictionary and deserializes from one. Useful for fixture persistence.
+
+---
+
+## MockTransaction
+
+Mock Revit transaction with start, commit, and rollback tracking.
+
+### Constructor
+
+```python
+MockTransaction(name: str = "MockTransaction")
+```
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | `str` | Transaction name. |
+| `is_started` | `bool` | Whether `Start()` has been called. |
+| `is_committed` | `bool` | Whether `Commit()` has been called. |
+| `is_rolled_back` | `bool` | Whether `RollBack()` has been called. |
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `Start()` | `bool` | Marks the transaction as started. Always returns `True`. |
+| `Commit()` | `bool` | Commits the transaction. Returns `False` if not started. |
+| `RollBack()` | `bool` | Rolls back the transaction. Returns `False` if not started. |
+
+```python
+txn = MockTransaction("Update Walls")
+txn.Start()
+# ... make modifications ...
+txn.Commit()
+
+assert txn.is_committed
+assert not txn.is_rolled_back
+```
+
+---
+
+## MockDocument
+
+Mock Revit document with element storage, transaction support, and serialization.
+
+### Constructor
+
+```python
+MockDocument(
+    title: str = "MockDocument.rvt",
+    path: str = "",
+    is_family_document: bool = False
+)
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `title` | `str` | `"MockDocument.rvt"` | Document title. |
+| `path` | `str` | `""` | File path. |
+| `is_family_document` | `bool` | `False` | Whether this is a family document. |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Title` | `str` | Document title. |
+| `PathName` | `str` | File path. |
+| `IsFamilyDocument` | `bool` | Whether this is a family document. |
+
+### Methods
+
+#### `CreateElement(name="NewElement", category="Generic", element_type="Element")`
+
+Creates a new element in the document with an auto-incremented ID.
+
+**Returns:** `MockElement`
+
+#### `AddElement(element)`
+
+Adds an existing element to the document.
+
+**Returns:** `MockElement`
+
+#### `GetElement(element_id)`
+
+Gets an element by integer ID or `MockElementId`.
+
+**Returns:** `MockElement` or `None`
+
+#### `GetElements(filter_criteria=None)`
+
+Gets all elements, optionally filtered by a callable predicate.
+
+**Returns:** `list[MockElement]`
+
+#### `GetElementsByCategory(category)`
+
+Gets all elements matching a category string.
+
+**Returns:** `list[MockElement]`
+
+#### `GetElementsByType(element_type)`
+
+Gets all elements matching a type string.
+
+**Returns:** `list[MockElement]`
+
+#### `Delete(element_ids)`
+
+Deletes elements by a list of integer IDs or `MockElementId` objects.
+
+#### `StartTransaction(name="Transaction")`
+
+Creates and starts a new `MockTransaction`.
+
+**Returns:** `MockTransaction`
+
+#### `Save()` / `Close(save_changes=True)`
+
+Saves or closes the document. `Save()` returns `False` if no path is set.
+
+#### `IsModified()` / `GetElementCount()`
+
+Check modification status or get the element count.
+
+#### `to_dict()` / `from_dict(data)`
+
+Serializes/deserializes the document including all elements.
+
+```python
+doc = MockDocument(title="TestProject.rvt")
+wall = doc.CreateElement(name="Wall-1", category="Walls")
+wall.SetParameterValue("Height", 10.0)
+
+walls = doc.GetElementsByCategory("Walls")
+print(f"Found {len(walls)} walls")
+
+txn = doc.StartTransaction("Update")
+wall.SetParameterValue("Comments", "Updated")
+txn.Commit()
+```
+
+---
+
+## MockApplication
+
+Mock Revit application managing multiple documents.
+
+### Constructor
+
+```python
+MockApplication()
+```
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ActiveDocument` | `MockDocument` or `None` | The currently active document. |
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `OpenDocumentFile(file_path)` | `MockDocument` | Opens a document from a file path. Sets it as active. |
+| `CreateDocument(template_path=None)` | `MockDocument` | Creates a new document. Sets it as active. |
+| `GetOpenDocuments()` | `list[MockDocument]` | Returns all open documents. |
+| `CloseDocument(document)` | `bool` | Closes a document. Updates active document if needed. |
 
 ---
 
 ## MockRevit
 
-Complete mock Revit environment for testing.
+Top-level mock Revit environment for testing. Provides convenience methods for creating documents, elements, fixtures, and state persistence.
 
 ### Constructor
 
@@ -31,962 +353,220 @@ Complete mock Revit environment for testing.
 MockRevit()
 ```
 
-### Methods
-
-#### `create_document(name=None)`
-Creates a mock Revit document.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | `str` | Optional document name |
-
-**Returns:** `MockDocument` - The mock document
-
-#### `create_element(category, **properties)`
-Creates a mock element.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `category` | `str` | Element category |
-| `**properties` | `any` | Element properties |
-
-**Returns:** `MockElement` - The mock element
-
-#### `create_application()`
-Creates a mock Revit application.
-
-**Returns:** `MockApplication` - The mock application
-
-#### `get_active_document()`
-Returns the active mock document.
-
-**Returns:** `MockDocument` - The active document
-
-#### `set_active_document(document)`
-Sets the active mock document.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `document` | `MockDocument` | Document to activate |
-
-#### `cleanup()`
-Cleans up all mock resources.
-
----
-
-## MockDocument
-
-Mock Revit document.
-
-### Methods
-
-#### `create_element(category, properties=None)`
-Creates an element in the document.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `category` | `str` | Element category |
-| `properties` | `dict` | Element properties |
-
-**Returns:** `MockElement` - The created element
-
-#### `get_element(element_id)`
-Gets an element by ID.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `element_id` | `int` | Element ID |
-
-**Returns:** `MockElement` - The element or `None`
-
-#### `delete_element(element_id)`
-Deletes an element.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `element_id` | `int` | Element ID |
-
-#### `get_elements(category=None)`
-Gets elements, optionally filtered by category.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `category` | `str` | Optional category filter |
-
-**Returns:** `list[MockElement]` - List of elements
-
-#### `start_transaction(name)`
-Starts a mock transaction.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | `str` | Transaction name |
-
-**Returns:** `MockTransaction` - The transaction context manager
-
-#### `save(path=None)`
-Saves the mock document.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `path` | `str` | Optional save path |
-
----
-
-## MockElement
-
-Mock Revit element with configurable properties.
-
-### Constructor
-
-```python
-MockElement(category, **properties)
-```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `category` | `str` | Element category |
-| `**properties` | `any` | Element properties |
-
 ### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Id` | `int` | Element ID |
-| `Name` | `str` | Element name |
-| `Category` | `str` | Element category |
+| `application` | `MockApplication` | The mock application instance. |
+| `active_document` | `MockDocument` or `None` | The currently active document. |
 
 ### Methods
 
-#### `get_parameter(name)`
-Gets a parameter value.
+#### `create_document(title="TestDocument.rvt")`
+
+Creates a mock document and sets it as active.
+
+**Returns:** `MockDocument`
+
+#### `create_element(name="TestElement", category="Generic", element_type="Element", parameters=None)`
+
+Creates a mock element. If a document is active, the element is added to it.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `name` | `str` | Parameter name |
+| `name` | `str` | Element name. |
+| `category` | `str` | Element category. |
+| `element_type` | `str` | Element type. |
+| `parameters` | `dict[str, Any]` or `None` | Parameter values to set. |
 
-**Returns:** `MockParameter` - The parameter
+**Returns:** `MockElement`
 
-#### `set_parameter(name, value)`
-Sets a parameter value.
+#### `create_elements(count, name_prefix="Element", category="Generic", element_type="Element")`
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | `str` | Parameter name |
-| `value` | `any` | Parameter value |
+Creates multiple elements with sequential names.
 
-#### `delete()`
-Marks the element as deleted.
+**Returns:** `list[MockElement]`
 
-#### `get_all_parameters()`
-Returns all parameters.
+#### `load_fixture(fixture_name, fixture_data)` / `get_fixture(fixture_name)`
 
-**Returns:** `list[MockParameter]` - All parameters
+Stores and retrieves named test fixtures.
+
+#### `save_state(file_path)` / `load_state(file_path)`
+
+Persists or restores the entire mock environment (documents, elements, fixtures) to/from a JSON file.
+
+#### `reset()`
+
+Resets the mock environment to its initial empty state.
+
+#### `add_event_handler(handler)` / `trigger_event(event_type, event_data)`
+
+Registers event handlers and triggers events for testing event-driven code.
+
+#### `get_statistics()`
+
+Returns a summary of the mock environment.
+
+**Returns:** `dict[str, Any]` -- Contains `documents`, `total_elements`, `fixtures`, `event_handlers`, and `has_active_document`.
 
 ---
 
-## RevitTestCase
+## Usage Examples
 
-Base class for Revit test cases.
-
-### Methods
-
-#### `setUp()`
-Called before each test. Override to set up test environment.
-
-#### `tearDown()`
-Called after each test. Override to clean up.
-
-#### `create_mock_context()`
-Creates a mock RevitContext.
-
-**Returns:** `MockRevitContext` - The mock context
-
-#### `create_mock_element(category, **properties)`
-Creates a mock element.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `category` | `str` | Element category |
-| `**properties` | `any` | Element properties |
-
-**Returns:** `MockElement` - The mock element
-
-#### `assert_element_exists(context, element_id)`
-Asserts that an element exists.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `context` | `RevitContext` | The context |
-| `element_id` | `int` | Element ID |
-
-#### `assert_parameter_value(element, name, expected)`
-Asserts a parameter has an expected value.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `element` | `Element` | The element |
-| `name` | `str` | Parameter name |
-| `expected` | `any` | Expected value |
-
-#### `assert_parameter_in_range(element, name, min_val, max_val)`
-Asserts a parameter value is within range.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `element` | `Element` | The element |
-| `name` | `str` | Parameter name |
-| `min_val` | `float` | Minimum value |
-| `max_val` | `float` | Maximum value |
-
-#### `assert_element_category(element, expected_category)`
-Asserts an element has the expected category.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `element` | `Element` | The element |
-| `expected_category` | `str` | Expected category |
-
-#### `assert_element_has_parameter(element, name)`
-Asserts an element has a parameter.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `element` | `Element` | The element |
-| `name` | `str` | Parameter name |
-
----
-
-## AsyncRevitTestCase
-
-Test case for async operations.
-
-### Methods
-
-#### `setUp()`
-Called before each async test.
-
-#### `tearDown()`
-Called after each async test.
-
-#### `run_async(coroutine)`
-Runs an async coroutine in the test.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `coroutine` | `Coroutine` | Async coroutine |
-
-**Returns:** Result of the coroutine
-
-#### `assert_async_completes(coroutine, timeout=5.0)`
-Asserts an async operation completes within timeout.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `coroutine` | `Coroutine` | Async coroutine |
-| `timeout` | `float` | Timeout in seconds |
-
-#### `add_mock_elements_async(elements)`
-Adds mock elements asynchronously.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `elements` | `list[MockElement]` | Elements to add |
-
-#### `create_mock_element_async(category, **properties)`
-Creates a mock element asynchronously.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `category` | `str` | Element category |
-| `**properties` | `any` | Element properties |
-
-**Returns:** `MockElement` - The mock element
-
----
-
-## Basic Testing
-
-### Simple Test Case
+### Basic Element Testing
 
 ```python
-import unittest
-from revitpy.testing import RevitTestCase, MockRevit, MockElement
+from revitpy.testing.mock_revit import MockRevit
 
-class TestWallOperations(RevitTestCase):
-    """Test wall operations."""
+def test_wall_creation():
+    mock = MockRevit()
+    doc = mock.create_document("TestProject.rvt")
 
-    def setUp(self):
-        """Set up test environment."""
-        self.mock_revit = MockRevit()
-        self.doc = self.mock_revit.create_document()
+    wall = mock.create_element(
+        name="Exterior Wall",
+        category="Walls",
+        parameters={"Height": 10.0, "Width": 0.5},
+    )
 
-    def test_create_wall(self):
-        """Test wall creation."""
-        # Create mock wall
-        wall = self.doc.create_element(
-            category='Walls',
-            properties={'Name': 'Test Wall', 'Height': 10.0}
-        )
-
-        # Assertions
-        self.assertIsNotNone(wall)
-        self.assertEqual(wall.Name, 'Test Wall')
-        self.assertEqual(wall.Height, 10.0)
-
-    def test_update_wall_parameter(self):
-        """Test updating wall parameter."""
-        wall = self.doc.create_element(
-            category='Walls',
-            properties={'Name': 'Wall 1', 'Height': 8.0}
-        )
-
-        # Update parameter
-        wall.set_parameter('Height', 12.0)
-
-        # Assert
-        self.assertEqual(wall.get_parameter('Height').AsDouble(), 12.0)
-
-    def tearDown(self):
-        """Clean up after test."""
-        self.mock_revit.cleanup()
-
-if __name__ == '__main__':
-    unittest.main()
+    assert wall.Name == "Exterior Wall"
+    assert wall.Category == "Walls"
+    assert wall.GetParameterValue("Height").AsDouble() == 10.0
 ```
 
-### Testing with Mock Context
+### Transaction Testing
 
 ```python
-from revitpy.testing import create_mock_context
+from revitpy.testing.mock_revit import MockRevit
 
-class TestElementQueries(RevitTestCase):
-    """Test element querying."""
+def test_transaction_workflow():
+    mock = MockRevit()
+    doc = mock.create_document()
 
-    def test_query_walls(self):
-        """Test querying walls."""
-        with create_mock_context() as context:
-            # Add test data
-            context.add_element(MockElement('Wall', Height=8.0, Name='Wall-1'))
-            context.add_element(MockElement('Wall', Height=12.0, Name='Wall-2'))
-            context.add_element(MockElement('Wall', Height=15.0, Name='Wall-3'))
+    wall = doc.CreateElement(name="Wall-1", category="Walls")
+    wall.SetParameterValue("Height", 8.0)
 
-            # Query walls
-            tall_walls = (context.elements
-                         .of_category('Walls')
-                         .where(lambda w: w.Height > 10.0)
-                         .to_list())
+    txn = doc.StartTransaction("Update Height")
+    wall.SetParameterValue("Height", 12.0)
+    txn.Commit()
 
-            # Assertions
-            self.assertEqual(len(tall_walls), 2)
-            self.assertTrue(all(w.Height > 10.0 for w in tall_walls))
-
-    def test_query_with_ordering(self):
-        """Test query with ordering."""
-        with create_mock_context() as context:
-            # Add test data
-            context.add_element(MockElement('Wall', Height=15.0, Name='C'))
-            context.add_element(MockElement('Wall', Height=8.0, Name='A'))
-            context.add_element(MockElement('Wall', Height=12.0, Name='B'))
-
-            # Query with ordering
-            walls = (context.elements
-                    .of_category('Walls')
-                    .order_by(lambda w: w.Name)
-                    .to_list())
-
-            # Assert correct order
-            self.assertEqual(walls[0].Name, 'A')
-            self.assertEqual(walls[1].Name, 'B')
-            self.assertEqual(walls[2].Name, 'C')
+    assert txn.is_committed
+    assert wall.GetParameterValue("Height").AsDouble() == 12.0
 ```
 
----
-
-## Test Fixtures
-
-### Element Fixtures
+### Batch Element Creation
 
 ```python
-from revitpy.testing import ElementFixture, DocumentFixture
+from revitpy.testing.mock_revit import MockRevit
 
-class WallFixture(ElementFixture):
-    """Fixture for wall elements."""
+def test_batch_operations():
+    mock = MockRevit()
+    doc = mock.create_document()
 
-    def create_default_wall(self):
-        """Create a default wall for testing."""
-        return self.create_element(
-            category='Walls',
-            properties={
-                'Name': 'Standard Wall',
-                'Height': 10.0,
-                'Width': 0.5,
-                'Length': 20.0
-            }
-        )
+    walls = mock.create_elements(count=20, name_prefix="Wall", category="Walls")
+    assert len(walls) == 20
+    assert doc.GetElementCount() == 20
 
-    def create_exterior_wall(self):
-        """Create an exterior wall."""
-        return self.create_element(
-            category='Walls',
-            properties={
-                'Name': 'Exterior Wall',
-                'Height': 12.0,
-                'Width': 0.75,
-                'Function': 1  # Exterior
-            }
-        )
-
-class TestWithFixtures(RevitTestCase):
-    """Test using fixtures."""
-
-    def setUp(self):
-        """Set up fixtures."""
-        self.wall_fixture = WallFixture()
-
-    def test_with_default_wall(self):
-        """Test with default wall fixture."""
-        wall = self.wall_fixture.create_default_wall()
-
-        self.assertEqual(wall.Name, 'Standard Wall')
-        self.assertEqual(wall.Height, 10.0)
-
-    def test_with_exterior_wall(self):
-        """Test with exterior wall fixture."""
-        wall = self.wall_fixture.create_exterior_wall()
-
-        self.assertEqual(wall.get_parameter('Function').AsInteger(), 1)
+    # Query by category
+    found = doc.GetElementsByCategory("Walls")
+    assert len(found) == 20
 ```
 
-### Document Fixtures
+### State Persistence
 
 ```python
-class DocumentFixture:
-    """Fixture for complete document setup."""
+from revitpy.testing.mock_revit import MockRevit
 
-    def create_test_document(self):
-        """Create a complete test document."""
-        mock_revit = MockRevit()
-        doc = mock_revit.create_document()
+def test_state_save_load():
+    # Set up state
+    mock = MockRevit()
+    doc = mock.create_document("Project.rvt")
+    mock.create_elements(count=5, category="Walls")
+    mock.load_fixture("config", {"max_height": 20.0})
 
-        # Add walls
-        for i in range(10):
-            doc.create_element(
-                category='Walls',
-                properties={'Name': f'Wall-{i+1}', 'Height': 10.0 + i}
-            )
+    # Save state
+    mock.save_state("/tmp/test_state.json")
 
-        # Add doors
-        for i in range(5):
-            doc.create_element(
-                category='Doors',
-                properties={'Name': f'Door-{i+1}', 'Height': 7.0, 'Width': 3.0}
-            )
+    # Load state in a fresh environment
+    mock2 = MockRevit()
+    mock2.load_state("/tmp/test_state.json")
 
-        # Add rooms
-        for i in range(8):
-            doc.create_element(
-                category='Rooms',
-                properties={'Name': f'Room-{i+1}', 'Area': 100.0 + i * 10}
-            )
-
-        return doc
-
-class TestWithDocumentFixture(RevitTestCase):
-    """Test with complete document fixture."""
-
-    def setUp(self):
-        """Set up document fixture."""
-        fixture = DocumentFixture()
-        self.doc = fixture.create_test_document()
-
-    def test_element_counts(self):
-        """Test element counts in document."""
-        walls = self.doc.get_elements('Walls')
-        doors = self.doc.get_elements('Doors')
-        rooms = self.doc.get_elements('Rooms')
-
-        self.assertEqual(len(walls), 10)
-        self.assertEqual(len(doors), 5)
-        self.assertEqual(len(rooms), 8)
+    assert mock2.active_document.Title == "Project.rvt"
+    assert mock2.active_document.GetElementCount() == 5
+    assert mock2.get_fixture("config")["max_height"] == 20.0
 ```
 
----
-
-## Specialized Assertions
-
-### Element Assertions
+### Event Handler Testing
 
 ```python
-from revitpy.testing import RevitAssertions
+from revitpy.testing.mock_revit import MockRevit
 
-class TestWithAssertions(RevitTestCase):
-    """Test using specialized assertions."""
+def test_event_handling():
+    mock = MockRevit()
+    events_received = []
 
-    def test_element_exists(self):
-        """Test element existence assertion."""
-        with create_mock_context() as context:
-            wall = context.create_element('Wall', Name='Test Wall')
+    def on_event(event_type, event_data):
+        events_received.append((event_type, event_data))
 
-            # Assert element exists
-            self.assert_element_exists(context, wall.Id)
+    mock.add_event_handler(on_event)
+    mock.trigger_event("document_saved", {"title": "Project.rvt"})
 
-    def test_parameter_value(self):
-        """Test parameter value assertion."""
-        wall = MockElement('Wall', Height=10.0)
-
-        # Assert parameter value
-        self.assert_parameter_value(wall, 'Height', 10.0)
-
-    def test_parameter_in_range(self):
-        """Test parameter in range."""
-        wall = MockElement('Wall', Height=10.0)
-
-        # Assert parameter in range
-        self.assert_parameter_in_range(wall, 'Height', 8.0, 12.0)
-
-    def test_element_category(self):
-        """Test element category assertion."""
-        wall = MockElement('Wall')
-
-        # Assert category
-        self.assert_element_category(wall, 'Walls')
-
-    def test_element_has_parameter(self):
-        """Test element has parameter."""
-        wall = MockElement('Wall', Height=10.0)
-
-        # Assert has parameter
-        self.assert_element_has_parameter(wall, 'Height')
+    assert len(events_received) == 1
+    assert events_received[0][0] == "document_saved"
 ```
 
-### Geometry Assertions
+### Testing with pytest
 
 ```python
-from revitpy.testing import GeometryAssertions
-
-class TestGeometry(RevitTestCase, GeometryAssertions):
-    """Test geometry operations."""
-
-    def test_bounding_box(self):
-        """Test bounding box assertion."""
-        element = MockElement('Wall', Width=1.0, Height=10.0, Length=20.0)
-
-        # Assert bounding box dimensions
-        self.assert_bounding_box_dimensions(
-            element,
-            expected_width=1.0,
-            expected_height=10.0,
-            expected_length=20.0,
-            tolerance=0.01
-        )
-
-    def test_point_location(self):
-        """Test point location."""
-        element = MockElement('Wall')
-        point = (10.0, 20.0, 0.0)
-
-        # Assert point location
-        self.assert_point_equals(
-            element.get_location(),
-            point,
-            tolerance=0.01
-        )
-
-    def test_volume(self):
-        """Test element volume."""
-        element = MockElement('Wall', Volume=200.0)
-
-        # Assert volume
-        self.assert_volume_equals(element, 200.0, tolerance=1.0)
-```
-
----
-
-## Snapshot Testing
-
-### Element Snapshots
-
-```python
-from revitpy.testing import SnapshotTester, ElementSnapshot
-
-class TestWithSnapshots(RevitTestCase):
-    """Test using snapshot testing."""
-
-    def setUp(self):
-        """Set up snapshot tester."""
-        self.snapshot_tester = SnapshotTester(snapshot_dir='./test_snapshots')
-
-    def test_element_snapshot(self):
-        """Test element state snapshot."""
-        wall = MockElement(
-            'Wall',
-            Name='Test Wall',
-            Height=10.0,
-            Width=0.5,
-            Comments='Original'
-        )
-
-        # Create snapshot
-        snapshot = ElementSnapshot.create(wall)
-        self.snapshot_tester.save_snapshot('wall_original', snapshot)
-
-        # Modify element
-        wall.set_parameter('Comments', 'Modified')
-
-        # Compare with snapshot
-        current = ElementSnapshot.create(wall)
-        diff = self.snapshot_tester.compare_snapshot('wall_original', current)
-
-        # Assert changes
-        self.assertEqual(len(diff.changed_parameters), 1)
-        self.assertIn('Comments', diff.changed_parameters)
-```
-
-### Geometry Snapshots
-
-```python
-from revitpy.testing import GeometrySnapshot
-
-class TestGeometrySnapshots(RevitTestCase):
-    """Test geometry snapshots."""
-
-    def test_geometry_snapshot(self):
-        """Test geometry state snapshot."""
-        element = MockElement('Wall')
-
-        # Create geometry snapshot
-        snapshot = GeometrySnapshot.create(element)
-
-        # Save snapshot
-        snapshot.save('wall_geometry.json')
-
-        # Later: load and compare
-        loaded_snapshot = GeometrySnapshot.load('wall_geometry.json')
-        current = GeometrySnapshot.create(element)
-
-        # Compare geometry
-        is_equal = loaded_snapshot.equals(current, tolerance=0.01)
-        self.assertTrue(is_equal)
-```
-
----
-
-## Async Testing
-
-### Async Test Cases
-
-```python
-from revitpy.testing import AsyncRevitTestCase
-from revitpy.async_support import AsyncRevit, async_transaction
-
-class TestAsyncOperations(AsyncRevitTestCase):
-    """Test async operations."""
-
-    async def test_async_element_query(self):
-        """Test async element query."""
-        async_revit = AsyncRevit()
-
-        # Mock async elements
-        await self.add_mock_elements_async([
-            MockElement('Wall', Height=8.0),
-            MockElement('Wall', Height=12.0),
-            MockElement('Wall', Height=15.0)
-        ])
-
-        # Query asynchronously
-        walls = await async_revit.get_elements_async('Walls')
-
-        # Assertions
-        self.assertEqual(len(walls), 3)
-
-    async def test_async_transaction(self):
-        """Test async transaction."""
-        async_revit = AsyncRevit()
-
-        wall = await self.create_mock_element_async('Wall', Height=10.0)
-
-        async with async_transaction(async_revit, "Test Update") as txn:
-            await async_revit.set_parameter_async(wall, 'Height', 12.0)
-            await txn.commit()
-
-        # Verify
-        updated_wall = await async_revit.get_element_by_id_async(wall.Id)
-        self.assertEqual(updated_wall.Height, 12.0)
-
-    async def test_async_error_handling(self):
-        """Test async error handling."""
-        async_revit = AsyncRevit()
-
-        with self.assertRaises(Exception):
-            await async_revit.get_element_by_id_async(invalid_id)
-```
-
-### Testing Async Context Managers
-
-```python
-class TestAsyncContextManagers(AsyncRevitTestCase):
-    """Test async context managers."""
-
-    async def test_async_element_scope(self):
-        """Test async element scope."""
-        from revitpy.async_support import async_element_scope
-
-        async_revit = AsyncRevit()
-
-        async with async_element_scope(async_revit, element_id=123) as element:
-            self.assertIsNotNone(element)
-            await async_revit.set_parameter_async(element, 'Comments', 'Test')
-
-        # Element automatically cleaned up
-```
-
----
-
-## Test Runners
-
-### Custom Test Runner
-
-```python
-from revitpy.testing import RevitTestRunner
-
-class CustomTestRunner(RevitTestRunner):
-    """Custom test runner with additional features."""
-
-    def run_tests(self, test_suite):
-        """Run tests with custom behavior."""
-        # Set up test environment
-        self.setup_test_environment()
-
-        # Run tests
-        result = super().run_tests(test_suite)
-
-        # Generate custom report
-        self.generate_custom_report(result)
-
-        # Clean up
-        self.cleanup_test_environment()
-
-        return result
-
-    def setup_test_environment(self):
-        """Set up test environment."""
-        print("Setting up test environment...")
-        # Custom setup logic
-
-    def generate_custom_report(self, result):
-        """Generate custom test report."""
-        print("\nCustom Test Report:")
-        print(f"Tests run: {result.testsRun}")
-        print(f"Failures: {len(result.failures)}")
-        print(f"Errors: {len(result.errors)}")
-
-# Use custom runner
-runner = CustomTestRunner()
-suite = unittest.TestLoader().loadTestsFromTestCase(TestWallOperations)
-runner.run_tests(suite)
-```
-
-### Test Suite Organization
-
-```python
-from revitpy.testing import RevitTestSuite
-
-def create_test_suite():
-    """Create organized test suite."""
-    suite = RevitTestSuite()
-
-    # Add test groups
-    suite.add_test_group('core', [
-        TestElementOperations,
-        TestTransactionManagement,
-        TestQueryOperations
-    ])
-
-    suite.add_test_group('orm', [
-        TestOrmQueries,
-        TestRelationships,
-        TestChangeTracking
-    ])
-
-    suite.add_test_group('async', [
-        TestAsyncOperations,
-        TestTaskQueue,
-        TestCancellation
-    ])
-
-    return suite
-
-# Run specific test group
-suite = create_test_suite()
-suite.run_group('core')
-
-# Run all tests
-suite.run_all()
-```
-
----
-
-## Mocking Strategies
-
-### Partial Mocking
-
-```python
-from revitpy.testing import PartialMock
-
-class TestWithPartialMock(RevitTestCase):
-    """Test with partial mocking."""
-
-    def test_partial_mock(self):
-        """Test with partially mocked element."""
-        # Create element with some real behavior, some mocked
-        element = PartialMock(
-            real_class=Wall,
-            mock_methods=['get_geometry'],  # Mock only these methods
-            properties={'Height': 10.0, 'Name': 'Test Wall'}
-        )
-
-        # Real behavior
-        name = element.Name  # Uses real property
-
-        # Mocked behavior
-        geometry = element.get_geometry()  # Uses mock
-```
-
-### Spy Objects
-
-```python
-from revitpy.testing import SpyElement
-
-class TestWithSpies(RevitTestCase):
-    """Test with spy objects."""
-
-    def test_method_calls(self):
-        """Test method call tracking."""
-        element = SpyElement('Wall')
-
-        # Use element
-        element.get_parameter('Height')
-        element.set_parameter('Height', 12.0)
-        element.get_parameter('Width')
-
-        # Verify method calls
-        self.assert_method_called(element, 'get_parameter')
-        self.assert_method_called_with(element, 'set_parameter', 'Height', 12.0)
-        self.assertEqual(element.get_call_count('get_parameter'), 2)
-```
-
----
-
-## Performance Testing
-
-### Performance Test Cases
-
-```python
-from revitpy.testing import PerformanceTestCase
-
-class TestPerformance(PerformanceTestCase):
-    """Test performance characteristics."""
-
-    def test_query_performance(self):
-        """Test query performance."""
-        with create_mock_context() as context:
-            # Add test data
-            for i in range(1000):
-                context.add_element(MockElement('Wall', Height=10.0))
-
-            # Measure query performance
-            with self.measure_time() as timer:
-                walls = context.elements.of_category('Walls').to_list()
-
-            # Assert performance
-            self.assertLess(timer.elapsed, 1.0, "Query took too long")
-
-    def test_batch_update_performance(self):
-        """Test batch update performance."""
-        with create_mock_context() as context:
-            walls = [MockElement('Wall') for _ in range(100)]
-
-            with self.measure_time() as timer:
-                with context.transaction("Batch Update") as txn:
-                    for wall in walls:
-                        wall.set_parameter('Comments', 'Updated')
-                    txn.commit()
-
-            # Assert performance
-            time_per_element = timer.elapsed / len(walls)
-            self.assertLess(time_per_element, 0.01, "Update too slow per element")
-```
-
----
-
-## Integration Testing
-
-### Full Integration Tests
-
-```python
-class IntegrationTestCase(RevitTestCase):
-    """Integration tests with full mock environment."""
-
-    def setUp(self):
-        """Set up complete integration test environment."""
-        self.mock_revit = MockRevit()
-        self.doc = self.mock_revit.create_document()
-        self.app = self.mock_revit.create_application()
-
-        # Set up full environment
-        self.setup_complete_document()
-
-    def setup_complete_document(self):
-        """Set up complete document with all element types."""
-        # Add levels
-        self.level1 = self.doc.create_element('Level', Name='Level 1', Elevation=0.0)
-        self.level2 = self.doc.create_element('Level', Name='Level 2', Elevation=12.0)
-
-        # Add walls
-        for i in range(20):
-            self.doc.create_element(
-                'Wall',
-                Name=f'Wall-{i+1}',
-                Level=self.level1,
-                Height=10.0
-            )
-
-        # Add other elements...
-
-    def test_complete_workflow(self):
-        """Test complete workflow."""
-        # Query elements
-        walls = self.doc.get_elements('Walls')
-        self.assertEqual(len(walls), 20)
-
-        # Modify elements
-        with self.doc.start_transaction("Update") as txn:
-            for wall in walls:
-                wall.set_parameter('Comments', 'Updated')
-            txn.commit()
-
-        # Verify modifications
-        for wall in walls:
-            self.assertEqual(wall.get_parameter('Comments').AsString(), 'Updated')
+import pytest
+from revitpy.testing.mock_revit import MockRevit, MockElement
+
+@pytest.fixture
+def mock_revit():
+    mock = MockRevit()
+    mock.create_document("Test.rvt")
+    yield mock
+    mock.reset()
+
+@pytest.fixture
+def mock_walls(mock_revit):
+    return mock_revit.create_elements(count=10, category="Walls", name_prefix="Wall")
+
+def test_element_count(mock_revit, mock_walls):
+    doc = mock_revit.active_document
+    assert doc.GetElementCount() == 10
+
+def test_parameter_access(mock_revit, mock_walls):
+    wall = mock_walls[0]
+    wall.SetParameterValue("Height", 15.0)
+
+    param = wall.GetParameter("Height")
+    assert param is not None
+    assert param.AsDouble() == 15.0
+
+def test_element_deletion(mock_revit, mock_walls):
+    doc = mock_revit.active_document
+    wall_id = mock_walls[0].Id
+    doc.Delete([wall_id])
+    assert doc.GetElementCount() == 9
+    assert doc.GetElement(wall_id) is None
 ```
 
 ---
 
 ## Best Practices
 
-1. **Use appropriate mocks**: Mock only what you need
-2. **Test behavior, not implementation**: Focus on what code does, not how
-3. **Keep tests isolated**: Each test should be independent
-4. **Use fixtures**: Reuse common test setups
-5. **Test edge cases**: Include boundary and error conditions
-6. **Use descriptive test names**: Test names should describe what they test
-7. **Mock external dependencies**: Isolate tests from external systems
+1. **Use `MockRevit` as the entry point** -- It manages the application, documents, and elements together.
+2. **Reset between tests** -- Call `mock.reset()` to ensure test isolation.
+3. **Use fixtures for reusable setups** -- `load_fixture()` and `get_fixture()` store arbitrary test data.
+4. **Test transactions explicitly** -- Check `is_committed` and `is_rolled_back` to verify transaction behavior.
+5. **Persist state for complex scenarios** -- Use `save_state()` / `load_state()` to snapshot and restore test environments.
+6. **Use pytest fixtures** -- Wrap `MockRevit` in a pytest fixture for clean setup and teardown.
 
 ---
 
 ## Next Steps
 
-- **[Testing Guide]({{ '/guides/testing/' | relative_url }})**: Comprehensive testing guide
-- **[Test Examples]({{ '/examples/testing/' | relative_url }})**: Example test cases
-- **[CI/CD Integration]({{ '/guides/ci-cd/' | relative_url }})**: Integrate tests into CI/CD
+- **[Core API]({{ '/reference/api/core/' | relative_url }})**: The `RevitAPI` interface that mock objects simulate
+- **[Element API]({{ '/reference/api/element-api/' | relative_url }})**: The `Element` class that `MockElement` mirrors
+- **[Transaction API]({{ '/reference/api/transaction-api/' | relative_url }})**: Transaction patterns to test
+- **[Event System]({{ '/reference/api/events/' | relative_url }})**: Event-driven patterns to test with `trigger_event()`

@@ -1,376 +1,451 @@
 ---
 layout: api
 title: Query API Reference
-description: Query API Reference reference documentation
+description: LINQ-style querying system for Revit elements
 ---
 
 # Query API Reference
 
-The `Query` class provides a high-level interface for querying Revit elements.
+The Query API provides a LINQ-style fluent querying system for Revit elements, with support for filtering, sorting, pagination, and distinct operations.
 
-## Class: Query
+**Module:** `revitpy.api.query`
+
+---
+
+## FilterOperator
+
+Enumeration of filter operators for query conditions.
 
 ```python
-from revitpy.api import Query
-
-query = Query(document)
+class FilterOperator(Enum):
+    EQUALS       = "equals"
+    NOT_EQUALS   = "not_equals"
+    GREATER_THAN = "greater_than"
+    LESS_THAN    = "less_than"
+    GREATER_EQUAL = "greater_equal"
+    LESS_EQUAL   = "less_equal"
+    CONTAINS     = "contains"
+    STARTS_WITH  = "starts_with"
+    ENDS_WITH    = "ends_with"
+    IN           = "in"
+    NOT_IN       = "not_in"
+    IS_NULL      = "is_null"
+    IS_NOT_NULL  = "is_not_null"
+    REGEX        = "regex"
 ```
+
+---
+
+## SortDirection
+
+Enumeration of sort directions.
+
+```python
+class SortDirection(Enum):
+    ASCENDING  = "asc"
+    DESCENDING = "desc"
+```
+
+---
+
+## FilterCriteria
+
+Represents a single filter condition applied to a query.
 
 ### Constructor
 
 ```python
-def __init__(self, document: RevitDocument)
-```
-
-**Parameters:**
-- `document` (RevitDocument): The Revit document to query
-
-**Example:**
-```python
-from revitpy.api import Query
-from revitpy.api.wrapper import get_active_document
-
-doc = get_active_document()
-query = Query(doc)
-```
-
-## Methods
-
-### get_elements_by_category
-
-Get all elements of a specific category.
-
-```python
-def get_elements_by_category(
-    self,
-    category_name: str,
-    doc: Optional[RevitDocument] = None
-) -> List[Element]
-```
-
-**Parameters:**
-- `category_name` (str): Name of the category (e.g., "Walls", "Doors", "Windows")
-- `doc` (Optional[RevitDocument]): Document to query (defaults to constructor document)
-
-**Returns:**
-- `List[Element]`: List of matching elements
-
-**Example:**
-```python
-# Get all walls
-walls = query.get_elements_by_category("Walls")
-
-# Get all doors
-doors = query.get_elements_by_category("Doors")
-
-# Get elements from specific document
-other_walls = query.get_elements_by_category("Walls", doc=other_doc)
-```
-
-**Supported Categories:**
-- Walls
-- Floors
-- Roofs
-- Doors
-- Windows
-- Rooms
-- Spaces
-- Furniture
-- And many more...
-
-### get_elements_by_class
-
-Get elements by their Revit API class type.
-
-```python
-def get_elements_by_class(
-    self,
-    class_name: str,
-    doc: Optional[RevitDocument] = None
-) -> List[Element]
-```
-
-**Parameters:**
-- `class_name` (str): Revit API class name (e.g., "Wall", "Floor", "FamilyInstance")
-- `doc` (Optional[RevitDocument]): Document to query
-
-**Returns:**
-- `List[Element]`: List of matching elements
-
-**Example:**
-```python
-# Get all walls by class
-walls = query.get_elements_by_class("Wall")
-
-# Get all family instances
-instances = query.get_elements_by_class("FamilyInstance")
-
-# Get all levels
-levels = query.get_elements_by_class("Level")
-```
-
-### get_parameter_value
-
-Get the value of a parameter from an element.
-
-```python
-def get_parameter_value(
-    self,
-    element: Element,
-    parameter_name: str
-) -> Optional[Any]
-```
-
-**Parameters:**
-- `element` (Element): The element to query
-- `parameter_name` (str): Name of the parameter
-
-**Returns:**
-- `Optional[Any]`: Parameter value or None if not found
-
-**Example:**
-```python
-wall = walls[0]
-
-# Get parameter values
-wall_type = query.get_parameter_value(wall, "Type")
-length = query.get_parameter_value(wall, "Length")
-height = query.get_parameter_value(wall, "Unconnected Height")
-level = query.get_parameter_value(wall, "Base Constraint")
-comments = query.get_parameter_value(wall, "Comments")
-
-print(f"Wall: {wall_type}")
-print(f"Length: {length} ft")
-print(f"Height: {height} ft")
-print(f"Level: {level}")
-```
-
-**Common Parameters by Category:**
-
-**Walls:**
-- Type, Length, Height, Area, Volume
-- Base Constraint, Top Constraint
-- Structural Usage, Function
-
-**Doors:**
-- Type, Width, Height
-- From Room, To Room
-- Fire Rating, Comments
-
-**Rooms:**
-- Number, Name, Area, Volume
-- Level, Department, Occupancy
-- Ceiling Finish, Floor Finish, Wall Finish
-
-### get_all_parameters
-
-Get all parameters from an element.
-
-```python
-def get_all_parameters(
-    self,
-    element: Element
-) -> Dict[str, Any]
-```
-
-**Parameters:**
-- `element` (Element): The element to query
-
-**Returns:**
-- `Dict[str, Any]`: Dictionary of parameter names to values
-
-**Example:**
-```python
-wall = walls[0]
-
-# Get all parameters
-params = query.get_all_parameters(wall)
-
-for param_name, param_value in params.items():
-    print(f"{param_name}: {param_value}")
-```
-
-### filter_elements
-
-Filter elements by custom criteria.
-
-```python
-def filter_elements(
-    self,
-    elements: List[Element],
-    filter_func: Callable[[Element], bool]
-) -> List[Element]
-```
-
-**Parameters:**
-- `elements` (List[Element]): Elements to filter
-- `filter_func` (Callable): Function that returns True for elements to keep
-
-**Returns:**
-- `List[Element]`: Filtered list of elements
-
-**Example:**
-```python
-# Get all walls
-walls = query.get_elements_by_category("Walls")
-
-# Filter walls longer than 20 feet
-long_walls = query.filter_elements(
-    walls,
-    lambda w: float(query.get_parameter_value(w, "Length") or 0) > 20.0
+FilterCriteria(
+    property_name: str,
+    operator: FilterOperator,
+    value: Any = None,
+    case_sensitive: bool = True
 )
+```
 
-# Filter by level
-level1_walls = query.filter_elements(
-    walls,
-    lambda w: query.get_parameter_value(w, "Base Constraint") == "Level 1"
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `property_name` | `str` | Element parameter name to filter on. |
+| `operator` | `FilterOperator` | Comparison operator. |
+| `value` | `Any` | Value to compare against. Not used for `IS_NULL`/`IS_NOT_NULL`. |
+| `case_sensitive` | `bool` | Whether string comparisons are case-sensitive. Default `True`. |
+
+### Methods
+
+#### `apply(element)`
+
+Tests whether an element matches this filter criteria.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element` | `Element` | The element to test. |
+
+**Returns:** `bool` -- `True` if the element matches.
+
+The method reads the parameter value from the element and applies the operator. Type coercion is attempted automatically (e.g., numeric comparison between `int` and `float`). On error, returns `False`.
+
+---
+
+## SortCriteria
+
+Represents a sort condition.
+
+### Constructor
+
+```python
+SortCriteria(
+    property_name: str,
+    direction: SortDirection = SortDirection.ASCENDING
 )
+```
 
-# Complex filter
-exterior_load_bearing_walls = query.filter_elements(
-    walls,
-    lambda w: (
-        query.get_parameter_value(w, "Function") == "Exterior" and
-        query.get_parameter_value(w, "Structural Usage") == "Bearing"
+### Methods
+
+#### `get_sort_key(element)`
+
+Extracts the sort key value from an element.
+
+**Returns:** The parameter value, or `""` if the parameter is not found.
+
+---
+
+## QueryBuilder
+
+LINQ-style query builder for Revit elements. All filter and sort methods return `self` for fluent chaining. The query is not executed until a terminal method (`execute()`, `to_list()`, `first()`, etc.) is called.
+
+### Constructor
+
+```python
+QueryBuilder(provider: IElementProvider, element_type: type[T] | None = None)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | `IElementProvider` | The element source. |
+| `element_type` | `type[T]` or `None` | Optional type filter. If set, only elements of this type are queried. |
+
+### Filter Methods
+
+All filter methods return `QueryBuilder[T]` for chaining.
+
+#### `where(property_name, operator, value=None, case_sensitive=True)`
+
+Adds a general filter criteria.
+
+```python
+query.where("Height", FilterOperator.GREATER_THAN, 10.0)
+```
+
+#### `equals(property_name, value, case_sensitive=True)`
+
+Filter by equality.
+
+```python
+query.equals("Category", "Walls")
+```
+
+#### `not_equals(property_name, value, case_sensitive=True)`
+
+Filter by inequality.
+
+#### `contains(property_name, value, case_sensitive=True)`
+
+Filter by string containment.
+
+```python
+query.contains("Name", "Exterior", case_sensitive=False)
+```
+
+#### `starts_with(property_name, value, case_sensitive=True)`
+
+Filter by string prefix.
+
+#### `ends_with(property_name, value, case_sensitive=True)`
+
+Filter by string suffix.
+
+#### `in_values(property_name, values)`
+
+Filter by membership in a list.
+
+```python
+query.in_values("Level", ["Level 1", "Level 2"])
+```
+
+#### `is_null(property_name)`
+
+Filter for null/None parameter values.
+
+#### `is_not_null(property_name)`
+
+Filter for non-null parameter values.
+
+#### `regex(property_name, pattern, case_sensitive=True)`
+
+Filter by regular expression match.
+
+```python
+query.regex("Name", r"Wall-\d{3}")
+```
+
+### Sort Methods
+
+All sort methods return `QueryBuilder[T]` for chaining.
+
+#### `order_by(property_name, direction=SortDirection.ASCENDING)`
+
+Adds a sort condition.
+
+#### `order_by_ascending(property_name)`
+
+Sort by property in ascending order. Shorthand for `order_by(prop, SortDirection.ASCENDING)`.
+
+#### `order_by_descending(property_name)`
+
+Sort by property in descending order.
+
+### Pagination Methods
+
+#### `skip(count)`
+
+Skips the first `count` elements.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `count` | `int` | Number of elements to skip. |
+
+**Returns:** `QueryBuilder[T]`
+
+#### `take(count)`
+
+Limits results to `count` elements.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `count` | `int` | Maximum number of elements to return. |
+
+**Returns:** `QueryBuilder[T]`
+
+```python
+# Pagination: page 2 with 10 items per page
+page2 = query.skip(10).take(10).to_list()
+```
+
+### Other Methods
+
+#### `distinct(property_name=None)`
+
+Returns distinct elements, optionally by a specific property value.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `property_name` | `str` or `None` | Property to use for distinctness. |
+
+**Returns:** `QueryBuilder[T]`
+
+### Terminal Methods
+
+These methods execute the query and return results.
+
+#### `execute()`
+
+Executes the query pipeline and returns an `ElementSet`.
+
+**Returns:** `ElementSet[T]`
+
+The execution order is:
+1. Fetch elements from the provider (filtered by `element_type` if set).
+2. Apply all `FilterCriteria` in order.
+3. Apply all `SortCriteria`.
+4. Apply `distinct` filtering.
+5. Apply `skip` and `take`.
+
+#### `to_list()`
+
+Executes the query and returns a Python list.
+
+**Returns:** `list[T]`
+
+#### `count()`
+
+Executes the query and returns the count of matching elements.
+
+**Returns:** `int`
+
+#### `any()`
+
+Returns `True` if any elements match. Optimized to fetch at most one element.
+
+**Returns:** `bool`
+
+#### `first()`
+
+Returns the first matching element.
+
+**Returns:** `T`
+
+**Raises:** `ElementNotFoundError` if no elements match.
+
+#### `first_or_default(default=None)`
+
+Returns the first matching element or a default value.
+
+**Returns:** `T` or `default`
+
+#### `single()`
+
+Returns the single matching element.
+
+**Raises:** `ElementNotFoundError` if no elements. `ValidationError` if more than one element matches.
+
+---
+
+## Query
+
+Static factory class for creating `QueryBuilder` instances.
+
+### Static Methods
+
+#### `Query.from_provider(provider)`
+
+Creates a query builder from an element provider.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | `IElementProvider` | The element source. |
+
+**Returns:** `QueryBuilder[Element]`
+
+#### `Query.from_elements(elements)`
+
+Creates a query builder from an existing list of elements.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `elements` | `list[Element]` | List of elements to query over. |
+
+**Returns:** `QueryBuilder[Element]`
+
+```python
+from revitpy.api.query import Query
+
+# Query over a pre-existing list
+results = (
+    Query.from_elements(my_elements)
+    .equals("Category", "Walls")
+    .order_by_ascending("Name")
+    .to_list()
+)
+```
+
+#### `Query.of_type(provider, element_type)`
+
+Creates a typed query builder that only retrieves elements of the specified type.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | `IElementProvider` | The element source. |
+| `element_type` | `type[T]` | Element type to filter for. |
+
+**Returns:** `QueryBuilder[T]`
+
+---
+
+## IElementProvider
+
+Protocol that element sources must implement.
+
+```python
+class IElementProvider(Protocol):
+    def get_all_elements(self) -> list[Element]: ...
+    def get_elements_of_type(self, element_type: type[Element]) -> list[Element]: ...
+```
+
+---
+
+## Usage Examples
+
+### Basic Filtering
+
+```python
+from revitpy.api.wrapper import RevitAPI
+
+def find_tall_walls(revit_app):
+    with RevitAPI(revit_app) as api:
+        api.connect()
+
+        tall_walls = (
+            api.elements
+            .equals("Category", "Walls")
+            .where("Height", FilterOperator.GREATER_THAN, 10.0)
+            .order_by_ascending("Name")
+            .to_list()
+        )
+
+        for wall in tall_walls:
+            print(f"{wall.name}: {wall.get_parameter_value('Height')}")
+```
+
+### Pagination
+
+```python
+def get_wall_page(revit_app, page_number, page_size=20):
+    with RevitAPI(revit_app) as api:
+        api.connect()
+
+        return (
+            api.elements
+            .equals("Category", "Walls")
+            .order_by_ascending("Name")
+            .skip(page_number * page_size)
+            .take(page_size)
+            .to_list()
+        )
+```
+
+### Querying an Existing List
+
+```python
+from revitpy.api.query import Query, FilterOperator
+
+def filter_existing_elements(elements):
+    return (
+        Query.from_elements(elements)
+        .is_not_null("Comments")
+        .contains("Comments", "reviewed", case_sensitive=False)
+        .to_list()
     )
-)
 ```
 
-### get_element_by_id
-
-Get an element by its Element ID.
+### Regex Filtering
 
 ```python
-def get_element_by_id(
-    self,
-    element_id: Union[int, ElementId],
-    doc: Optional[RevitDocument] = None
-) -> Optional[Element]
+def find_numbered_walls(revit_app):
+    with RevitAPI(revit_app) as api:
+        api.connect()
+
+        return (
+            api.elements
+            .equals("Category", "Walls")
+            .regex("Name", r"W-\d{3,}")
+            .to_list()
+        )
 ```
 
-**Parameters:**
-- `element_id` (Union[int, ElementId]): Element ID as integer or ElementId object
-- `doc` (Optional[RevitDocument]): Document to query
-
-**Returns:**
-- `Optional[Element]`: Element or None if not found
-
-**Example:**
-```python
-# Get element by integer ID
-element = query.get_element_by_id(123456)
-
-# Get element by ElementId object
-from Autodesk.Revit.DB import ElementId
-elem_id = ElementId(123456)
-element = query.get_element_by_id(elem_id)
-
-# Get from specific document
-element = query.get_element_by_id(123456, doc=other_doc)
-```
-
-## Properties
-
-### document
-
-The Revit document being queried.
-
-```python
-@property
-def document(self) -> RevitDocument
-```
-
-**Example:**
-```python
-query = Query(doc)
-
-# Access the document
-print(f"Querying: {query.document.Title}")
-print(f"Path: {query.document.PathName}")
-```
+---
 
 ## Best Practices
 
-### 1. Reuse Query Objects
+1. **Reuse `QueryBuilder`** -- Build the query once, then call terminal methods.
+2. **Check for `None`** -- Parameter values may be `None`; use `is_not_null` to guard.
+3. **Use `any()` for existence checks** -- It is optimized to fetch at most one element.
+4. **Apply filters before sorts** -- Reduces the number of elements that need sorting.
+5. **Use pagination for large result sets** -- Combine `skip()` and `take()` for memory efficiency.
 
-Create one `Query` object and reuse it:
-
-```python
-# Good
-query = Query(doc)
-walls = query.get_elements_by_category("Walls")
-doors = query.get_elements_by_category("Doors")
-
-# Avoid
-walls = Query(doc).get_elements_by_category("Walls")
-doors = Query(doc).get_elements_by_category("Doors")  # Creates new Query
-```
-
-### 2. Check for None Values
-
-Always check parameter values:
-
-```python
-# Good
-length = query.get_parameter_value(wall, "Length")
-if length is not None:
-    print(f"Length: {length}")
-
-# Better
-length = query.get_parameter_value(wall, "Length") or 0.0
-```
-
-### 3. Use Appropriate Methods
-
-Choose the right query method:
-
-```python
-# For categories (most common)
-walls = query.get_elements_by_category("Walls")
-
-# For specific classes
-levels = query.get_elements_by_class("Level")
-
-# For filtering
-long_walls = query.filter_elements(walls, lambda w: w.Length > 20)
-```
-
-### 4. Cache Results
-
-Cache query results if reusing:
-
-```python
-# Get walls once
-walls = query.get_elements_by_category("Walls")
-
-# Reuse the list
-for wall in walls:
-    process_wall(wall)
-
-for wall in walls:
-    analyze_wall(wall)
-```
-
-## Error Handling
-
-```python
-try:
-    walls = query.get_elements_by_category("Walls")
-
-    for wall in walls:
-        length = query.get_parameter_value(wall, "Length")
-        if length is None:
-            print(f"Wall {wall.Id} has no length parameter")
-            continue
-
-        print(f"Wall length: {length}")
-
-except Exception as e:
-    print(f"Query failed: {e}")
-```
+---
 
 ## See Also
 
-- [ElementQuery (ORM)](orm.md) - LINQ-style queries
-- [Transaction API](transaction.md) - Modifying elements
-- [Wrapper API](wrapper.md) - Document access
+- **[Element API]({{ '/reference/api/element-api/' | relative_url }})** -- `ElementSet` LINQ-style operations
+- **[ORM Layer]({{ '/reference/api/orm/' | relative_url }})** -- Higher-level ORM queries with caching
+- **[Core API]({{ '/reference/api/core/' | relative_url }})** -- `RevitAPI.elements` shorthand

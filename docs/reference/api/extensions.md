@@ -1,952 +1,336 @@
 ---
 layout: api
 title: Extensions Framework API
-description: Extensions Framework API reference documentation
+description: Plugin architecture for loading, managing, and coordinating RevitPy extensions
 ---
 
 # Extensions Framework API
 
-The Extensions Framework provides a powerful plugin architecture for extending RevitPy functionality with custom extensions.
-
-## Overview
-
-The Extensions Framework enables:
-
-- **Plugin architecture**: Load and manage extensions dynamically
-- **Dependency injection**: IoC container for dependency management
-- **Lifecycle management**: Control extension initialization and teardown
-- **Extension discovery**: Automatically discover and load extensions
-- **Extension metadata**: Rich metadata for extension description
-- **Inter-extension communication**: Extensions can interact with each other
+The Extensions Framework provides a singleton-based plugin architecture for dynamically discovering, loading, activating, and coordinating RevitPy extensions. It includes dependency injection, lifecycle management, and extension registry support.
 
 ---
 
-## Extension
+## ExtensionManagerConfig
 
-Base class for all extensions.
+Configuration dataclass for the extension manager.
 
-### Methods
+**Module:** `revitpy.extensions.manager`
 
-#### `initialize()`
-Called when the extension is loaded. Override to perform setup.
+### Constructor
 
-#### `startup()`
-Called when the extension should start running. Override to start services.
+```python
+ExtensionManagerConfig(
+    extension_directories: list[Path] = [],
+    auto_load_extensions: bool = True,
+    auto_activate_extensions: bool = True,
+    dependency_resolution: bool = True,
+    max_load_retries: int = 3,
+    extension_timeout: float = 30.0
+)
+```
 
-#### `shutdown()`
-Called when the extension is being unloaded. Override to clean up resources.
-
-#### `get_metadata()`
-Returns extension metadata.
-
-**Returns:** `ExtensionMetadata` - The extension metadata
-
-#### `get_status()`
-Returns the current extension status.
-
-**Returns:** `str` - Status: `'initialized'`, `'running'`, `'stopped'`
-
-#### `get_dependencies()`
-Returns required extension dependencies.
-
-**Returns:** `list[str]` - List of dependency names
-
-#### `get_configuration()`
-Returns extension configuration.
-
-**Returns:** `dict` - Configuration dictionary
-
-#### `set_configuration(config)`
-Sets extension configuration.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `config` | `dict` | Configuration dictionary |
-
-#### `get_extension_manager()`
-Returns the extension manager instance.
-
-**Returns:** `ExtensionManager` - The manager
-
-#### `emit_event(event)`
-Emits an extension event.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `event` | `ExtensionEvent` | Event to emit |
-
-#### `subscribe(event_name, handler)`
-Subscribes to extension events.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `event_name` | `str` | Event name |
-| `handler` | `Callable` | Event handler |
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `extension_directories` | `list[Path]` | `[]` | Directories to scan for extensions. |
+| `auto_load_extensions` | `bool` | `True` | Automatically load discovered extensions. |
+| `auto_activate_extensions` | `bool` | `True` | Automatically activate loaded extensions. |
+| `dependency_resolution` | `bool` | `True` | Resolve extension dependencies before loading. |
+| `max_load_retries` | `int` | `3` | Maximum retries when loading an extension fails. |
+| `extension_timeout` | `float` | `30.0` | Timeout in seconds for extension operations. |
 
 ---
 
 ## ExtensionManager
 
-Manages extension lifecycle and coordination.
+Singleton manager that coordinates the lifecycle of all RevitPy extensions: discovery, loading, activation, deactivation, dependency resolution, and shutdown.
 
-### Constructor
+**Module:** `revitpy.extensions.manager`
+
+### Constructor / Singleton
 
 ```python
-ExtensionManager()
+mgr = ExtensionManager()                    # returns singleton
+mgr = ExtensionManager(config)              # returns singleton with config (first call only)
+mgr = ExtensionManager.get_instance(config) # explicit singleton access
 ```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `config` | `ExtensionManagerConfig` or `None` | Configuration. Uses defaults if `None`. Only applied on first instantiation. |
 
 ### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `container` | `DIContainer` | Dependency injection container |
+| `is_initialized` | `bool` | Whether the manager has been initialized. |
+| `extension_count` | `int` | Number of registered extensions. |
+| `active_extension_count` | `int` | Number of currently active extensions. |
+| `container` | `DIContainer` | The dependency injection container. |
+| `registry` | `ExtensionRegistry` | The extension registry. |
+| `loader` | `ExtensionLoader` | The extension loader. |
+| `lifecycle_manager` | `LifecycleManager` | The lifecycle manager. |
+| `config` | `ExtensionManagerConfig` | The current configuration. |
 
-### Methods
+### Lifecycle Methods
 
-#### `load_extension(extension)`
-Loads and initializes an extension.
+#### `initialize()`
+
+Initializes the extension manager asynchronously. Registers core services with the DI container and runs auto-discovery if `auto_load_extensions` is `True`.
 
 ```python
-extension = WallAnalyzerExtension()
-ext_mgr.load_extension(extension)
+await mgr.initialize()
 ```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `extension` | `Extension` or `type` | Extension instance or class |
+#### `shutdown(timeout=30.0)`
 
-**Returns:** `Extension` - The loaded extension
-
-#### `unload_extension(name)`
-Unloads an extension.
+Shuts down the extension manager. Deactivates all extensions in reverse order, disposes them, clears the registry, and disposes the DI container.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `name` | `str` | Extension name |
-
-#### `get_extension(name)`
-Gets a loaded extension by name.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | `str` | Extension name |
-
-**Returns:** `Extension` - The extension or `None`
-
-#### `get_all_extensions()`
-Returns all loaded extensions.
-
-**Returns:** `list[Extension]` - All extensions
-
-#### `start_all()`
-Starts all loaded extensions.
-
-#### `stop_all()`
-Stops all running extensions.
-
-#### `reload_extension(name)`
-Reloads an extension.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | `str` | Extension name |
-
-**Returns:** `Extension` - The reloaded extension
-
-#### `enable_hot_reload(watch_directory)`
-Enables hot reload for extensions.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `watch_directory` | `str` | Directory to watch |
-
----
-
-## ExtensionMetadata
-
-Metadata describing an extension.
-
-### Constructor
+| `timeout` | `float` | Timeout in seconds. Default `30.0`. |
 
 ```python
-ExtensionMetadata(
-    name,
-    version,
-    author=None,
-    description=None,
-    dependencies=None,
-    tags=None,
-    homepage=None,
-    min_revit_version=None,
-    min_revitpy_version=None
-)
+await mgr.shutdown(timeout=10.0)
 ```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | `str` | Extension name |
-| `version` | `str` | Version string (semver) |
-| `author` | `str` | Author name |
-| `description` | `str` | Extension description |
-| `dependencies` | `list[str]` | Required extensions |
-| `tags` | `list[str]` | Categorization tags |
-| `homepage` | `str` | Homepage URL |
-| `min_revit_version` | `str` | Minimum Revit version |
-| `min_revitpy_version` | `str` | Minimum RevitPy version |
+### Discovery and Loading
 
-### Properties
+#### `discover_extensions()`
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `name` | `str` | Extension name |
-| `version` | `str` | Version string |
-| `author` | `str` | Author name |
-| `description` | `str` | Description |
-| `dependencies` | `list[str]` | Dependencies |
-| `tags` | `list[str]` | Tags |
-| `homepage` | `str` | Homepage URL |
+Discovers extensions in all configured directories, registers their metadata, and optionally loads them.
 
----
-
-## DIContainer
-
-Dependency injection container.
-
-### Constructor
+**Returns:** `list[ExtensionMetadata]` -- List of discovered extension metadata.
 
 ```python
-DIContainer()
+discovered = await mgr.discover_extensions()
+print(f"Found {len(discovered)} extensions")
 ```
 
-### Methods
+#### `load_extension(name_or_id)`
 
-#### `register(interface, implementation=None, factory=None)`
-Registers a service with the container.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `interface` | `type` | Interface or base class |
-| `implementation` | `type` | Implementation class |
-| `factory` | `Callable` | Factory function |
-
-#### `register_singleton(service_class)`
-Registers a singleton service (one instance for application).
+Loads an extension by name or ID. Resolves dependencies first if `dependency_resolution` is enabled. Auto-activates if `auto_activate_extensions` is `True`.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `service_class` | `type` | Service class |
+| `name_or_id` | `str` | Extension name or ID. |
 
-#### `register_transient(service_class)`
-Registers a transient service (new instance each time).
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `service_class` | `type` | Service class |
-
-#### `register_scoped(service_class)`
-Registers a scoped service (one instance per scope).
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `service_class` | `type` | Service class |
-
-#### `resolve(service_type, **kwargs)`
-Resolves a service from the container.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `service_type` | `type` | Service type to resolve |
-| `**kwargs` | `any` | Additional constructor arguments |
-
-**Returns:** Instance of the service
-
-#### `resolve_all(interface)`
-Resolves all implementations of an interface.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `interface` | `type` | Interface type |
-
-**Returns:** `list` - All implementations
-
----
-
-## ExtensionLoader
-
-Loads extensions from various sources.
-
-### Methods
-
-#### `load_from_directory(directory)`
-Loads extensions from a directory.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `directory` | `str` | Directory path |
-
-**Returns:** `list[Extension]` - Loaded extensions
-
-#### `load_from_file(file_path)`
-Loads an extension from a file.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `file_path` | `str` | Path to extension file |
-
-**Returns:** `Extension` - The loaded extension
-
-#### `load_from_package(package_name)`
-Loads an extension from an installed package.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `package_name` | `str` | Package name |
-
-**Returns:** `Extension` - The loaded extension
-
-#### `discover_extensions(directory)`
-Discovers all extensions in a directory.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `directory` | `str` | Directory path |
-
-**Returns:** `list[type]` - Extension classes
-
----
-
-## Basic Usage
-
-### Creating a Simple Extension
+**Returns:** `bool` -- `True` if the extension was loaded successfully.
 
 ```python
-from revitpy.extensions import Extension, ExtensionMetadata
-
-class WallAnalyzerExtension(Extension):
-    """Extension for analyzing walls."""
-
-    def get_metadata(self):
-        """Return extension metadata."""
-        return ExtensionMetadata(
-            name="Wall Analyzer",
-            version="1.0.0",
-            author="Your Name",
-            description="Analyzes wall properties and generates reports",
-            tags=["analysis", "walls", "reporting"]
-        )
-
-    def initialize(self):
-        """Initialize the extension."""
-        print("Wall Analyzer initializing...")
-        self.wall_count = 0
-
-    def startup(self):
-        """Start the extension."""
-        print("Wall Analyzer started")
-
-    def shutdown(self):
-        """Shutdown the extension."""
-        print(f"Wall Analyzer shutting down. Analyzed {self.wall_count} walls")
-
-    def analyze_walls(self, context):
-        """Main extension functionality."""
-        walls = context.elements.of_category('Walls').to_list()
-        self.wall_count = len(walls)
-
-        analysis = {
-            'total_walls': len(walls),
-            'avg_height': sum(w.Height for w in walls) / len(walls),
-            'total_area': sum(w.Area for w in walls)
-        }
-
-        return analysis
+success = await mgr.load_extension("wall_analyzer")
 ```
 
-### Loading and Using Extensions
+#### `unload_extension(name_or_id)`
+
+Unloads an extension. Deactivates it first if active, then disposes it and removes it from all internal collections.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name_or_id` | `str` | Extension name or ID. |
+
+**Returns:** `bool` -- `True` if the extension was unloaded successfully.
+
+### Activation / Deactivation
+
+#### `activate_extension(name_or_id)`
+
+Activates an extension. If the extension is not yet loaded, attempts to load it first.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name_or_id` | `str` | Extension name or ID. |
+
+**Returns:** `bool` -- `True` if the extension is now active.
+
+#### `deactivate_extension(name_or_id)`
+
+Deactivates an active extension.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name_or_id` | `str` | Extension name or ID. |
+
+**Returns:** `bool` -- `True` if the extension was deactivated (or was already inactive).
+
+### Extension Access
+
+#### `get_extension(name_or_id)`
+
+Gets a loaded extension by name or ID.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name_or_id` | `str` | Extension name or ID. |
+
+**Returns:** `Extension` or `None`
+
+#### `get_extensions()`
+
+Returns all registered extensions as a dictionary.
+
+**Returns:** `dict[str, Extension]`
+
+#### `get_active_extensions()`
+
+Returns only active extensions.
+
+**Returns:** `dict[str, Extension]`
+
+#### `get_extensions_by_status(status)`
+
+Returns extensions matching a given status.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `status` | `ExtensionStatus` | Status to filter by. |
+
+**Returns:** `list[Extension]`
+
+#### `has_extension(name_or_id)`
+
+Checks whether an extension is registered.
+
+**Returns:** `bool`
+
+#### `is_extension_active(name_or_id)`
+
+Checks whether an extension is currently active.
+
+**Returns:** `bool`
+
+### Statistics and Information
+
+#### `get_statistics()`
+
+Returns extension manager statistics.
+
+**Returns:** `dict[str, Any]` -- Contains `total_extensions`, `active_extensions`, `extensions_by_status`, `extension_directories`, `auto_load_enabled`, and `auto_activate_enabled`.
+
+#### `get_extension_info(name_or_id)`
+
+Returns detailed information about a specific extension.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name_or_id` | `str` | Extension name or ID. |
+
+**Returns:** `dict[str, Any]` or `None` -- Contains `metadata`, `status`, `is_active`, `has_error`, `last_error`, `commands`, `services`, `tools`, and `analyzers`.
+
+### Context Manager
 
 ```python
-from revitpy.extensions import ExtensionManager
-
-# Create extension manager
-ext_mgr = ExtensionManager()
-
-# Load extension
-extension = WallAnalyzerExtension()
-ext_mgr.load_extension(extension)
-
-# Start extension
-ext_mgr.start_all()
-
-# Use extension
-with RevitContext() as context:
-    analysis = extension.analyze_walls(context)
-    print(f"Analysis: {analysis}")
-
-# Shutdown when done
-ext_mgr.stop_all()
-```
-
-### Extension with Dependency Injection
-
-```python
-from revitpy.extensions import Extension, inject, Injectable
-
-# Define services
-class DatabaseService(Injectable):
-    """Service for database operations."""
-
-    def save_analysis(self, data):
-        """Save analysis to database."""
-        print(f"Saving analysis: {data}")
-
-class ReportGenerator(Injectable):
-    """Service for generating reports."""
-
-    def generate_report(self, analysis):
-        """Generate report from analysis."""
-        report = f"Wall Analysis Report\n"
-        report += f"Total Walls: {analysis['total_walls']}\n"
-        report += f"Average Height: {analysis['avg_height']:.2f} ft\n"
-        return report
-
-# Extension with injected dependencies
-class AdvancedWallAnalyzer(Extension):
-    """Advanced wall analyzer with DI."""
-
-    @inject
-    def __init__(self, db_service: DatabaseService, report_gen: ReportGenerator):
-        """Initialize with injected dependencies."""
-        self.db_service = db_service
-        self.report_gen = report_gen
-
-    def analyze_and_report(self, context):
-        """Analyze walls and generate report."""
-        walls = context.elements.of_category('Walls').to_list()
-
-        analysis = {
-            'total_walls': len(walls),
-            'avg_height': sum(w.Height for w in walls) / len(walls)
-        }
-
-        # Use injected services
-        self.db_service.save_analysis(analysis)
-        report = self.report_gen.generate_report(analysis)
-
-        return report
-
-# Register services and load extension
-ext_mgr = ExtensionManager()
-ext_mgr.container.register_singleton(DatabaseService)
-ext_mgr.container.register_singleton(ReportGenerator)
-
-extension = ext_mgr.load_extension(AdvancedWallAnalyzer)
+async with ExtensionManager(config) as mgr:
+    # initialize() called on entry
+    await mgr.load_extension("my_extension")
+# shutdown() called on exit
 ```
 
 ---
 
-## Extension Decorators
+## Global Convenience Functions
 
-### @extension Decorator
-
-```python
-from revitpy.extensions import extension
-
-@extension(
-    name="Room Optimizer",
-    version="2.0.0",
-    author="Your Name",
-    description="Optimizes room layouts",
-    dependencies=["wall_analyzer"]
-)
-class RoomOptimizerExtension(Extension):
-    """Extension with metadata from decorator."""
-
-    def startup(self):
-        print("Room Optimizer started")
-
-    def optimize_rooms(self, context):
-        """Optimize room layouts."""
-        rooms = context.elements.of_category('Rooms').to_list()
-        # Optimization logic...
-        return optimized_rooms
-```
-
-### @command Decorator
+**Module:** `revitpy.extensions.manager`
 
 ```python
-from revitpy.extensions import Extension, command
-
-class UtilityExtension(Extension):
-    """Extension with commands."""
-
-    @command(name="analyze-walls", description="Analyze all walls")
-    def analyze_walls_command(self, args):
-        """Command to analyze walls."""
-        with RevitContext() as context:
-            walls = context.elements.of_category('Walls').to_list()
-            print(f"Found {len(walls)} walls")
-
-    @command(name="export-data", description="Export data to file")
-    def export_command(self, args):
-        """Command to export data."""
-        output_file = args.get('output', 'export.json')
-        # Export logic...
-        print(f"Data exported to {output_file}")
-
-# Use commands
-extension = UtilityExtension()
-extension.analyze_walls_command({})
-extension.export_command({'output': 'report.json'})
-```
-
-### @service Decorator
-
-```python
-from revitpy.extensions import service
-
-@service(singleton=True)
-class ConfigurationService:
-    """Singleton service for configuration."""
-
-    def __init__(self):
-        self.config = {}
-
-    def get(self, key, default=None):
-        """Get configuration value."""
-        return self.config.get(key, default)
-
-    def set(self, key, value):
-        """Set configuration value."""
-        self.config[key] = value
-
-# Service is automatically registered and available for injection
-```
-
----
-
-## Dependency Injection
-
-### Registering Services
-
-```python
-from revitpy.extensions import DIContainer
-
-container = DIContainer()
-
-# Singleton (one instance for entire application)
-container.register_singleton(ConfigurationService)
-
-# Transient (new instance each time)
-container.register_transient(AnalysisService)
-
-# Scoped (one instance per scope)
-container.register_scoped(DatabaseConnection)
-
-# Register with factory
-container.register(
-    ReportGenerator,
-    factory=lambda: ReportGenerator(template_path='/templates')
+from revitpy.extensions.manager import (
+    get_extension_manager,
+    load_extension,
+    activate_extension,
+    get_extension,
 )
 
-# Register interface to implementation
-container.register(IDataStore, SQLiteDataStore)
+# Get global singleton
+mgr = get_extension_manager()
+
+# Load an extension globally
+await load_extension("wall_analyzer")
+
+# Activate an extension globally
+await activate_extension("wall_analyzer")
+
+# Get an extension globally
+ext = get_extension("wall_analyzer")
 ```
 
-### Resolving Dependencies
+---
+
+## Usage Examples
+
+### Basic Lifecycle
 
 ```python
-# Resolve single instance
-config_service = container.resolve(ConfigurationService)
+from pathlib import Path
+from revitpy.extensions.manager import ExtensionManager, ExtensionManagerConfig
 
-# Resolve with parameters
-db_connection = container.resolve(
-    DatabaseConnection,
-    connection_string='...'
+config = ExtensionManagerConfig(
+    extension_directories=[Path("./extensions")],
+    auto_load_extensions=True,
+    auto_activate_extensions=True,
 )
 
-# Resolve all implementations of interface
-data_stores = container.resolve_all(IDataStore)
+async with ExtensionManager(config) as mgr:
+    # Extensions are discovered and loaded automatically
+    print(f"Active: {mgr.active_extension_count}")
+
+    # Get a specific extension
+    ext = mgr.get_extension("wall_analyzer")
+    if ext:
+        print(f"Extension status: {ext.status}")
 ```
 
-### Constructor Injection
+### Manual Loading and Activation
 
 ```python
-from revitpy.extensions import inject
+from revitpy.extensions.manager import ExtensionManager
 
-class WallAnalyzer:
-    """Service with constructor injection."""
+mgr = ExtensionManager()
+await mgr.initialize()
 
-    @inject
-    def __init__(self, config: ConfigurationService, db: DatabaseService):
-        """Dependencies injected automatically."""
-        self.config = config
-        self.db = db
+# Load without auto-activation
+mgr.config.auto_activate_extensions = False
+success = await mgr.load_extension("report_generator")
 
-    def analyze(self, wall):
-        """Analyze wall using injected services."""
-        max_height = self.config.get('max_wall_height', 20.0)
+if success:
+    # Activate when ready
+    await mgr.activate_extension("report_generator")
 
-        analysis = {
-            'height': wall.Height,
-            'exceeds_max': wall.Height > max_height
-        }
+# Check extension info
+info = mgr.get_extension_info("report_generator")
+if info:
+    print(f"Commands: {info['commands']}")
+    print(f"Services: {info['services']}")
 
-        self.db.save_analysis(analysis)
-        return analysis
+await mgr.shutdown()
 ```
 
-### Property Injection
+### Monitoring Extension Statistics
 
 ```python
-from revitpy.extensions import inject_property
+from revitpy.extensions.manager import get_extension_manager
 
-class ReportGenerator:
-    """Service with property injection."""
+mgr = get_extension_manager()
+stats = mgr.get_statistics()
 
-    @inject_property
-    def config(self) -> ConfigurationService:
-        """Configuration service injected as property."""
-        pass
-
-    def generate_report(self, data):
-        """Generate report using injected config."""
-        template = self.config.get('report_template', 'default')
-        # Generate report...
-        return report
-```
-
----
-
-## Extension Discovery
-
-### Auto-Discovery
-
-```python
-from revitpy.extensions import ExtensionManager, ExtensionLoader
-
-# Create manager
-ext_mgr = ExtensionManager()
-
-# Discover extensions in directory
-loader = ExtensionLoader()
-extensions = loader.discover_extensions('./extensions')
-
-# Load all discovered extensions
-for extension_class in extensions:
-    ext_mgr.load_extension(extension_class)
-
-# Start all extensions
-ext_mgr.start_all()
-```
-
-### Plugin Directory Structure
-
-```
-extensions/
-    wall_analyzer/
-        __init__.py
-        extension.py
-        manifest.json
-    room_optimizer/
-        __init__.py
-        extension.py
-        manifest.json
-    report_generator/
-        __init__.py
-        extension.py
-        manifest.json
-```
-
-### Extension Manifest
-
-```json
-{
-  "name": "Wall Analyzer",
-  "version": "1.0.0",
-  "author": "Your Name",
-  "description": "Analyzes wall properties",
-  "entry_point": "extension.WallAnalyzerExtension",
-  "dependencies": [],
-  "requires_revit": "2023",
-  "tags": ["analysis", "walls"]
-}
-```
-
----
-
-## Extension Lifecycle
-
-### Lifecycle Stages
-
-```python
-from revitpy.extensions import Extension, LifecycleStage
-
-class LifecycleAwareExtension(Extension):
-    """Extension with lifecycle awareness."""
-
-    def on_lifecycle_stage(self, stage):
-        """React to lifecycle stage changes."""
-        if stage == LifecycleStage.INITIALIZING:
-            print("Extension initializing")
-            self.load_configuration()
-
-        elif stage == LifecycleStage.STARTING:
-            print("Extension starting")
-            self.connect_to_services()
-
-        elif stage == LifecycleStage.RUNNING:
-            print("Extension running")
-            self.start_background_tasks()
-
-        elif stage == LifecycleStage.STOPPING:
-            print("Extension stopping")
-            self.stop_background_tasks()
-
-        elif stage == LifecycleStage.STOPPED:
-            print("Extension stopped")
-            self.cleanup_resources()
-```
-
-### Graceful Shutdown
-
-```python
-class ResilientExtension(Extension):
-    """Extension with graceful shutdown."""
-
-    def __init__(self):
-        self.is_running = False
-        self.tasks = []
-
-    def startup(self):
-        """Start extension."""
-        self.is_running = True
-        self.start_tasks()
-
-    def shutdown(self):
-        """Gracefully shutdown extension."""
-        print("Shutting down extension...")
-        self.is_running = False
-
-        # Cancel all running tasks
-        for task in self.tasks:
-            task.cancel()
-
-        # Wait for tasks to complete
-        for task in self.tasks:
-            task.wait(timeout=5.0)
-
-        # Clean up resources
-        self.cleanup()
-
-        print("Extension shutdown complete")
-```
-
----
-
-## Inter-Extension Communication
-
-### Extension Events
-
-```python
-from revitpy.extensions import Extension, ExtensionEvent
-
-class ProducerExtension(Extension):
-    """Extension that produces events."""
-
-    def do_work(self):
-        """Perform work and emit event."""
-        result = perform_analysis()
-
-        # Emit event
-        event = ExtensionEvent(
-            name="analysis_complete",
-            source=self,
-            data=result
-        )
-        self.emit_event(event)
-
-class ConsumerExtension(Extension):
-    """Extension that consumes events."""
-
-    def initialize(self):
-        """Subscribe to events."""
-        ext_mgr = self.get_extension_manager()
-
-        # Subscribe to events from ProducerExtension
-        producer = ext_mgr.get_extension('ProducerExtension')
-        producer.subscribe('analysis_complete', self.on_analysis_complete)
-
-    def on_analysis_complete(self, event):
-        """Handle analysis complete event."""
-        result = event.data
-        print(f"Received analysis result: {result}")
-```
-
-### Extension Registry
-
-```python
-from revitpy.extensions import ExtensionRegistry
-
-class CollaborativeExtension(Extension):
-    """Extension that uses other extensions."""
-
-    def initialize(self):
-        """Get references to other extensions."""
-        registry = ExtensionRegistry.get_instance()
-
-        # Get other extensions
-        self.wall_analyzer = registry.get('WallAnalyzer')
-        self.report_gen = registry.get('ReportGenerator')
-
-    def generate_wall_report(self, context):
-        """Use multiple extensions together."""
-        # Use wall analyzer extension
-        analysis = self.wall_analyzer.analyze_walls(context)
-
-        # Use report generator extension
-        report = self.report_gen.generate_report(analysis)
-
-        return report
-```
-
----
-
-## Advanced Features
-
-### Hot Reload
-
-```python
-from revitpy.extensions import ExtensionManager
-
-ext_mgr = ExtensionManager()
-
-# Enable hot reload
-ext_mgr.enable_hot_reload(watch_directory='./extensions')
-
-# Extension files are watched and reloaded on change
-# Changes to extension code are applied without restart
-```
-
-### Extension Configuration
-
-```python
-class ConfigurableExtension(Extension):
-    """Extension with configuration."""
-
-    def initialize(self):
-        """Load configuration."""
-        config = self.get_configuration()
-
-        self.max_elements = config.get('max_elements', 1000)
-        self.output_dir = config.get('output_directory', './output')
-        self.enable_logging = config.get('enable_logging', True)
-
-    def save_configuration(self):
-        """Save current configuration."""
-        config = {
-            'max_elements': self.max_elements,
-            'output_directory': self.output_dir,
-            'enable_logging': self.enable_logging
-        }
-        self.set_configuration(config)
-```
-
-### Extension Versioning
-
-```python
-from revitpy.extensions import version_required
-
-class VersionAwareExtension(Extension):
-    """Extension with version requirements."""
-
-    @version_required('1.5.0')
-    def new_feature(self):
-        """Feature available in v1.5.0+."""
-        print("This feature requires v1.5.0 or higher")
-
-    def get_metadata(self):
-        return ExtensionMetadata(
-            name="Version Aware",
-            version="2.0.0",
-            min_revit_version="2023",
-            min_revitpy_version="1.5.0"
-        )
-```
-
----
-
-## Testing Extensions
-
-### Unit Testing Extensions
-
-```python
-import pytest
-from revitpy.testing import MockExtensionManager, MockDIContainer
-
-def test_extension_initialization():
-    """Test extension initialization."""
-    extension = WallAnalyzerExtension()
-    extension.initialize()
-
-    assert extension.wall_count == 0
-
-def test_extension_with_di():
-    """Test extension with dependency injection."""
-    # Create mock container
-    container = MockDIContainer()
-    container.register_singleton(MockDatabaseService)
-
-    # Create extension
-    extension = AdvancedWallAnalyzer(
-        db_service=container.resolve(MockDatabaseService),
-        report_gen=MockReportGenerator()
-    )
-
-    # Test functionality
-    result = extension.analyze_and_report(mock_context)
-    assert result is not None
-```
-
-### Integration Testing
-
-```python
-def test_extension_loading():
-    """Test extension loading and lifecycle."""
-    ext_mgr = ExtensionManager()
-
-    # Load extension
-    extension = WallAnalyzerExtension()
-    ext_mgr.load_extension(extension)
-
-    # Verify loaded
-    assert ext_mgr.get_extension('Wall Analyzer') is not None
-
-    # Start extension
-    ext_mgr.start_all()
-    assert extension.get_status() == 'running'
-
-    # Stop extension
-    ext_mgr.stop_all()
-    assert extension.get_status() == 'stopped'
+print(f"Total extensions: {stats['total_extensions']}")
+print(f"Active extensions: {stats['active_extensions']}")
+print(f"By status: {stats['extensions_by_status']}")
 ```
 
 ---
 
 ## Best Practices
 
-1. **Single Responsibility**: Each extension should have one clear purpose
-2. **Dependency Injection**: Use DI for better testability and maintainability
-3. **Graceful Degradation**: Handle missing dependencies gracefully
-4. **Configuration**: Make extensions configurable through external config
-5. **Documentation**: Provide clear documentation for your extensions
-6. **Versioning**: Use semantic versioning for extensions
-7. **Testing**: Write comprehensive tests for extension functionality
+1. **Use the async context manager** -- It handles `initialize()` and `shutdown()` automatically.
+2. **Configure discovery directories** -- Set `extension_directories` to scan for extensions at startup.
+3. **Enable dependency resolution** -- Keep `dependency_resolution=True` to ensure extensions load in the correct order.
+4. **Check load results** -- `load_extension()` returns `bool`; always verify success before using the extension.
+5. **Shut down cleanly** -- Call `shutdown()` or use the context manager to deactivate and dispose all extensions.
+6. **Use `get_extension_info()` for debugging** -- It provides a full view of an extension's state, commands, services, and errors.
 
 ---
 
 ## Next Steps
 
-- **[Dependency Injection]({{ '/reference/api/dependency-injection/' | relative_url }})**: Deep dive into DI container
-- **[Event System]({{ '/reference/api/events/' | relative_url }})**: Use events with extensions
-- **[Extension Development Guide]({{ '/guides/extension-development/' | relative_url }})**: Build your first extension
-- **[Extension Examples]({{ '/examples/extensions/' | relative_url }})**: Example extensions
+- **[Event System]({{ '/reference/api/events/' | relative_url }})**: Combine extensions with event-driven patterns
+- **[Core API]({{ '/reference/api/core/' | relative_url }})**: The underlying `RevitAPI` interface
+- **[Testing]({{ '/reference/api/testing/' | relative_url }})**: Test extensions with mock objects

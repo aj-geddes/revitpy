@@ -53,7 +53,7 @@ class TestElementSet:
         element_set = ElementSet(sample_elements, lazy=False)
 
         assert len(element_set) == 5
-        assert element_set.count() == 5
+        assert element_set.count == 5
         assert not element_set._lazy
         assert element_set._is_materialized
 
@@ -115,7 +115,7 @@ class TestElementSet:
         walls = element_set.where(lambda x: x.category == "Wall")
 
         assert isinstance(walls, ElementSet)
-        assert walls.count() == 3
+        assert walls.count == 3
         assert all(elem.category == "Wall" for elem in walls)
 
     def test_select_projection(self, sample_elements):
@@ -244,13 +244,13 @@ class TestElementSet:
         assert element_set.all(lambda x: x.id > 0) is True
         assert element_set.all(lambda x: x.category == "Wall") is False
 
-    def test_count_operation(self, sample_elements):
-        """Test count operation."""
+    def test_count_property(self, sample_elements):
+        """Test count property and filtered count via where().count."""
         element_set = ElementSet(sample_elements, lazy=False)
 
-        assert element_set.count() == 5
-        assert element_set.count(lambda x: x.category == "Wall") == 3
-        assert element_set.count(lambda x: x.category == "NonExistent") == 0
+        assert element_set.count == 5
+        assert element_set.where(lambda x: x.category == "Wall").count == 3
+        assert element_set.where(lambda x: x.category == "NonExistent").count == 0
 
     def test_to_list(self, sample_elements):
         """Test to_list operation."""
@@ -292,8 +292,8 @@ class TestElementSet:
 
         assert isinstance(groups, dict)
         assert isinstance(groups["Wall"], ElementSet)
-        assert groups["Wall"].count() == 3
-        assert groups["Door"].count() == 1
+        assert groups["Wall"].count == 3
+        assert groups["Door"].count == 1
 
     def test_aggregation_operations(self, sample_elements):
         """Test sum, average, min, max operations."""
@@ -322,16 +322,16 @@ class TestElementSet:
 
         # union()
         union_set = set1.union(set2)
-        assert union_set.count() == 5  # All unique elements
+        assert union_set.count == 5  # All unique elements
 
         # intersect()
         intersect_set = set1.intersect(set2)
-        assert intersect_set.count() == 1  # Only element 3 is common
+        assert intersect_set.count == 1  # Only element 3 is common
         assert intersect_set.first().id == 3
 
         # except_elements()
         except_set = set1.except_elements(set2)
-        assert except_set.count() == 2  # Elements 1, 2
+        assert except_set.count == 2  # Elements 1, 2
         ids = [elem.id for elem in except_set]
         assert 1 in ids and 2 in ids
 
@@ -369,7 +369,7 @@ class TestElementSet:
         empty_set = ElementSet.empty(MockElement)
 
         assert len(empty_set) == 0
-        assert empty_set.count() == 0
+        assert empty_set.count == 0
         assert empty_set.any() is False
         assert empty_set.to_list() == []
 

@@ -39,6 +39,35 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# -- Regression detection thresholds --
+# Regression change % above which severity is "high" (vs. "medium")
+HIGH_REGRESSION_SEVERITY_PERCENT = 50
+# Latency improvement % (negative change) that counts as a meaningful improvement
+IMPROVEMENT_THRESHOLD_PERCENT = 10
+
+# -- Memory leak detection --
+# Fraction of measurements showing growth to flag a potential leak
+MEMORY_LEAK_GROWTH_RATIO = 0.7
+
+# -- Scalability analysis --
+# Minimum R-squared for a "linear scaling" assessment
+LINEAR_SCALING_R_SQUARED_THRESHOLD = 0.8
+# Maximum latency slope (ms per element) for acceptable linear scaling
+MAX_LATENCY_SLOPE_PER_ELEMENT = 0.1
+# Maximum average scaling factor (non-numpy fallback) before flagging poor scaling
+MAX_SCALING_FACTOR_THRESHOLD = 2.0
+# Floor value to prevent division-by-zero in latency ratio calculations
+MIN_LATENCY_DIVISOR = 0.001
+
+# -- Simulation constants --
+STARTUP_SIMULATION_DELAY_SECONDS = 0.01
+MODULE_INIT_DELAY_SECONDS = 0.001
+GEOMETRY_SIMULATION_DELAY_SECONDS = 0.01
+ELEMENT_PROCESSING_BASE_SECONDS = 0.001
+PER_ELEMENT_PROCESSING_SECONDS = 0.00001
+# Number of operations between forced garbage collections in leak tests
+GC_TRIGGER_INTERVAL = 50
+
 BenchmarkResult = namedtuple(
     "BenchmarkResult",
     [
@@ -190,7 +219,7 @@ class BenchmarkSuite:
             if self.config.save_results:
                 self._save_results(all_results)
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.error("Benchmark suite execution failed: %s", e)
             all_results["error"] = str(e)
             all_results["success"] = False
@@ -545,7 +574,9 @@ class BenchmarkSuite:
                 try:
                     result = future.result()
                     results[benchmark.name] = result
-                except Exception as e:
+                except (
+                    Exception
+                ) as e:  # User-provided benchmark callable may raise any exception
                     logger.error("Benchmark %s failed: %s", benchmark.name, e)
                     results[benchmark.name] = {
                         "success": False,
@@ -576,7 +607,9 @@ class BenchmarkSuite:
         if benchmark.setup:
             try:
                 benchmark.setup()
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # User-provided setup callable may raise any exception
                 logger.error("Benchmark setup failed for %s: %s", benchmark.name, e)
                 return {"success": False, "error": f"Setup failed: {e}"}
 
@@ -584,8 +617,8 @@ class BenchmarkSuite:
         for _ in range(benchmark.warmup_iterations):
             try:
                 benchmark.operation()
-            except:
-                pass  # Ignore warmup errors
+            except Exception:
+                pass  # Safe to swallow: warmup errors are expected and non-critical
 
         # Force garbage collection before measurement
         gc.collect()
@@ -612,7 +645,9 @@ class BenchmarkSuite:
 
                 error = None
 
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # User-provided benchmark operation may raise any exception
                 error = str(e)
                 errors.append(f"Iteration {i}: {error}")
                 continue
@@ -640,7 +675,9 @@ class BenchmarkSuite:
         if benchmark.teardown:
             try:
                 benchmark.teardown()
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # User-provided teardown callable may raise any exception
                 logger.warning(
                     "Benchmark teardown failed for %s: %s", benchmark.name, e
                 )
@@ -835,11 +872,11 @@ class BenchmarkSuite:
                             "current": current_latency,
                             "change_percent": latency_change_percent,
                             "severity": "high"
-                            if latency_change_percent > 50
+                            if latency_change_percent > HIGH_REGRESSION_SEVERITY_PERCENT
                             else "medium",
                         }
                     )
-                elif latency_change_percent < -10:  # 10% improvement
+                elif latency_change_percent < -IMPROVEMENT_THRESHOLD_PERCENT:
                     improvements.append(
                         {
                             "benchmark": benchmark_name,
@@ -868,7 +905,7 @@ class BenchmarkSuite:
                             "current": current_memory,
                             "change_percent": memory_change_percent,
                             "severity": "high"
-                            if memory_change_percent > 50
+                            if memory_change_percent > HIGH_REGRESSION_SEVERITY_PERCENT
                             else "medium",
                         }
                     )
@@ -910,7 +947,7 @@ class BenchmarkSuite:
             positive_growth_count = sum(1 for g in growth_trend if g > 0)
             potential_leak = (
                 positive_growth_count / len(growth_trend)
-            ) > 0.7  # 70% of measurements show growth
+            ) > MEMORY_LEAK_GROWTH_RATIO
 
             analysis["potential_memory_leak"] = potential_leak
             analysis["growth_trend"] = growth_trend
@@ -970,7 +1007,8 @@ class BenchmarkSuite:
                 "latency_scaling": {
                     "slope_ms_per_element": float(latency_slope),
                     "r_squared": float(latency_r_squared),
-                    "linear_scaling": latency_r_squared > 0.8,  # Good linear fit
+                    "linear_scaling": latency_r_squared
+                    > LINEAR_SCALING_R_SQUARED_THRESHOLD,
                 },
                 "throughput_scaling": {
                     "slope_ops_per_element": float(throughput_slope),
@@ -981,8 +1019,8 @@ class BenchmarkSuite:
 
             # Overall scaling assessment
             linear_scaling = (
-                latency_r_squared > 0.8
-                and latency_slope < 0.1  # Less than 0.1ms per element
+                latency_r_squared > LINEAR_SCALING_R_SQUARED_THRESHOLD
+                and latency_slope < MAX_LATENCY_SLOPE_PER_ELEMENT
                 and throughput_slope >= 0
             )  # Throughput doesn't decrease
 
@@ -998,7 +1036,7 @@ class BenchmarkSuite:
 
                 element_ratio = curr_dp["element_count"] / prev_dp["element_count"]
                 latency_ratio = curr_dp["latency_ms"] / max(
-                    prev_dp["latency_ms"], 0.001
+                    prev_dp["latency_ms"], MIN_LATENCY_DIVISOR
                 )
 
                 latency_ratios.append(
@@ -1009,8 +1047,8 @@ class BenchmarkSuite:
                 statistics.mean(latency_ratios) if latency_ratios else 1.0
             )
             linear_scaling = (
-                avg_scaling_factor < 2.0
-            )  # Latency increases less than 2x relative to element count
+                avg_scaling_factor < MAX_SCALING_FACTOR_THRESHOLD
+            )  # Latency increases less than threshold relative to element count
 
             analysis["scaling_analysis"] = {
                 "average_scaling_factor": avg_scaling_factor,
@@ -1027,15 +1065,16 @@ class BenchmarkSuite:
             try:
                 process = psutil.Process()
                 return process.memory_info().rss / 1024 / 1024
-            except:
-                pass
+            except OSError:
+                pass  # Safe to swallow: psutil may fail if process state changes
 
         # Fallback to basic method
         try:
             import resource
 
             return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        except:
+        except (ImportError, OSError, ValueError):
+            # Safe to swallow: resource module unavailable on some platforms
             return 0.0
 
     def _take_memory_snapshot(self, label: str):
@@ -1087,7 +1126,7 @@ class BenchmarkSuite:
                     baseline_data = json.load(f)
                     self.baseline_results = baseline_data.get("benchmarks", {})
                     logger.info("Loaded baseline from %s", baseline_path)
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, ValueError) as e:
             logger.warning("Failed to load baseline: %s", e)
 
     def _save_results(self, results: dict[str, Any]):
@@ -1111,7 +1150,7 @@ class BenchmarkSuite:
             with open(baseline_file, "w") as f:
                 json.dump(results, f, indent=2, default=str)
 
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             logger.error("Failed to save results: %s", e)
 
     # Simulation methods for testing (these would be replaced with actual RevitPy operations)
@@ -1119,12 +1158,12 @@ class BenchmarkSuite:
     def _simulate_framework_startup(self):
         """Simulate Python framework startup."""
         # Simulate initialization work
-        time.sleep(0.01)  # 10ms base startup time
+        time.sleep(STARTUP_SIMULATION_DELAY_SECONDS)
 
         # Simulate module imports and initialization
         dummy_modules = [f"module_{i}" for i in range(10)]
         for _module in dummy_modules:
-            time.sleep(0.001)  # 1ms per module
+            time.sleep(MODULE_INIT_DELAY_SECONDS)
 
         return "framework_initialized"
 
@@ -1137,7 +1176,7 @@ class BenchmarkSuite:
     def _simulate_complex_geometry_analysis(self):
         """Simulate complex geometry analysis operation."""
         # Simulate computational work
-        time.sleep(0.01)  # 10ms base computation
+        time.sleep(GEOMETRY_SIMULATION_DELAY_SECONDS)
 
         # Simulate geometry calculations
         points = [(i, i * 2, i * 3) for i in range(100)]
@@ -1167,8 +1206,8 @@ class BenchmarkSuite:
     def _simulate_element_processing(self, element_count: int):
         """Simulate processing a specific number of elements."""
         # Simulate processing time that scales with element count
-        base_time = 0.001  # 1ms base
-        per_element_time = 0.00001  # 0.01ms per element
+        base_time = ELEMENT_PROCESSING_BASE_SECONDS
+        per_element_time = PER_ELEMENT_PROCESSING_SECONDS
 
         total_time = base_time + (per_element_time * element_count)
         time.sleep(min(total_time, 1.0))  # Cap at 1 second
@@ -1210,7 +1249,7 @@ class BenchmarkSuite:
         else:
             self._gc_counter = 1
 
-        if self._gc_counter % 50 == 0:
+        if self._gc_counter % GC_TRIGGER_INTERVAL == 0:
             gc.collect()
 
 
@@ -1277,7 +1316,7 @@ class BenchmarkRunner:
                 ]
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.error("Performance validation failed: %s", e)
             validation_results["overall_success"] = False
             validation_results["error"] = str(e)

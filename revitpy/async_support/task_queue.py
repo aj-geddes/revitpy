@@ -17,6 +17,11 @@ from .progress import ProgressReport, ProgressReporter
 
 T = TypeVar("T")
 
+# Polling interval when waiting for a task to complete (seconds)
+TASK_POLL_INTERVAL_SECONDS = 0.1
+# Timeout for workers polling the pending-task queue (seconds)
+WORKER_QUEUE_TIMEOUT_SECONDS = 1.0
+
 
 class TaskStatus(Enum):
     """Task status enumeration."""
@@ -401,8 +406,8 @@ class TaskQueue:
             self._stats["total_queued"] += 1
             logger.debug(f"Enqueued task {task.name} ({task.id}) synchronously")
             return task.id
-        except asyncio.QueueFull:
-            raise RuntimeError("Task queue is full")
+        except asyncio.QueueFull as e:
+            raise RuntimeError("Task queue is full") from e
 
     async def submit(self, func: Callable[..., T], *args, **kwargs) -> str:
         """
@@ -468,7 +473,7 @@ class TaskQueue:
                     raise KeyError(f"Task {task_id} not found")
 
             # Wait a bit before checking again
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(TASK_POLL_INTERVAL_SECONDS)
 
     def get_task_status(self, task_id: str) -> TaskStatus | None:
         """Get status of a task."""
@@ -542,7 +547,8 @@ class TaskQueue:
                     # Wait for task or shutdown
                     try:
                         priority, task = await asyncio.wait_for(
-                            self._pending_queue.get(), timeout=1.0
+                            self._pending_queue.get(),
+                            timeout=WORKER_QUEUE_TIMEOUT_SECONDS,
                         )
                     except TimeoutError:
                         continue

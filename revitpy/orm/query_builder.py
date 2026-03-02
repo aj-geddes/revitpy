@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import itertools
 import json
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import (
@@ -43,6 +44,14 @@ T = TypeVar("T")
 R = TypeVar("R")
 E = TypeVar("E", bound="Element")
 
+# Maximum result set size eligible for automatic caching.
+_LAZY_EVAL_THRESHOLD = 1000
+
+# Assumed cost reduction ratio when reordering filters before projections
+OPTIMIZATION_IMPROVEMENT_FACTOR = 0.8
+# Estimated query cost above which parallel execution is enabled
+PARALLEL_EXECUTION_COST_THRESHOLD = 10.0
+
 
 @dataclass
 class QueryPlan:
@@ -68,9 +77,11 @@ class QueryPlan:
 
         optimized = QueryPlan()
         optimized.operations = filters + others + projections
-        optimized.estimated_cost = self.estimated_cost * 0.8  # Assume 20% improvement
+        optimized.estimated_cost = self.estimated_cost * OPTIMIZATION_IMPROVEMENT_FACTOR
         optimized.use_index = len(filters) > 0
-        optimized.parallel_execution = self.estimated_cost > 10.0
+        optimized.parallel_execution = (
+            self.estimated_cost > PARALLEL_EXECUTION_COST_THRESHOLD
+        )
         optimized.cache_strategy = self.cache_strategy
 
         return optimized
@@ -140,20 +151,24 @@ class LazyQueryExecutor(Generic[T]):
             else:
                 elements = self._provider.get_all_elements()
 
-            # Apply query operations
-            current_results = elements
+            # Apply query operations as a lazy generator chain.
+            # Each non-materializing operation (filter, select, skip,
+            # take, distinct) returns an iterable/generator that is
+            # only consumed when the chain is finally materialized
+            # here via list().  order_by is the sole operation that
+            # must materialise internally (sorting needs the full
+            # collection).
+            current: Iterable[T] = elements
             for operation, details in self._query_plan.operations:
-                current_results = self._apply_operation(
-                    operation, details, current_results
-                )
+                current = self._apply_operation(operation, details, current)
 
-            self._results = current_results
+            self._results = list(current)
             self._is_executed = True
 
             # Cache results if enabled
             if (
                 self._query_plan.cache_strategy != CachePolicy.NONE
-                and len(self._results) < 1000
+                and len(self._results) < _LAZY_EVAL_THRESHOLD
             ):  # Don't cache huge result sets
                 cache_key = CacheKey(
                     entity_type=self._element_type.__name__
@@ -176,7 +191,7 @@ class LazyQueryExecutor(Generic[T]):
                 f"Failed to execute query: {e}",
                 query_expression=str(self._query_plan.operations),
                 cause=e,
-            )
+            ) from e
 
     async def execute_async(self) -> list[T]:
         """Execute the query asynchronously."""
@@ -199,55 +214,68 @@ class LazyQueryExecutor(Generic[T]):
             yield results
 
     def _apply_operation(
-        self, operation: str, details: Any, elements: list[T]
-    ) -> list[T]:
-        """Apply a single query operation to elements."""
+        self, operation: str, details: Any, elements: Iterable[T]
+    ) -> Iterable[T]:
+        """Apply a single query operation to elements.
+
+        Most operations return lazy iterables (generators / islice objects)
+        so that the full pipeline is evaluated in a single pass when the
+        outermost iterable is finally consumed.  ``order_by`` is the
+        exception: sorting requires the full collection, so it
+        materialises the input via :func:`sorted`.
+        """
         if operation == "filter":
             predicate = details
-            return [elem for elem in elements if predicate(elem)]
+            return (elem for elem in elements if predicate(elem))
 
         elif operation == "select":
             selector = details
-            return [selector(elem) for elem in elements]
+            return (selector(elem) for elem in elements)
 
         elif operation == "order_by":
+            # Sorting is inherently eager -- must see every element.
             key_selector, reverse = details
             return sorted(elements, key=key_selector, reverse=reverse)
 
         elif operation == "skip":
             count = details
-            return elements[count:]
+            return itertools.islice(elements, count, None)
 
         elif operation == "take":
             count = details
-            return elements[:count]
+            return itertools.islice(elements, count)
 
         elif operation == "distinct":
             key_selector = details
-            if key_selector is None:
-                # Distinct by object identity
-                seen = set()
-                result = []
-                for elem in elements:
-                    elem_id = id(elem)
-                    if elem_id not in seen:
-                        seen.add(elem_id)
-                        result.append(elem)
-                return result
-            else:
-                # Distinct by key
-                seen = set()
-                result = []
-                for elem in elements:
-                    key = key_selector(elem)
-                    if key not in seen:
-                        seen.add(key)
-                        result.append(elem)
-                return result
+            return self._distinct_generator(elements, key_selector)
 
         else:
             logger.warning(f"Unknown query operation: {operation}")
             return elements
+
+    @staticmethod
+    def _distinct_generator(
+        elements: Iterable[T], key_selector: Callable | None
+    ) -> Iterator[T]:
+        """Yield distinct elements from *elements*.
+
+        When *key_selector* is ``None`` distinctness is determined by
+        object identity (``id``).  Otherwise the callable is used to
+        derive a hashable key for each element.
+        """
+        seen: set = set()
+        if key_selector is None:
+            for elem in elements:
+                elem_id = id(elem)
+                if elem_id not in seen:
+                    seen.add(elem_id)
+                    yield elem
+        else:
+            for elem in elements:
+                key = key_selector(elem)
+                if key not in seen:
+                    seen.add(key)
+                    yield elem
 
 
 class QueryBuilder(Generic[T], IQueryable[T], IAsyncQueryable[T]):
@@ -398,7 +426,18 @@ class QueryBuilder(Generic[T], IQueryable[T], IAsyncQueryable[T]):
         return not self.where(lambda x: not predicate(x)).any()
 
     def count(self, predicate: QueryPredicate[T] | None = None) -> int:
-        """Get count of elements, optionally matching a predicate."""
+        """Get count of elements, optionally matching a predicate.
+
+        This is a method (not a property) because it is a terminal operation
+        that triggers query execution.  For an already-materialized collection,
+        use the ``ElementSet.count`` property instead.
+
+        Args:
+            predicate: Optional filter predicate applied before counting.
+
+        Returns:
+            Number of matching elements.
+        """
         query = self.where(predicate) if predicate else self
         return len(query._execute())
 

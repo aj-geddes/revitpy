@@ -324,7 +324,7 @@ class ChangeTracker:
                     entity=entity,
                     tracking_operation="attach",
                     cause=e,
-                )
+                ) from e
 
     def detach(self, entity_id: ElementId) -> None:
         """Stop tracking an entity."""

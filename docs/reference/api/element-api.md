@@ -6,614 +6,415 @@ description: Comprehensive classes and methods for working with Revit elements
 
 # Element API
 
-The Element API provides comprehensive classes and methods for working with Revit elements, offering both low-level access and high-level abstractions.
+The Element API provides Pythonic wrappers for Revit elements, including type-safe parameter access, change tracking, and LINQ-style collection operations.
 
-## Overview
+**Module:** `revitpy.api.element`
 
-The Element API is the foundation for interacting with Revit elements in RevitPy. It provides:
+---
 
-- **Type-safe element wrappers**: Strongly-typed classes for different element types
-- **Parameter management**: Easy access to element parameters
-- **Geometry operations**: Work with element geometry
-- **Lifecycle management**: Create, modify, and delete elements
-- **Validation**: Built-in validation for element operations
+## ElementId
 
-## Core Classes
+Immutable element ID wrapper. Implemented as a frozen dataclass.
 
-### Element
+### Constructor
 
-The base class for all Revit element wrappers.
+```python
+ElementId(value: int)
+```
 
-::: revitpy.api.element.Element
-    options:
-      members:
-        - Id
-        - Name
-        - Category
-        - Document
-        - UniqueId
-        - get_parameter
-        - set_parameter
-        - get_parameter_value
-        - set_parameter_value
-        - get_all_parameters
-        - get_geometry
-        - get_bounding_box
-        - delete
-        - copy
-        - move
-        - rotate
-        - to_dict
-        - from_dict
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `value` | `int` | The integer element ID. |
 
-### ElementId
+### Properties
 
-Represents a unique identifier for a Revit element.
+| Property | Type | Description |
+|----------|------|-------------|
+| `value` | `int` | The raw integer ID. |
 
-::: revitpy.api.element.ElementId
-    options:
-      members:
-        - __init__
-        - value
-        - is_valid
-        - __eq__
-        - __hash__
-        - __str__
+### Methods
 
-### ElementWrapper
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `__str__()` | `str` | String representation of the ID value. |
+| `__int__()` | `int` | Integer conversion, returns `value`. |
 
-Wrapper utility for converting between Revit API elements and RevitPy elements.
+Supports equality comparison and hashing, so `ElementId` instances can be used as dictionary keys and in sets.
 
-::: revitpy.api.element.ElementWrapper
-    options:
-      members:
-        - wrap_element
-        - unwrap_element
-        - is_wrapped
-        - get_element_type
-        - create_wrapper
+```python
+eid = ElementId(12345)
+print(eid)        # "12345"
+print(int(eid))   # 12345
+```
 
-### ParameterValue
+---
 
-Represents a parameter value with type information.
+## ParameterValue
 
-::: revitpy.api.element.ParameterValue
-    options:
-      members:
-        - value
-        - type
-        - storage_type
-        - as_string
-        - as_double
-        - as_integer
-        - as_element_id
-        - is_null
+Type-safe parameter value container. Built on Pydantic `BaseModel` for automatic validation.
 
-## Element Type Classes
+### Constructor
 
-RevitPy provides specialized classes for different element types with type-specific properties and methods.
+```python
+ParameterValue(
+    name: str,
+    value: Any,
+    type_name: str,
+    is_read_only: bool = False,
+    storage_type: str = "String"
+)
+```
 
-### WallElement
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` | Parameter name. |
+| `value` | `Any` | The parameter value. Validated against `storage_type`. |
+| `type_name` | `str` | Python type name of the value. |
+| `is_read_only` | `bool` | Whether the parameter is read-only. Default `False`. |
+| `storage_type` | `str` | Revit storage type: `"String"`, `"Double"`, or `"Integer"`. Default `"String"`. |
 
-::: revitpy.orm.types.WallElement
-    options:
-      members:
-        - Height
-        - Width
-        - Length
-        - Area
-        - Volume
-        - WallType
-        - LocationCurve
-        - Flipped
-        - get_compound_structure
-        - get_layers
+Automatic validation converts values to match the declared `storage_type`. For example, passing a string to a `"Double"` storage type parameter will attempt `float()` conversion.
 
-### DoorElement
+---
 
-::: revitpy.orm.types.DoorElement
-    options:
-      members:
-        - Height
-        - Width
-        - FromRoom
-        - ToRoom
-        - Host
-        - Orientation
-        - HandOrientation
-        - FacingFlipped
+## ElementProperty
 
-### WindowElement
+Descriptor class for element properties with automatic Revit parameter access and type conversion.
 
-::: revitpy.orm.types.WindowElement
-    options:
-      members:
-        - Height
-        - Width
-        - Sill_Height
-        - Host
-        - Orientation
-        - HandOrientation
-        - FacingFlipped
+### Constructor
 
-### RoomElement
+```python
+ElementProperty(parameter_name: str, read_only: bool = False)
+```
 
-::: revitpy.orm.types.RoomElement
-    options:
-      members:
-        - Area
-        - Perimeter
-        - Volume
-        - UnboundedHeight
-        - Level
-        - Number
-        - Department
-        - get_boundaries
-        - get_boundary_segments
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `parameter_name` | `str` | The Revit parameter name to bind to. |
+| `read_only` | `bool` | If `True`, raises `PermissionError` on write attempts. |
+
+When used on an `Element` subclass, reading the attribute calls `get_parameter_value()` and writing calls `set_parameter_value()`.
+
+```python
+class WallElement(Element):
+    height = ElementProperty("Height", read_only=True)
+    comments = ElementProperty("Comments")
+
+wall.comments = "Updated"      # calls set_parameter_value
+h = wall.height                # calls get_parameter_value
+wall.height = 10.0             # raises PermissionError
+```
+
+---
+
+## Element
+
+Pythonic wrapper for Revit elements with automatic type conversion, lazy parameter caching, and change tracking. Uses `ElementMetaclass` to register `ElementProperty` mappings.
+
+### Constructor
+
+```python
+Element(revit_element: IRevitElement)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `revit_element` | `IRevitElement` | The underlying Revit element conforming to the `IRevitElement` protocol. |
+
+### Built-in Property Mappings
+
+The base `Element` class maps the following Python attributes to Revit parameters:
+
+| Python Attribute | Revit Parameter |
+|-----------------|-----------------|
+| `name` | `Name` |
+| `family_name` | `Family` |
+| `type_name` | `Type` |
+| `level` | `Level` |
+| `comments` | `Comments` |
+| `mark` | `Mark` |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `ElementId` | The element's unique identifier. |
+| `name` | `str` | The element's name (readable and writable). |
+| `is_dirty` | `bool` | Whether the element has unsaved changes. |
+| `changes` | `dict[str, Any]` | Copy of tracked changes (`{param_name: {"old": ..., "new": ...}}`). |
+
+### Methods
+
+#### `get_parameter_value(parameter_name, use_cache=True)`
+
+Gets a parameter value with caching and automatic type conversion from Revit types to Python types.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `parameter_name` | `str` | Name of the parameter. |
+| `use_cache` | `bool` | Whether to use cached values. Default `True`. |
+
+**Returns:** The parameter value converted to an appropriate Python type (`str`, `float`, `int`, or the raw value).
+
+**Raises:** `ElementNotFoundError` if the parameter does not exist on the element.
+
+```python
+height = element.get_parameter_value("Height")
+comments = element.get_parameter_value("Comments", use_cache=False)
+```
+
+#### `set_parameter_value(parameter_name, value, track_changes=True)`
+
+Sets a parameter value with type conversion and optional change tracking.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `parameter_name` | `str` | Name of the parameter. |
+| `value` | `Any` | New value to set. |
+| `track_changes` | `bool` | Whether to record this change. Default `True`. |
+
+**Raises:** `ValidationError` if the value is invalid. `PermissionError` if the parameter is read-only.
+
+```python
+element.set_parameter_value("Comments", "Updated by RevitPy")
+element.set_parameter_value("Height", 12.0)
+```
+
+#### `get_all_parameters(refresh_cache=False)`
+
+Returns all parameters for this element.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `refresh_cache` | `bool` | Whether to force-refresh the parameter cache. Default `False`. |
+
+**Returns:** `dict[str, ParameterValue]` -- Dictionary of parameter names to `ParameterValue` objects.
+
+```python
+params = element.get_all_parameters()
+for name, param_value in params.items():
+    print(f"{name}: {param_value.value} ({param_value.storage_type})")
+```
+
+#### `save_changes()`
+
+Saves all tracked changes. Clears the change tracker and resets `is_dirty` to `False`. No-op if there are no pending changes.
+
+#### `discard_changes()`
+
+Discards all tracked changes and evicts affected parameters from the cache.
+
+#### `refresh()`
+
+Refreshes all element data by clearing the parameter cache, change tracker, and dirty flag.
+
+### Equality and Hashing
+
+Two `Element` instances are equal if they have the same `id`. Elements are hashable and can be used in sets and as dictionary keys.
+
+```python
+elem_a == elem_b    # True if elem_a.id == elem_b.id
+{elem_a, elem_b}    # set of unique elements
+```
+
+---
+
+## ElementSet
+
+Generic collection of elements with LINQ-style operations and lazy evaluation. Operations like `where()`, `select()`, and `order_by()` build up a pipeline that is only executed when results are materialized (via `to_list()`, `first()`, iteration, etc.).
+
+### Constructor
+
+```python
+ElementSet(elements: list[T] | None = None)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `elements` | `list[T]` or `None` | Initial element list. |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `count` | `int` | Number of elements (triggers evaluation). |
+
+### Methods
+
+#### `where(predicate)`
+
+Filters elements using a predicate function.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `predicate` | `Callable[[T], bool]` | Function returning `True` for elements to include. |
+
+**Returns:** `ElementSet[T]` -- A new element set with the filter applied (lazy).
+
+```python
+tall_walls = wall_set.where(lambda w: w.get_parameter_value("Height") > 10.0)
+```
+
+#### `select(selector)`
+
+Transforms elements using a selector function.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `selector` | `Callable[[T], Any]` | Transformation function. |
+
+**Returns:** `ElementSet` -- A new element set with the projection applied (lazy).
+
+```python
+names = wall_set.select(lambda w: w.name).to_list()
+```
+
+#### `order_by(key_selector)`
+
+Orders elements by a key.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key_selector` | `Callable[[T], Any]` | Function to extract the sort key. |
+
+**Returns:** `ElementSet[T]` -- A new ordered element set (lazy).
+
+#### `group_by(key_selector)`
+
+Groups elements by a key. Triggers evaluation immediately.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key_selector` | `Callable[[T], Any]` | Function to extract the grouping key. |
+
+**Returns:** `dict[Any, list[T]]` -- Dictionary mapping keys to lists of elements.
+
+```python
+by_level = elements.group_by(lambda e: e.get_parameter_value("Level"))
+```
+
+#### `first(predicate=None)`
+
+Returns the first element, optionally matching a predicate.
+
+**Returns:** `T` -- The first element.
+
+**Raises:** `ElementNotFoundError` if the set is empty.
+
+#### `first_or_default(predicate=None, default=None)`
+
+Returns the first element matching a predicate, or the default value.
+
+**Returns:** `T` or the default value.
+
+#### `single(predicate=None)`
+
+Returns the single element matching a predicate.
+
+**Raises:** `ElementNotFoundError` if no elements. `ValidationError` if more than one element matches.
+
+#### `to_list()`
+
+Materializes the query pipeline and returns results as a Python list.
+
+**Returns:** `list[T]`
+
+#### `any(predicate=None)`
+
+Returns `True` if any elements match the predicate (or if the set is non-empty when no predicate is provided).
+
+#### `all(predicate)`
+
+Returns `True` if all elements match the predicate.
+
+### Iteration and Indexing
+
+`ElementSet` supports `for` loops, `len()`, `[]` indexing, and the `in` operator:
+
+```python
+for element in element_set:
+    print(element.name)
+
+count = len(element_set)
+first = element_set[0]
+exists = some_element in element_set
+```
+
+---
 
 ## Usage Examples
 
-### Basic Element Access
+### Reading and Modifying Parameters
 
 ```python
-from revitpy import RevitContext
+from revitpy.api.wrapper import RevitAPI
 
-def get_element_info(element_id):
-    """Get comprehensive information about an element."""
-    with RevitContext() as context:
-        element = context.get_element_by_id(element_id)
-
-        info = {
-            'id': element.Id.value,
-            'name': element.Name,
-            'category': element.Category,
-            'unique_id': element.UniqueId,
-            'parameters': {}
-        }
-
-        # Get all parameters
-        for param in element.get_all_parameters():
-            info['parameters'][param.Definition.Name] = param.AsValueString()
-
-        return info
-```
-
-### Working with Parameters
-
-```python
-def update_element_parameters(element_id, parameters):
-    """Update multiple parameters on an element."""
-    with RevitContext() as context:
-        element = context.get_element_by_id(element_id)
-
-        with context.transaction("Update Parameters") as txn:
-            for param_name, value in parameters.items():
-                try:
-                    element.set_parameter(param_name, value)
-                    print(f"Updated {param_name} = {value}")
-                except Exception as e:
-                    print(f"Failed to update {param_name}: {e}")
-
-            txn.commit()
-
-# Usage
-update_element_parameters(
-    element_id=123456,
-    parameters={
-        'Comments': 'Updated via RevitPy',
-        'Mark': 'A-101',
-        'Phase Created': 'New Construction'
-    }
-)
-```
-
-### Type-Safe Element Operations
-
-```python
-from revitpy.orm.types import WallElement, DoorElement
-
-def analyze_wall_with_doors(wall_id):
-    """Analyze a wall and its doors using type-safe classes."""
-    with RevitContext() as context:
-        # Get wall as type-safe WallElement
-        wall = context.get_element_by_id(wall_id, WallElement)
-
-        print(f"Wall: {wall.Name}")
-        print(f"  Height: {wall.Height:.2f} ft")
-        print(f"  Length: {wall.Length:.2f} ft")
-        print(f"  Area: {wall.Area:.2f} sq ft")
-        print(f"  Wall Type: {wall.WallType.Name}")
-
-        # Get all doors hosted by this wall
-        doors = context.elements.where(
-            lambda d: isinstance(d, DoorElement) and d.Host.Id == wall.Id
-        ).to_list()
-
-        print(f"\nDoors in wall: {len(doors)}")
-        for door in doors:
-            print(f"  - {door.Name}: {door.Width:.2f}' x {door.Height:.2f}'")
-```
-
-### Element Geometry
-
-```python
-from Autodesk.Revit.DB import Options
-
-def get_element_geometry_info(element_id):
-    """Extract geometry information from an element."""
-    with RevitContext() as context:
-        element = context.get_element_by_id(element_id)
-
-        # Get geometry with options
-        options = Options()
-        options.ComputeReferences = True
-        options.IncludeNonVisibleObjects = False
-        options.DetailLevel = ViewDetailLevel.Fine
-
-        geometry = element.get_geometry(options)
-
-        info = {
-            'has_geometry': geometry is not None,
-            'solids': [],
-            'curves': [],
-            'instances': []
-        }
-
-        if geometry:
-            for geom_obj in geometry:
-                if isinstance(geom_obj, Solid):
-                    info['solids'].append({
-                        'volume': geom_obj.Volume,
-                        'surface_area': geom_obj.SurfaceArea,
-                        'faces_count': geom_obj.Faces.Size,
-                        'edges_count': geom_obj.Edges.Size
-                    })
-                elif isinstance(geom_obj, Curve):
-                    info['curves'].append({
-                        'length': geom_obj.Length,
-                        'is_bound': geom_obj.IsBound
-                    })
-                elif isinstance(geom_obj, GeometryInstance):
-                    info['instances'].append({
-                        'symbol_geometry': geom_obj.SymbolGeometry is not None,
-                        'transform': str(geom_obj.Transform)
-                    })
-
-        return info
-```
-
-### Element Creation
-
-```python
-from revitpy.orm.types import WallElement
-
-def create_wall_between_points(start, end, height=10.0):
-    """Create a new wall between two points."""
-    from Autodesk.Revit.DB import Wall, Line, XYZ
-
-    with RevitContext() as context:
-        doc = context.get_active_document()
-
-        # Get default wall type
-        wall_types = context.elements.of_category('WallTypes')
-        wall_type = wall_types.first()
-
-        with context.transaction("Create Wall") as txn:
-            # Create line
-            line = Line.CreateBound(
-                XYZ(start[0], start[1], 0),
-                XYZ(end[0], end[1], 0)
-            )
-
-            # Create wall
-            wall = Wall.Create(
-                doc,
-                line,
-                wall_type.Id,
-                doc.ActiveView.GenLevel.Id,
-                height,
-                0,
-                False,
-                False
-            )
-
-            txn.commit()
-
-            # Return wrapped element
-            return context.wrap_element(wall, WallElement)
-```
-
-### Element Modification
-
-```python
-def modify_element_location(element_id, translation_vector):
-    """Move an element by a translation vector."""
-    from Autodesk.Revit.DB import XYZ
-
-    with RevitContext() as context:
-        element = context.get_element_by_id(element_id)
-
-        with context.transaction("Move Element") as txn:
-            # Create translation vector
-            vector = XYZ(
-                translation_vector[0],
-                translation_vector[1],
-                translation_vector[2]
-            )
-
-            # Move element
-            element.move(vector)
-
-            txn.commit()
-            print(f"Moved element {element_id} by {translation_vector}")
-```
-
-### Element Deletion
-
-```python
-def delete_elements_by_criteria(category, condition):
-    """Delete elements that meet specific criteria."""
-    with RevitContext() as context:
-        # Find elements matching criteria
-        elements_to_delete = (
-            context.elements
-            .of_category(category)
-            .where(condition)
-            .to_list()
-        )
-
-        if not elements_to_delete:
-            print("No elements found matching criteria")
+def update_comments(revit_app, element_id, comment):
+    with RevitAPI(revit_app) as api:
+        api.connect()
+        element = api.get_element_by_id(element_id)
+        if element is None:
+            print("Element not found")
             return
 
-        # Confirm deletion
-        count = len(elements_to_delete)
-        print(f"Found {count} elements to delete")
+        # Read current value
+        old = element.get_parameter_value("Comments")
+        print(f"Old comment: {old}")
 
-        with context.transaction("Delete Elements") as txn:
-            for element in elements_to_delete:
-                element.delete()
+        # Update within a transaction
+        with api.transaction("Update Comment"):
+            element.set_parameter_value("Comments", comment)
 
-            txn.commit()
-            print(f"Deleted {count} elements")
-
-# Usage: Delete all walls shorter than 6 feet
-delete_elements_by_criteria(
-    category='Walls',
-    condition=lambda w: w.Height < 6.0
-)
+        print(f"New comment: {element.get_parameter_value('Comments')}")
 ```
 
-### Element Copying
+### Working with Change Tracking
 
 ```python
-def duplicate_element_with_offset(element_id, offset_vector):
-    """Create a copy of an element with an offset."""
-    from Autodesk.Revit.DB import XYZ
+from revitpy.api.wrapper import RevitAPI
 
-    with RevitContext() as context:
-        element = context.get_element_by_id(element_id)
+def tracked_update(revit_app):
+    with RevitAPI(revit_app) as api:
+        api.connect()
+        element = api.get_element_by_id(12345)
 
-        with context.transaction("Copy Element") as txn:
-            # Create offset vector
-            offset = XYZ(
-                offset_vector[0],
-                offset_vector[1],
-                offset_vector[2]
-            )
+        element.set_parameter_value("Mark", "A-101")
+        element.set_parameter_value("Comments", "Updated")
 
-            # Copy element
-            new_element = element.copy(offset)
+        print(f"Dirty: {element.is_dirty}")      # True
+        print(f"Changes: {element.changes}")      # {'Mark': {...}, 'Comments': {...}}
 
-            txn.commit()
+        # To persist
+        element.save_changes()
 
-            return new_element
+        # Or to discard
+        # element.discard_changes()
 ```
 
-## Advanced Features
-
-### Element Validation
+### Filtering and Sorting with ElementSet
 
 ```python
-from revitpy.orm.validation import ElementValidator, ValidationLevel
+from revitpy.api.element import ElementSet
 
-def validate_wall_element(wall_id):
-    """Validate a wall element against rules."""
-    with RevitContext() as context:
-        wall = context.get_element_by_id(wall_id)
+def analyze_elements(elements):
+    element_set = ElementSet(elements)
 
-        validator = ElementValidator()
-        validator.add_rule(
-            'height_check',
-            lambda w: w.Height >= 8.0,
-            "Wall height must be at least 8 feet",
-            ValidationLevel.ERROR
-        )
-        validator.add_rule(
-            'comments_check',
-            lambda w: w.get_parameter('Comments').AsString() is not None,
-            "Wall should have comments",
-            ValidationLevel.WARNING
-        )
+    # Chain operations (lazy until to_list)
+    results = (
+        element_set
+        .where(lambda e: e.get_parameter_value("Category") == "Walls")
+        .where(lambda e: (e.get_parameter_value("Height") or 0) > 8.0)
+        .order_by(lambda e: e.name)
+        .to_list()
+    )
 
-        result = validator.validate(wall)
-
-        if not result.is_valid:
-            print("Validation failed:")
-            for error in result.errors:
-                print(f"  ERROR: {error.message}")
-            for warning in result.warnings:
-                print(f"  WARNING: {warning.message}")
-        else:
-            print("Element validation passed")
+    for wall in results:
+        print(f"{wall.name}: height={wall.get_parameter_value('Height')}")
 ```
 
-### Element Serialization
-
-```python
-import json
-
-def export_elements_to_json(element_ids, output_file):
-    """Export elements to JSON format."""
-    with RevitContext() as context:
-        elements_data = []
-
-        for element_id in element_ids:
-            element = context.get_element_by_id(element_id)
-            element_dict = element.to_dict()
-            elements_data.append(element_dict)
-
-        with open(output_file, 'w') as f:
-            json.dump(elements_data, f, indent=2)
-
-        print(f"Exported {len(elements_data)} elements to {output_file}")
-
-def import_elements_from_json(input_file):
-    """Import elements from JSON format."""
-    with open(input_file, 'r') as f:
-        elements_data = json.load(f)
-
-    with RevitContext() as context:
-        with context.transaction("Import Elements") as txn:
-            imported = []
-
-            for element_dict in elements_data:
-                element = Element.from_dict(element_dict, context)
-                imported.append(element)
-
-            txn.commit()
-            print(f"Imported {len(imported)} elements")
-            return imported
-```
-
-### Batch Element Processing
-
-```python
-from concurrent.futures import ThreadPoolExecutor
-
-def process_elements_in_parallel(element_ids, process_func):
-    """Process multiple elements in parallel."""
-    with RevitContext() as context:
-        # Get all elements first
-        elements = [context.get_element_by_id(eid) for eid in element_ids]
-
-        # Process in parallel (read-only operations)
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            results = list(executor.map(process_func, elements))
-
-        return results
-
-# Usage
-def analyze_element(element):
-    """Analyze a single element."""
-    return {
-        'id': element.Id.value,
-        'name': element.Name,
-        'category': element.Category,
-        'parameter_count': len(element.get_all_parameters())
-    }
-
-element_ids = [123, 456, 789, ...]
-results = process_elements_in_parallel(element_ids, analyze_element)
-```
-
-## Performance Considerations
-
-### Efficient Parameter Access
-
-```python
-# BAD: Multiple database hits
-for element in elements:
-    height = element.get_parameter('Height').AsDouble()
-    width = element.get_parameter('Width').AsDouble()
-    area = element.get_parameter('Area').AsDouble()
-
-# GOOD: Cache parameters
-for element in elements:
-    params = {p.Definition.Name: p for p in element.get_all_parameters()}
-    height = params.get('Height', None)
-    width = params.get('Width', None)
-    area = params.get('Area', None)
-```
-
-### Minimize Element Unwrapping
-
-```python
-# BAD: Frequent wrapping/unwrapping
-for revit_element in revit_elements:
-    wrapped = context.wrap_element(revit_element)
-    # Do something
-    unwrapped = wrapped.unwrap_element()
-
-# GOOD: Work with wrapped elements
-wrapped_elements = [context.wrap_element(e) for e in revit_elements]
-for element in wrapped_elements:
-    # Work directly with wrapped element
-    pass
-```
-
-### Use Type-Specific Classes
-
-```python
-# BAD: Generic element access
-elements = context.elements.of_category('Walls').to_list()
-for element in elements:
-    height = element.get_parameter('Height').AsDouble()  # Slow
-
-# GOOD: Type-specific access
-walls = context.elements.of_category('Walls').to_list(WallElement)
-for wall in walls:
-    height = wall.Height  # Fast, direct property access
-```
-
-## Error Handling
-
-```python
-from revitpy.api.exceptions import (
-    ElementNotFoundError,
-    InvalidParameterError,
-    ElementDeletionError
-)
-
-def safe_element_operations(element_id):
-    """Demonstrate error handling for element operations."""
-    try:
-        with RevitContext() as context:
-            element = context.get_element_by_id(element_id)
-
-            # Try to get parameter
-            try:
-                height = element.get_parameter_value('Height')
-            except InvalidParameterError as e:
-                print(f"Parameter error: {e}")
-                height = None
-
-            # Try to delete element
-            try:
-                with context.transaction("Delete") as txn:
-                    element.delete()
-                    txn.commit()
-            except ElementDeletionError as e:
-                print(f"Cannot delete element: {e}")
-
-    except ElementNotFoundError as e:
-        print(f"Element not found: {e}")
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-```
-
-## Best Practices
-
-1. **Always use context managers**: Ensure proper resource cleanup with `with RevitContext():`
-2. **Prefer type-safe classes**: Use `WallElement`, `DoorElement`, etc. for better performance and type safety
-3. **Batch operations**: Group related operations in single transactions
-4. **Cache frequently accessed data**: Store commonly used elements and parameters
-5. **Validate before modifying**: Use validation framework to check element state
-6. **Handle errors gracefully**: Use appropriate exception handling for robust code
+---
 
 ## Next Steps
 
-- **[Transaction API](transaction-api.md)**: Learn about transaction management
-- **[Query Builder](query-builder.md)**: Build complex element queries
-- **[Element Sets](element-sets.md)**: Work with collections of elements
-- **[ORM Layer](orm.md)**: Use the full ORM capabilities
+- **[Transaction API]({{ '/reference/api/transaction-api/' | relative_url }})**: Transaction management for modifications
+- **[Query API]({{ '/reference/api/query/' | relative_url }})**: Building queries with `QueryBuilder`
+- **[ORM Layer]({{ '/reference/api/orm/' | relative_url }})**: Higher-level ORM context with caching and relationships

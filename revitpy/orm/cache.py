@@ -28,6 +28,11 @@ T = TypeVar("T")
 K = TypeVar("K", bound=Hashable)
 V = TypeVar("V")
 
+# Rough per-entry memory estimate used for capacity checks (MB)
+MEMORY_PER_ENTRY_ESTIMATE_MB = 0.001
+# Rough per-entry memory estimate for external usage reporting (bytes)
+MEMORY_USAGE_PER_ENTRY_BYTES = 1000
+
 
 class EvictionPolicy(Enum):
     """Cache eviction policies."""
@@ -321,10 +326,10 @@ class MemoryCache(CacheBackend):
             self._evict_one()
 
         # Memory-based eviction (simplified)
-        estimated_memory_mb = len(self._cache) * 0.001  # Rough estimate
+        estimated_memory_mb = len(self._cache) * MEMORY_PER_ENTRY_ESTIMATE_MB
         while estimated_memory_mb > self._config.max_memory_mb:
             self._evict_one()
-            estimated_memory_mb = len(self._cache) * 0.001
+            estimated_memory_mb = len(self._cache) * MEMORY_PER_ENTRY_ESTIMATE_MB
 
     def _evict_one(self) -> None:
         """Evict one entry based on eviction policy."""
@@ -596,7 +601,7 @@ class CacheManager:
         """Get estimated memory usage in bytes."""
         # This is a simplified implementation
         # In practice, you'd want more accurate memory measurement
-        return self.size * 1000  # Rough estimate
+        return self.size * MEMORY_USAGE_PER_ENTRY_BYTES
 
     def _no_op(self):
         """No-op context manager for non-thread-safe mode."""

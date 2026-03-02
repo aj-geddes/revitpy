@@ -38,6 +38,56 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# -- Memory pressure / snapshot management --
+# Minimum number of recent snapshots to retain under memory pressure
+MIN_SNAPSHOTS_TO_RETAIN = 100
+# Minimum snapshots accumulated before running leak detection
+MIN_SNAPSHOTS_FOR_LEAK_DETECTION = 50
+
+# -- Leak detection thresholds --
+# Estimated average size of a Python object (bytes) for growth calculations
+DEFAULT_OBJECT_SIZE_BYTES = 64
+# Growth rate / memory growth thresholds per severity level
+CRITICAL_GROWTH_RATE_PER_HOUR = 1000
+CRITICAL_MEMORY_GROWTH_MB = 10
+HIGH_GROWTH_RATE_PER_HOUR = 100
+HIGH_MEMORY_GROWTH_MB = 1
+MEDIUM_GROWTH_RATE_PER_HOUR = 10
+MEDIUM_MEMORY_GROWTH_MB = 0.1
+# Confidence levels per severity
+CRITICAL_CONFIDENCE = 0.9
+HIGH_CONFIDENCE = 0.7
+MEDIUM_CONFIDENCE = 0.5
+LOW_CONFIDENCE = 0.3
+# Bonus added to confidence when consistent growth is observed
+CONSISTENT_GROWTH_CONFIDENCE_BONUS = 0.2
+
+# -- Memory analysis thresholds --
+# Variance below which memory is considered "stable"
+MEMORY_VARIANCE_STABILITY_THRESHOLD = 100
+# Memory usage percentage thresholds
+CRITICAL_MEMORY_USAGE_PERCENT = 90
+HIGH_MEMORY_USAGE_PERCENT = 80
+# Low available system memory threshold (MB)
+LOW_AVAILABLE_MEMORY_MB = 512
+
+# -- GC activity thresholds (collections per hour) --
+HIGH_GEN0_GC_COLLECTIONS_PER_HOUR = 1000
+HIGH_GEN1_GC_COLLECTIONS_PER_HOUR = 100
+HIGH_GEN2_GC_COLLECTIONS_PER_HOUR = 10
+# General GC activity threshold for recommendations
+HIGH_GC_ACTIVITY_PER_HOUR = 100
+
+# -- Object growth thresholds for analysis --
+SIGNIFICANT_GROWTH_COUNT = 10
+SIGNIFICANT_GROWTH_PERCENT = 50
+HIGH_OBJECT_GROWTH_COUNT = 1000
+HIGH_OBJECT_GROWTH_PERCENT = 100
+# Peak tracemalloc threshold for recommendations (MB)
+HIGH_PEAK_TRACEMALLOC_MB = 100
+# Memory leak detection high-growth threshold for recommendations (MB)
+MEMORY_LEAK_HIGH_GROWTH_MB = 50
+
 
 @dataclass
 class MemorySnapshot:
@@ -215,7 +265,7 @@ class MemoryManager:
                 rss_memory_mb = memory_info.rss / 1024 / 1024
                 vms_memory_mb = memory_info.vms / 1024 / 1024
 
-            except Exception as e:
+            except OSError as e:
                 logger.warning("Failed to get psutil memory info: %s", e)
                 total_memory_mb = 0
                 rss_memory_mb = 0
@@ -247,7 +297,7 @@ class MemoryManager:
                 top_stats = snapshot.statistics("lineno")[:10]
                 top_allocations = [str(stat) for stat in top_stats]
 
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
                 logger.warning("Failed to get tracemalloc info: %s", e)
 
         # Object counts
@@ -271,7 +321,7 @@ class MemoryManager:
             for obj_type, count in gc_object_counts.items():
                 object_counts[f"gc_{obj_type}"] = count
 
-        except Exception as e:
+        except (RuntimeError, TypeError) as e:
             logger.warning("Failed to get GC object counts: %s", e)
 
         snapshot = MemorySnapshot(
@@ -376,9 +426,11 @@ class MemoryManager:
             # 3. Clear old snapshots if memory pressure is high
             if before_snapshot.memory_percent > self.memory_pressure_threshold_percent:
                 with self._lock:
-                    if len(self.snapshots) > 100:
+                    if len(self.snapshots) > MIN_SNAPSHOTS_TO_RETAIN:
                         # Keep only recent snapshots
-                        recent_snapshots = list(self.snapshots)[-100:]
+                        recent_snapshots = list(self.snapshots)[
+                            -MIN_SNAPSHOTS_TO_RETAIN:
+                        ]
                         self.snapshots.clear()
                         self.snapshots.extend(recent_snapshots)
 
@@ -435,7 +487,7 @@ class MemoryManager:
                 optimization_results["duration_seconds"],
             )
 
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError, OSError) as e:
             logger.error("Memory optimization failed: %s", e)
             optimization_results["success"] = False
             optimization_results["error"] = str(e)
@@ -475,7 +527,11 @@ class MemoryManager:
         memory_variance = sum((m - avg_memory_mb) ** 2 for m in memory_values) / len(
             memory_values
         )
-        memory_stability = "stable" if memory_variance < 100 else "volatile"
+        memory_stability = (
+            "stable"
+            if memory_variance < MEMORY_VARIANCE_STABILITY_THRESHOLD
+            else "volatile"
+        )
 
         # GC analysis
         gc_trend_analysis = self._analyze_gc_trends(snapshots)
@@ -598,7 +654,7 @@ class MemoryManager:
                         self.optimize_memory(aggressive=False)
 
                 # Periodic leak detection
-                if len(self.snapshots) > 50:  # Only run with sufficient data
+                if len(self.snapshots) > MIN_SNAPSHOTS_FOR_LEAK_DETECTION:
                     try:
                         leak_candidates = self.detect_memory_leaks()
                         if leak_candidates:
@@ -612,13 +668,19 @@ class MemoryManager:
                                     "Potential memory leaks detected: %d candidates",
                                     len(high_severity_leaks),
                                 )
-                    except Exception as e:
+                    except (
+                        RuntimeError,
+                        TypeError,
+                        ValueError,
+                        ZeroDivisionError,
+                    ) as e:
                         logger.warning("Leak detection failed: %s", e)
 
                 # Sleep until next monitoring cycle
                 time.sleep(self.monitoring_interval)
 
             except Exception as e:
+                # Broad catch required: background thread must not crash; logs and retries
                 logger.error("Memory monitoring error: %s", e)
                 time.sleep(self.monitoring_interval)
 
@@ -646,22 +708,30 @@ class MemoryManager:
         growth_rate_per_hour = count_growth / time_span_hours
 
         # Estimate memory growth (rough approximation)
-        avg_object_size_bytes = 64  # Rough estimate
-        memory_growth_mb = (count_growth * avg_object_size_bytes) / (1024 * 1024)
+        memory_growth_mb = (count_growth * DEFAULT_OBJECT_SIZE_BYTES) / (1024 * 1024)
 
         # Determine severity based on growth rate and memory impact
-        if growth_rate_per_hour > 1000 or memory_growth_mb > 10:
+        if (
+            growth_rate_per_hour > CRITICAL_GROWTH_RATE_PER_HOUR
+            or memory_growth_mb > CRITICAL_MEMORY_GROWTH_MB
+        ):
             severity = "critical"
-            confidence = 0.9
-        elif growth_rate_per_hour > 100 or memory_growth_mb > 1:
+            confidence = CRITICAL_CONFIDENCE
+        elif (
+            growth_rate_per_hour > HIGH_GROWTH_RATE_PER_HOUR
+            or memory_growth_mb > HIGH_MEMORY_GROWTH_MB
+        ):
             severity = "high"
-            confidence = 0.7
-        elif growth_rate_per_hour > 10 or memory_growth_mb > 0.1:
+            confidence = HIGH_CONFIDENCE
+        elif (
+            growth_rate_per_hour > MEDIUM_GROWTH_RATE_PER_HOUR
+            or memory_growth_mb > MEDIUM_MEMORY_GROWTH_MB
+        ):
             severity = "medium"
-            confidence = 0.5
+            confidence = MEDIUM_CONFIDENCE
         else:
             severity = "low"
-            confidence = 0.3
+            confidence = LOW_CONFIDENCE
 
         # Check for consistent growth (higher confidence if consistent)
         if len(counts) >= 5:
@@ -672,7 +742,7 @@ class MemoryManager:
                 for i in range(1, len(recent_counts))
             )
             if consistent_growth:
-                confidence = min(1.0, confidence + 0.2)
+                confidence = min(1.0, confidence + CONSISTENT_GROWTH_CONFIDENCE_BONUS)
 
         return MemoryLeakCandidate(
             object_type=obj_type,
@@ -738,7 +808,10 @@ class MemoryManager:
             else:
                 growth_percent = float("inf") if growth > 0 else 0
 
-            if abs(growth) > 10 or abs(growth_percent) > 50:  # Significant changes only
+            if (
+                abs(growth) > SIGNIFICANT_GROWTH_COUNT
+                or abs(growth_percent) > SIGNIFICANT_GROWTH_PERCENT
+            ):
                 growth_analysis[obj_type] = {
                     "first_count": first_count,
                     "last_count": last_count,
@@ -758,14 +831,14 @@ class MemoryManager:
         latest_snapshot = snapshots[-1]
 
         # High memory usage
-        if latest_snapshot.memory_percent > 90:
-            issues.append("Critical memory usage (>90%)")
-        elif latest_snapshot.memory_percent > 80:
-            issues.append("High memory usage (>80%)")
+        if latest_snapshot.memory_percent > CRITICAL_MEMORY_USAGE_PERCENT:
+            issues.append(f"Critical memory usage (>{CRITICAL_MEMORY_USAGE_PERCENT}%)")
+        elif latest_snapshot.memory_percent > HIGH_MEMORY_USAGE_PERCENT:
+            issues.append(f"High memory usage (>{HIGH_MEMORY_USAGE_PERCENT}%)")
 
         # Low available memory
-        if latest_snapshot.available_memory_mb < 512:
-            issues.append("Low available system memory (<512MB)")
+        if latest_snapshot.available_memory_mb < LOW_AVAILABLE_MEMORY_MB:
+            issues.append(f"Low available system memory (<{LOW_AVAILABLE_MEMORY_MB}MB)")
 
         # Memory growth trend
         if len(snapshots) >= 10:
@@ -788,11 +861,20 @@ class MemoryManager:
                         collections = last_gc[gen] - first_gc[gen]
                         collections_per_hour = collections / time_span_hours
 
-                        if gen == 0 and collections_per_hour > 1000:
+                        if (
+                            gen == 0
+                            and collections_per_hour > HIGH_GEN0_GC_COLLECTIONS_PER_HOUR
+                        ):
                             issues.append("High generation 0 GC activity")
-                        elif gen == 1 and collections_per_hour > 100:
+                        elif (
+                            gen == 1
+                            and collections_per_hour > HIGH_GEN1_GC_COLLECTIONS_PER_HOUR
+                        ):
                             issues.append("High generation 1 GC activity")
-                        elif gen == 2 and collections_per_hour > 10:
+                        elif (
+                            gen == 2
+                            and collections_per_hour > HIGH_GEN2_GC_COLLECTIONS_PER_HOUR
+                        ):
                             issues.append("High generation 2 GC activity")
 
         return issues
@@ -809,7 +891,7 @@ class MemoryManager:
         latest_snapshot = snapshots[-1]
 
         # High memory usage recommendations
-        if latest_snapshot.memory_percent > 80:
+        if latest_snapshot.memory_percent > HIGH_MEMORY_USAGE_PERCENT:
             recommendations.append(
                 MemoryOptimizationRecommendation(
                     category="Memory Pressure",
@@ -832,7 +914,8 @@ class MemoryManager:
             high_growth_objects = [
                 obj_type
                 for obj_type, data in growth_analysis.items()
-                if data["growth"] > 1000 or data["growth_percent"] > 100
+                if data["growth"] > HIGH_OBJECT_GROWTH_COUNT
+                or data["growth_percent"] > HIGH_OBJECT_GROWTH_PERCENT
             ]
 
             if high_growth_objects:
@@ -856,7 +939,7 @@ class MemoryManager:
         gc_analysis = self._analyze_gc_trends(snapshots)
         if gc_analysis:
             high_gc_activity = any(
-                data.get("collections_per_hour", 0) > 100
+                data.get("collections_per_hour", 0) > HIGH_GC_ACTIVITY_PER_HOUR
                 for data in gc_analysis.values()
             )
 
@@ -878,7 +961,7 @@ class MemoryManager:
                 )
 
         # Tracemalloc recommendations
-        if latest_snapshot.tracemalloc_peak_mb > 100:
+        if latest_snapshot.tracemalloc_peak_mb > HIGH_PEAK_TRACEMALLOC_MB:
             recommendations.append(
                 MemoryOptimizationRecommendation(
                     category="Memory Allocation",
@@ -903,15 +986,16 @@ class MemoryManager:
             try:
                 process = psutil.Process()
                 return process.memory_info().rss / 1024 / 1024
-            except:
-                pass
+            except OSError:
+                pass  # Safe to swallow: psutil may fail if process state changes
 
         # Fallback
         try:
             import resource
 
             return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        except:
+        except (ImportError, OSError, ValueError):
+            # Safe to swallow: resource module unavailable on some platforms
             return 0.0
 
 
@@ -1017,14 +1101,16 @@ class MemoryLeakDetector:
                 detection_results["overall_assessment"] = "critical_leaks_detected"
             elif high_leaks:
                 detection_results["overall_assessment"] = "potential_leaks_detected"
-            elif detection_results["total_memory_growth_mb"] > 50:
+            elif (
+                detection_results["total_memory_growth_mb"] > MEMORY_LEAK_HIGH_GROWTH_MB
+            ):
                 detection_results["overall_assessment"] = "high_memory_growth"
             else:
                 detection_results["overall_assessment"] = "no_significant_leaks"
 
             detection_results["success"] = True
 
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError, OSError) as e:
             logger.error("Comprehensive leak detection failed: %s", e)
             detection_results["success"] = False
             detection_results["error"] = str(e)

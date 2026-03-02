@@ -1,595 +1,388 @@
 ---
 layout: api
 title: Transaction API
-description: Transaction API reference documentation
+description: Transaction management with context managers and batch operations
 ---
 
 # Transaction API
 
-The Transaction API provides robust transaction management for Revit operations, ensuring data integrity and proper error handling.
+The Transaction API provides robust transaction management for Revit model modifications, including context manager support, automatic rollback, transaction groups, and retry logic.
 
-## Overview
+**Module:** `revitpy.api.transaction`
 
-Transactions are required for any operation that modifies the Revit model. RevitPy's Transaction API provides:
+---
 
-- **Context manager support**: Pythonic transaction handling with `with` statements
-- **Automatic rollback**: Failed transactions are automatically rolled back
-- **Transaction groups**: Group multiple transactions for complex operations
-- **Sub-transactions**: Fine-grained control within transactions
-- **Transaction monitoring**: Track transaction performance and status
+## TransactionStatus
 
-## Core Classes
-
-### Transaction
-
-Main transaction class for database modifications.
-
-::: revitpy.api.transaction.Transaction
-    options:
-      members:
-        - __init__
-        - __enter__
-        - __exit__
-        - commit
-        - rollback
-        - get_status
-        - get_name
-        - has_started
-        - has_ended
-
-### TransactionGroup
-
-Groups multiple transactions into a single unit of work.
-
-::: revitpy.api.transaction.TransactionGroup
-    options:
-      members:
-        - __init__
-        - __enter__
-        - __exit__
-        - assimilate
-        - rollback
-        - get_status
-        - get_name
-
-### SubTransaction
-
-Provides checkpoint functionality within a transaction.
-
-::: revitpy.api.transaction.SubTransaction
-    options:
-      members:
-        - __init__
-        - __enter__
-        - __exit__
-        - commit
-        - rollback
-        - get_status
-
-### TransactionManager
-
-Manages transaction lifecycle and coordination.
-
-::: revitpy.api.transaction.TransactionManager
-    options:
-      members:
-        - start_transaction
-        - commit_transaction
-        - rollback_transaction
-        - is_transaction_active
-        - get_current_transaction
-        - get_transaction_history
-
-## Basic Usage
-
-### Simple Transaction
+Enumeration of possible transaction states.
 
 ```python
-from revitpy import RevitContext
+class TransactionStatus(Enum):
+    NOT_STARTED = "not_started"
+    STARTED     = "started"
+    COMMITTED   = "committed"
+    ROLLED_BACK = "rolled_back"
+    FAILED      = "failed"
+```
 
-def update_wall_properties():
-    """Update wall properties in a transaction."""
-    with RevitContext() as context:
-        walls = context.elements.of_category('Walls').to_list()
+---
 
-        # Start transaction
-        with context.transaction("Update Walls") as txn:
+## TransactionOptions
+
+Dataclass for configuring transaction behavior.
+
+```python
+TransactionOptions(
+    name=None,
+    description=None,
+    auto_commit=True,
+    timeout_seconds=None,
+    retry_count=0,
+    retry_delay=1.0,
+    suppress_warnings=False
+)
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `name` | `str` or `None` | `None` | Transaction name. Auto-generated if `None`. |
+| `description` | `str` or `None` | `None` | Optional description. |
+| `auto_commit` | `bool` | `True` | Auto-commit on successful context manager exit. |
+| `timeout_seconds` | `float` or `None` | `None` | Optional timeout. |
+| `retry_count` | `int` | `0` | Number of retry attempts on failure. |
+| `retry_delay` | `float` | `1.0` | Delay in seconds between retries. |
+| `suppress_warnings` | `bool` | `False` | Whether to suppress Revit API warnings. |
+
+---
+
+## Transaction
+
+Pythonic transaction wrapper with synchronous and asynchronous context manager support.
+
+### Constructor
+
+```python
+Transaction(provider: ITransactionProvider, options: TransactionOptions | None = None)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | `ITransactionProvider` | The transaction provider (typically a `RevitDocumentProvider`). |
+| `options` | `TransactionOptions` or `None` | Configuration options. Uses defaults if `None`. |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | `str` | Transaction name. |
+| `status` | `TransactionStatus` | Current transaction status. |
+| `is_active` | `bool` | `True` when status is `STARTED`. |
+| `duration` | `float` or `None` | Elapsed time in seconds since start, or `None` if not started. |
+
+### Methods
+
+#### `start()`
+
+Starts the transaction. Must be in `NOT_STARTED` state.
+
+**Raises:** `TransactionError` if the transaction was already started or if starting fails.
+
+#### `commit()`
+
+Commits the transaction. Executes all pending operations added via `add_operation()`, then commits through the provider. On failure, automatically rolls back.
+
+**Raises:** `TransactionError` if the transaction is not active or if commit fails.
+
+#### `rollback()`
+
+Rolls back the transaction. Safe to call even if the transaction has already failed.
+
+**Raises:** `TransactionError` only if the rollback itself encounters an error.
+
+#### `add_operation(operation)`
+
+Adds a callable to be executed during commit.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `operation` | `Callable` | A zero-argument callable. |
+
+**Raises:** `TransactionError` if the transaction is not active.
+
+#### `add_commit_handler(handler)`
+
+Registers a callback to run after successful commit.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `handler` | `Callable` | A zero-argument callable. |
+
+#### `add_rollback_handler(handler)`
+
+Registers a callback to run after rollback.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `handler` | `Callable` | A zero-argument callable. |
+
+### Context Manager Usage
+
+When used as a context manager, the transaction starts on entry. On exit, it auto-commits if `auto_commit=True` and no exception occurred; otherwise it rolls back.
+
+```python
+from revitpy.api.transaction import Transaction, TransactionOptions
+
+options = TransactionOptions(name="Update Walls", auto_commit=True)
+txn = Transaction(provider, options)
+
+with txn:
+    element.set_parameter_value("Comments", "Updated")
+    # auto-commits on successful exit
+```
+
+Explicit commit/rollback with `auto_commit=False`:
+
+```python
+options = TransactionOptions(name="Conditional Update", auto_commit=False)
+
+with Transaction(provider, options) as txn:
+    element.set_parameter_value("Height", new_height)
+
+    if new_height >= 6.0:
+        txn.commit()
+    else:
+        txn.rollback()
+```
+
+### Async Context Manager
+
+`Transaction` also supports `async with`:
+
+```python
+async with Transaction(provider, options) as txn:
+    element.set_parameter_value("Comments", "Async update")
+    # auto-commits on exit
+```
+
+---
+
+## TransactionGroup
+
+Groups multiple transactions into a single coordinated unit. Supports both sync and async context managers.
+
+### Constructor
+
+```python
+TransactionGroup(provider: ITransactionProvider, name: str | None = None)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | `ITransactionProvider` | The transaction provider. |
+| `name` | `str` or `None` | Group name. Auto-generated if `None`. |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | `str` | Group name. |
+| `status` | `TransactionStatus` | Current group status. |
+
+### Methods
+
+#### `add_transaction(options=None)`
+
+Adds a new transaction to the group.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `options` | `TransactionOptions` or `None` | Options for the new transaction. `auto_commit` defaults to `False` in groups. |
+
+**Returns:** `Transaction` -- The newly created transaction.
+
+**Raises:** `TransactionError` if the group has already been started.
+
+#### `start_all()`
+
+Starts all transactions in the group. If any start fails, all are rolled back.
+
+**Raises:** `TransactionError` if the group was already started or if any transaction fails to start.
+
+#### `commit_all()`
+
+Commits all transactions in order. If any commit fails, all previously committed transactions are rolled back.
+
+**Raises:** `TransactionError` on failure.
+
+#### `rollback_all()`
+
+Rolls back all transactions in the group.
+
+### Context Manager Usage
+
+```python
+from revitpy.api.transaction import TransactionGroup
+
+with TransactionGroup(provider, "Batch Operations") as group:
+    txn1 = group.add_transaction(TransactionOptions(name="Step 1"))
+    txn2 = group.add_transaction(TransactionOptions(name="Step 2"))
+
+    # All transactions started on group entry
+    # element modifications happen here...
+
+    # All committed on successful exit; all rolled back on exception
+```
+
+---
+
+## ITransactionProvider
+
+Abstract protocol that transaction providers must implement. `RevitDocumentProvider` implements this.
+
+```python
+class ITransactionProvider(ABC):
+    def start_transaction(self, name: str) -> Any: ...
+    def commit_transaction(self, transaction: Any) -> bool: ...
+    def rollback_transaction(self, transaction: Any) -> bool: ...
+    def is_in_transaction(self) -> bool: ...
+```
+
+---
+
+## Convenience Functions
+
+### `transaction(provider, name=None, auto_commit=True, retry_count=0, retry_delay=1.0)`
+
+Factory function that creates a `Transaction` with common options.
+
+**Returns:** `Transaction`
+
+```python
+from revitpy.api.transaction import transaction
+
+txn = transaction(provider, name="Quick Update")
+with txn:
+    element.set_parameter_value("Mark", "A-101")
+```
+
+### `transaction_scope(provider, name=None, **kwargs)`
+
+Context manager that yields a `Transaction`.
+
+```python
+from revitpy.api.transaction import transaction_scope
+
+with transaction_scope(provider, name="Scoped Update") as txn:
+    element.set_parameter_value("Comments", "Updated in scope")
+```
+
+### `async_transaction_scope(provider, name=None, **kwargs)`
+
+Async context manager that yields a `Transaction`.
+
+```python
+from revitpy.api.transaction import async_transaction_scope
+
+async with async_transaction_scope(provider, name="Async Update") as txn:
+    element.set_parameter_value("Comments", "Async update")
+```
+
+### `retry_transaction(provider, operation, max_retries=3, delay=1.0, name=None)`
+
+Executes an operation inside a transaction with automatic retry on failure.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | `ITransactionProvider` | Transaction provider. |
+| `operation` | `Callable[[], Any]` | Zero-argument callable to execute. |
+| `max_retries` | `int` | Maximum number of retries (in addition to the initial attempt). Default `3`. |
+| `delay` | `float` | Delay in seconds between retries. Default `1.0`. |
+| `name` | `str` or `None` | Transaction name. |
+
+**Returns:** The result of `operation()`.
+
+**Raises:** The last exception if all attempts fail.
+
+```python
+from revitpy.api.transaction import retry_transaction
+
+def risky_operation():
+    element.set_parameter_value("Height", 12.0)
+    return True
+
+result = retry_transaction(provider, risky_operation, max_retries=3)
+```
+
+---
+
+## Usage Examples
+
+### Simple Transaction with Auto-Commit
+
+```python
+from revitpy.api.wrapper import RevitAPI
+
+def update_walls(revit_app):
+    with RevitAPI(revit_app) as api:
+        api.connect()
+        walls = api.elements.equals("Category", "Walls").to_list()
+
+        with api.transaction("Update Walls"):
             for wall in walls:
-                wall.set_parameter('Comments', 'Updated')
-
-            # Commit transaction
-            txn.commit()
+                wall.set_parameter_value("Comments", "Reviewed")
+            # auto-commits on exit
 ```
 
-### Transaction with Error Handling
+### Transaction Group
 
 ```python
-from revitpy.api.exceptions import TransactionError
+from revitpy.api.wrapper import RevitAPI
+from revitpy.api.transaction import TransactionOptions
 
-def safe_element_update(element_id, parameters):
-    """Update element with proper error handling."""
-    with RevitContext() as context:
-        try:
-            element = context.get_element_by_id(element_id)
+def staged_updates(revit_app):
+    with RevitAPI(revit_app) as api:
+        api.connect()
+        provider = api.active_document
 
-            with context.transaction("Update Element") as txn:
-                for param_name, value in parameters.items():
-                    element.set_parameter(param_name, value)
-
-                txn.commit()
-                print("Update successful")
-
-        except TransactionError as e:
-            print(f"Transaction failed: {e}")
-            # Transaction automatically rolled back
-        except Exception as e:
-            print(f"Unexpected error: {e}")
+        with api.transaction_group("Multi-Step") as group:
+            txn1 = group.add_transaction(TransactionOptions(name="Walls"))
+            txn2 = group.add_transaction(TransactionOptions(name="Doors"))
+            # modify elements...
+            # all committed or all rolled back together
 ```
 
-### Conditional Commit
+### Monitoring Transaction Duration
 
 ```python
-def update_with_validation(element_id, new_height):
-    """Update element only if validation passes."""
-    with RevitContext() as context:
-        element = context.get_element_by_id(element_id)
+from revitpy.api.wrapper import RevitAPI
 
-        with context.transaction("Update Height") as txn:
-            # Store original value
-            original_height = element.get_parameter_value('Height')
+def timed_update(revit_app):
+    with RevitAPI(revit_app) as api:
+        api.connect()
 
-            # Update value
-            element.set_parameter('Height', new_height)
-
-            # Validate
-            if new_height < 6.0:
-                print("Height too low, rolling back")
-                txn.rollback()
-            else:
-                print("Validation passed, committing")
-                txn.commit()
-```
-
-## Transaction Groups
-
-### Grouping Multiple Transactions
-
-```python
-def complex_model_update():
-    """Perform multiple related transactions as a group."""
-    with RevitContext() as context:
-        # Start transaction group
-        with context.transaction_group("Model Update") as group:
-
-            # First transaction: Update walls
-            with context.transaction("Update Walls") as txn:
-                walls = context.elements.of_category('Walls')
-                for wall in walls:
-                    wall.set_parameter('Comments', 'Phase 1')
-                txn.commit()
-
-            # Second transaction: Update doors
-            with context.transaction("Update Doors") as txn:
-                doors = context.elements.of_category('Doors')
-                for door in doors:
-                    door.set_parameter('Mark', 'D-' + door.Id.value)
-                txn.commit()
-
-            # Third transaction: Update rooms
-            with context.transaction("Update Rooms") as txn:
-                rooms = context.elements.of_category('Rooms')
-                for room in rooms:
-                    room.set_parameter('Department', 'Engineering')
-                txn.commit()
-
-            # Assimilate group (combine into single undo operation)
-            group.assimilate()
-```
-
-### Transaction Group with Rollback
-
-```python
-def atomic_multi_operation():
-    """Perform multiple operations atomically - all or nothing."""
-    with RevitContext() as context:
-        try:
-            with context.transaction_group("Atomic Update") as group:
-
-                # Operation 1
-                with context.transaction("Step 1") as txn:
-                    # ... perform updates ...
-                    txn.commit()
-
-                # Operation 2 - might fail
-                with context.transaction("Step 2") as txn:
-                    # ... perform risky operation ...
-                    if error_condition:
-                        raise ValueError("Operation 2 failed")
-                    txn.commit()
-
-                # Operation 3
-                with context.transaction("Step 3") as txn:
-                    # ... perform final updates ...
-                    txn.commit()
-
-                group.assimilate()
-
-        except Exception as e:
-            print(f"Transaction group failed: {e}")
-            # All transactions in group are automatically rolled back
-```
-
-## Sub-Transactions
-
-### Using Sub-Transactions for Checkpoints
-
-```python
-def incremental_update_with_checkpoints():
-    """Update elements with rollback checkpoints."""
-    with RevitContext() as context:
-        elements = context.elements.of_category('Walls').to_list()
-
-        with context.transaction("Batch Update") as txn:
-            successful_updates = 0
-
-            for element in elements:
-                # Create checkpoint
-                with context.sub_transaction() as sub_txn:
-                    try:
-                        # Try to update
-                        element.set_parameter('Height', 12.0)
-                        element.set_parameter('Comments', 'Updated')
-
-                        # Commit checkpoint
-                        sub_txn.commit()
-                        successful_updates += 1
-
-                    except Exception as e:
-                        # Rollback to checkpoint
-                        print(f"Failed to update element {element.Id}: {e}")
-                        sub_txn.rollback()
-                        # Continue with next element
-
-            # Commit main transaction
-            txn.commit()
-            print(f"Successfully updated {successful_updates}/{len(elements)} elements")
-```
-
-### Iterative Design Exploration
-
-```python
-def explore_design_options(wall_id, height_options):
-    """Try different heights and keep the best option."""
-    with RevitContext() as context:
-        wall = context.get_element_by_id(wall_id)
-        best_option = None
-        best_score = 0
-
-        with context.transaction("Design Exploration") as txn:
-            for height in height_options:
-                # Try this option
-                with context.sub_transaction() as sub_txn:
-                    wall.set_parameter('Height', height)
-
-                    # Evaluate option
-                    score = evaluate_design(wall)
-
-                    if score > best_score:
-                        best_score = score
-                        best_option = height
-                        # Keep this change
-                        sub_txn.commit()
-                    else:
-                        # Revert this option
-                        sub_txn.rollback()
-
-            # Main transaction commits with best option
-            txn.commit()
-            print(f"Best option: height = {best_option}, score = {best_score}")
-```
-
-## Advanced Patterns
-
-### Transaction Callbacks
-
-```python
-from revitpy.api.transaction import TransactionCallback
-
-class UpdateProgressCallback(TransactionCallback):
-    """Callback to track transaction progress."""
-
-    def __init__(self):
-        self.operations = []
-
-    def on_start(self, transaction):
-        print(f"Transaction started: {transaction.get_name()}")
-        self.start_time = time.time()
-
-    def on_commit(self, transaction):
-        elapsed = time.time() - self.start_time
-        print(f"Transaction committed: {transaction.get_name()} ({elapsed:.2f}s)")
-
-    def on_rollback(self, transaction):
-        print(f"Transaction rolled back: {transaction.get_name()}")
-
-def update_with_progress():
-    """Update elements with progress tracking."""
-    callback = UpdateProgressCallback()
-
-    with RevitContext() as context:
-        with context.transaction("Update Elements", callback=callback) as txn:
-            # Perform updates
-            walls = context.elements.of_category('Walls')
+        with api.transaction("Timed Update") as txn:
+            walls = api.elements.equals("Category", "Walls").to_list()
             for wall in walls:
-                wall.set_parameter('Comments', 'Updated')
+                wall.set_parameter_value("Comments", "Updated")
 
-            txn.commit()
+        print(f"Transaction took {txn.duration:.3f}s")
+        print(f"Status: {txn.status.value}")
 ```
 
-### Transaction Retry Logic
-
-```python
-from time import sleep
-
-def update_with_retry(element_id, parameters, max_retries=3):
-    """Update element with automatic retry on failure."""
-    with RevitContext() as context:
-        element = context.get_element_by_id(element_id)
-
-        for attempt in range(max_retries):
-            try:
-                with context.transaction(f"Update Attempt {attempt + 1}") as txn:
-                    for param_name, value in parameters.items():
-                        element.set_parameter(param_name, value)
-
-                    txn.commit()
-                    print(f"Update successful on attempt {attempt + 1}")
-                    return True
-
-            except TransactionError as e:
-                print(f"Attempt {attempt + 1} failed: {e}")
-                if attempt < max_retries - 1:
-                    sleep(1)  # Wait before retry
-                else:
-                    print("Max retries exceeded")
-                    return False
-```
-
-### Nested Transaction Context
-
-```python
-def nested_transaction_example():
-    """Demonstrate nested transaction contexts."""
-    with RevitContext() as context:
-        # Outer transaction for structural changes
-        with context.transaction("Structural Update") as outer_txn:
-
-            walls = context.elements.of_category('Walls')
-            for wall in walls:
-                wall.set_parameter('Structural', True)
-
-            # Inner transaction group for details
-            with context.transaction_group("Detail Updates") as group:
-
-                with context.transaction("Update Marks") as txn:
-                    for i, wall in enumerate(walls):
-                        wall.set_parameter('Mark', f'W-{i+1:03d}')
-                    txn.commit()
-
-                with context.transaction("Update Comments") as txn:
-                    for wall in walls:
-                        wall.set_parameter('Comments', 'Structural wall')
-                    txn.commit()
-
-                group.assimilate()
-
-            outer_txn.commit()
-```
-
-## Transaction Monitoring
-
-### Performance Tracking
-
-```python
-from revitpy.performance import TransactionProfiler
-
-def profile_transaction_performance():
-    """Profile transaction performance."""
-    profiler = TransactionProfiler()
-
-    with RevitContext() as context:
-        with profiler.profile("Batch Update"):
-            with context.transaction("Update Elements") as txn:
-                elements = context.elements.of_category('Walls').to_list()
-
-                for element in elements:
-                    element.set_parameter('Comments', 'Updated')
-
-                txn.commit()
-
-        # Get profiling results
-        results = profiler.get_results("Batch Update")
-        print(f"Transaction time: {results.duration:.2f}s")
-        print(f"Elements processed: {results.element_count}")
-        print(f"Time per element: {results.time_per_element:.4f}s")
-```
-
-### Transaction History
-
-```python
-def view_transaction_history():
-    """View recent transaction history."""
-    with RevitContext() as context:
-        # Perform some transactions
-        with context.transaction("Transaction 1") as txn:
-            # ... updates ...
-            txn.commit()
-
-        with context.transaction("Transaction 2") as txn:
-            # ... updates ...
-            txn.commit()
-
-        # Get history
-        history = context.get_transaction_manager().get_transaction_history()
-
-        print("Recent transactions:")
-        for entry in history:
-            print(f"  {entry.name}: {entry.status} ({entry.duration:.2f}s)")
-```
+---
 
 ## Best Practices
 
-### 1. Always Use Context Managers
+1. **Use context managers** -- They handle start, commit, and rollback automatically.
+2. **Name transactions descriptively** -- Names appear in the Revit Undo menu.
+3. **Keep transactions short** -- Move read-only operations outside the transaction scope.
+4. **Batch modifications** -- Use a single transaction for related writes instead of many small transactions.
+5. **Handle errors explicitly** -- Catch `TransactionError` for robust error handling.
 
-```python
-# GOOD: Automatic transaction management
-with context.transaction("Update") as txn:
-    element.set_parameter('Value', 100)
-    txn.commit()
-
-# BAD: Manual transaction management (error-prone)
-txn = context.start_transaction("Update")
-try:
-    element.set_parameter('Value', 100)
-    txn.commit()
-except:
-    txn.rollback()
-```
-
-### 2. Name Transactions Descriptively
-
-```python
-# GOOD: Clear, descriptive names
-with context.transaction("Update Wall Heights in Level 1") as txn:
-    ...
-
-# BAD: Vague names
-with context.transaction("Update") as txn:
-    ...
-```
-
-### 3. Keep Transactions Short
-
-```python
-# GOOD: Focused transaction
-with context.transaction("Update Heights") as txn:
-    for wall in walls:
-        wall.set_parameter('Height', 10.0)
-    txn.commit()
-
-# BAD: Long-running transaction with mixed operations
-with context.transaction("Big Update") as txn:
-    # Many unrelated operations...
-    txn.commit()
-```
-
-### 4. Use Transaction Groups for Related Operations
-
-```python
-# GOOD: Logical grouping
-with context.transaction_group("Room Setup") as group:
-    with context.transaction("Create Rooms") as txn:
-        # Create rooms...
-        txn.commit()
-
-    with context.transaction("Apply Room Data") as txn:
-        # Set room parameters...
-        txn.commit()
-
-    group.assimilate()
-```
-
-### 5. Handle Errors Explicitly
-
-```python
-# GOOD: Explicit error handling
-try:
-    with context.transaction("Update") as txn:
-        element.set_parameter('Height', new_height)
-        txn.commit()
-except TransactionError as e:
-    print(f"Transaction failed: {e}")
-    # Handle error appropriately
-```
-
-## Performance Optimization
-
-### Batch Updates
-
-```python
-# SLOW: Multiple transactions
-for element in elements:
-    with context.transaction("Update Single") as txn:
-        element.set_parameter('Value', 100)
-        txn.commit()
-
-# FAST: Single transaction
-with context.transaction("Update Batch") as txn:
-    for element in elements:
-        element.set_parameter('Value', 100)
-    txn.commit()
-```
-
-### Minimize Transaction Scope
-
-```python
-# SLOW: Transaction includes unnecessary operations
-with context.transaction("Update") as txn:
-    elements = context.elements.of_category('Walls').to_list()  # Read operation
-    analysis = analyze_elements(elements)  # Read operation
-
-    for element in elements:
-        element.set_parameter('Value', analysis[element.Id])  # Write operation
-
-    txn.commit()
-
-# FAST: Transaction only includes write operations
-elements = context.elements.of_category('Walls').to_list()
-analysis = analyze_elements(elements)
-
-with context.transaction("Update") as txn:
-    for element in elements:
-        element.set_parameter('Value', analysis[element.Id])
-    txn.commit()
-```
-
-## Error Handling
-
-### Common Transaction Errors
-
-```python
-from revitpy.api.exceptions import (
-    TransactionError,
-    TransactionCommitError,
-    TransactionRollbackError,
-    TransactionNotStartedError
-)
-
-def handle_transaction_errors():
-    """Demonstrate handling of transaction errors."""
-    with RevitContext() as context:
-        try:
-            with context.transaction("Update") as txn:
-                # Perform operations...
-                txn.commit()
-
-        except TransactionCommitError as e:
-            print(f"Failed to commit transaction: {e}")
-            # Transaction automatically rolled back
-
-        except TransactionRollbackError as e:
-            print(f"Failed to rollback transaction: {e}")
-
-        except TransactionNotStartedError as e:
-            print(f"Transaction not properly started: {e}")
-
-        except TransactionError as e:
-            print(f"General transaction error: {e}")
-```
+---
 
 ## Next Steps
 
-- **[Element API](element-api.md)**: Work with Revit elements
-- **[ORM Layer](orm.md)**: Use ORM with transactions
-- **[Async Support](async.md)**: Asynchronous transaction management
-- **[Performance Guide](../../guides/performance.md)**: Optimize transaction performance
+- **[Element API]({{ '/reference/api/element-api/' | relative_url }})**: Element manipulation
+- **[Core API]({{ '/reference/api/core/' | relative_url }})**: `RevitAPI.transaction()` shorthand
+- **[Async Support]({{ '/reference/api/async/' | relative_url }})**: Async transaction patterns

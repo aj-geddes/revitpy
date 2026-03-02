@@ -17,7 +17,12 @@ from typing import (
 from loguru import logger
 from pydantic import BaseModel, validator
 
-from .exceptions import ElementNotFoundError, PermissionError, ValidationError
+from .exceptions import (
+    ElementNotFoundError,
+    PermissionError,
+    RevitAPIError,
+    ValidationError,
+)
 
 T = TypeVar("T", bound="Element")
 P = TypeVar("P")
@@ -111,7 +116,10 @@ class ElementProperty:
             logger.warning(
                 f"Failed to get parameter {self.parameter_name} from element {obj.id}: {e}"
             )
-            return None
+            raise RevitAPIError(
+                f"Failed to get parameter {self.parameter_name} from element {obj.id}",
+                cause=e,
+            ) from e
 
     def __set__(self, obj: Element, value: Any) -> None:
         if self.read_only:
@@ -398,7 +406,17 @@ class ElementSet(Generic[T]):
 
     @property
     def count(self) -> int:
-        """Get the count of elements."""
+        """Get the number of elements in the collection.
+
+        This is a property because ElementSet holds an already-materialized
+        (or lazily-evaluated) collection. For filtered counts, chain with
+        ``where``::
+
+            element_set.where(predicate).count
+
+        Note: ``QueryBuilder.count()`` is a method because it is a terminal
+        operation that triggers query execution.
+        """
         self._ensure_evaluated()
         return len(self._elements)
 

@@ -1,192 +1,269 @@
 ---
 layout: api
 title: Core API
-description: Core API reference for RevitContext, Element, Transaction, and Query classes
+description: Core API reference for RevitAPI, RevitDocumentProvider, Element, and Query classes
 ---
 
 # Core API
 
-The Core API provides the fundamental classes and functions for interacting with Autodesk Revit through RevitPy.
+The Core API provides the fundamental classes and functions for interacting with Autodesk Revit through RevitPy. The primary entry point is `RevitAPI`, which manages the Revit connection, document access, querying, and transactions.
 
-## RevitContext
+---
 
-The main entry point for all RevitPy operations. Use as a context manager to ensure proper resource cleanup.
+## RevitAPI
 
-```python
-from revitpy import RevitContext
+The main RevitPy API class providing a high-level interface to Revit. Supports use as a context manager for automatic cleanup.
 
-with RevitContext() as context:
-    walls = context.elements.of_category('Walls')
-```
+**Module:** `revitpy.api.wrapper`
 
 ### Constructor
 
 ```python
-RevitContext(document=None, application=None)
+RevitAPI(revit_application=None)
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `document` | `Document` | Optional Revit document. Uses active document if not specified. |
-| `application` | `Application` | Optional Revit application instance. |
+| `revit_application` | `IRevitApplication` or `None` | Optional Revit application instance. |
 
 ### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `elements` | `ElementQueryBuilder` | Query builder for accessing Revit elements |
-| `document` | `Document` | The active Revit document |
-| `application` | `Application` | The Revit application instance |
+| `is_connected` | `bool` | Whether the API is connected to a Revit application. |
+| `active_document` | `RevitDocumentProvider` or `None` | The active document provider. Returns `None` if not connected. Raises `RevitAPIError` on failure. |
+| `elements` | `QueryBuilder[Element]` | Query builder for all elements in the active document. Raises `ConnectionError` if no active document. |
 
 ### Methods
 
-#### `transaction(name)`
-Creates a new transaction for modifying the Revit model.
+#### `connect(revit_application=None)`
 
-```python
-with context.transaction("Update Elements") as txn:
-    # Make changes
-    txn.commit()
-```
+Connects to a Revit application. Tests the connection by accessing the active document.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `name` | `str` | Name of the transaction (shown in Undo menu) |
+| `revit_application` | `IRevitApplication` or `None` | Revit application to connect to. Uses the instance provided at construction if `None`. |
 
-**Returns:** `Transaction` - A transaction context manager
+**Raises:** `ConnectionError` -- If no application is provided or connection fails.
+
+```python
+from revitpy.api.wrapper import RevitAPI
+
+api = RevitAPI()
+api.connect(revit_app)
+```
+
+#### `disconnect()`
+
+Disconnects from the Revit application. Clears the active document and document cache.
+
+#### `open_document(file_path)`
+
+Opens a Revit document file and sets it as the active document.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `file_path` | `str` | Path to the Revit file. |
+
+**Returns:** `RevitDocumentProvider` -- The document provider for the opened document.
+
+**Raises:** `ConnectionError` if not connected. `ModelError` if the file cannot be opened.
+
+```python
+with RevitAPI() as api:
+    api.connect(revit_app)
+    provider = api.open_document("/path/to/model.rvt")
+```
+
+#### `create_document(template_path=None)`
+
+Creates a new Revit document, optionally from a template.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `template_path` | `str` or `None` | Optional path to a template file. |
+
+**Returns:** `RevitDocumentProvider` -- The document provider for the new document.
+
+**Raises:** `ConnectionError` if not connected. `ModelError` if creation fails.
+
+#### `get_document_info(provider=None)`
+
+Returns metadata about a document.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | `RevitDocumentProvider` or `None` | Document provider. Uses active document if `None`. |
+
+**Returns:** `DocumentInfo` -- A dataclass with `title`, `path`, `is_modified`, `is_read_only`, and `version` fields.
+
+#### `save_document(provider=None)`
+
+Saves the specified or active document.
+
+**Returns:** `bool` -- `True` if saved successfully.
+
+**Raises:** `RevitAPIError` if save fails.
+
+#### `close_document(provider=None, save_changes=True)`
+
+Closes the specified or active document.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | `RevitDocumentProvider` or `None` | Document provider. Uses active document if `None`. |
+| `save_changes` | `bool` | Whether to save changes before closing. Default is `True`. |
+
+**Returns:** `bool` -- `True` if closed successfully.
+
+#### `query(element_type=None)`
+
+Creates a typed query builder.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `element_type` | `type[Element]` or `None` | Optional element type to query for. |
+
+**Returns:** `QueryBuilder[T]` -- A query builder scoped to the given type.
+
+**Raises:** `ConnectionError` if no active document.
+
+```python
+walls = api.query(WallElement).equals("Level", "Level 1").to_list()
+```
+
+#### `transaction(name=None, **kwargs)`
+
+Creates a transaction for model modifications. The returned `Transaction` object can be used as a context manager.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` or `None` | Transaction name shown in the Undo menu. Auto-generated if `None`. |
+| `**kwargs` | | Additional options passed to `TransactionOptions`. |
+
+**Returns:** `Transaction` -- A transaction context manager.
+
+**Raises:** `ConnectionError` if no active document.
+
+```python
+with api.transaction("Update Walls") as txn:
+    element.set_parameter_value("Comments", "Updated")
+    # auto-commits on exit if no exception
+```
+
+#### `transaction_group(name=None)`
+
+Creates a transaction group for coordinating multiple transactions.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` or `None` | Group name. Auto-generated if `None`. |
+
+**Returns:** `TransactionGroup` -- A transaction group context manager.
 
 #### `get_element_by_id(element_id)`
+
 Retrieves an element by its ID.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `element_id` | `int` or `ElementId` | The element's ID |
+| `element_id` | `int` or element ID | The element's ID. |
 
-**Returns:** `Element` - The wrapped element
-**Raises:** `ElementNotFound` - If element doesn't exist
+**Returns:** `Element` or `None` -- The wrapped element, or `None` if not found.
 
-#### `get_active_document()`
-Returns the currently active Revit document.
+**Raises:** `ConnectionError` if no active document.
 
-**Returns:** `Document` - The active document
+#### `delete_elements(elements)`
 
-#### `get_application()`
-Returns the Revit application instance.
+Deletes one or more elements.
 
-**Returns:** `Application` - The Revit application
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `elements` | `Element`, `list[Element]`, or `ElementSet` | Elements to delete. |
+
+#### `refresh_cache()`
+
+Refreshes the element cache and cleans up dead document references.
+
+### Context Manager Usage
+
+```python
+from revitpy.api.wrapper import RevitAPI
+
+with RevitAPI(revit_app) as api:
+    api.connect()
+    walls = api.elements.equals("Category", "Walls").to_list()
+    for wall in walls:
+        print(wall.name)
+# disconnect() called automatically on exit
+```
 
 ---
 
-## Element
+## RevitDocumentProvider
 
-Wrapper class for Revit elements providing a Pythonic interface.
+Bridges RevitPy to an actual Revit document. Implements both `IElementProvider` and `ITransactionProvider`.
+
+**Module:** `revitpy.api.wrapper`
+
+### Constructor
+
+```python
+RevitDocumentProvider(revit_document)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `revit_document` | `IRevitDocument` | The underlying Revit document object. |
 
 ### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Id` | `ElementId` | The element's unique identifier |
-| `Name` | `str` | The element's name |
-| `Category` | `str` | The element's category name |
-| `BoundingBox` | `BoundingBox` | The element's bounding box |
+| `document` | `IRevitDocument` | The underlying Revit document. |
 
 ### Methods
 
-#### `get_parameter(name)`
-Gets a parameter value by name.
-
-```python
-height = wall.get_parameter('Unconnected Height')
-print(height.value, height.unit)
-```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | `str` | Parameter name |
-
-**Returns:** `ParameterValue` - The parameter value with unit information
-**Raises:** `ParameterNotFound` - If parameter doesn't exist
-
-#### `set_parameter(name, value)`
-Sets a parameter value. Must be called within a transaction.
-
-```python
-with context.transaction("Update") as txn:
-    wall.set_parameter('Comments', 'Updated by RevitPy')
-    txn.commit()
-```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | `str` | Parameter name |
-| `value` | `any` | New value |
-
-**Raises:** `ParameterNotFound`, `ReadOnlyParameter`
-
-#### `get_geometry(options=None)`
-Returns the element's geometry.
-
-**Returns:** `GeometryElement` - The element's geometry
-
-#### `delete()`
-Deletes the element. Must be called within a transaction.
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_all_elements()` | `list[Element]` | Returns all elements from the document. |
+| `get_elements_of_type(element_type)` | `list[Element]` | Returns elements of a specific type. |
+| `get_element_by_id(element_id)` | `Element` or `None` | Returns an element by ID, using a cache for repeated lookups. Raises `ElementNotFoundError` on API errors. |
+| `delete_elements(element_ids)` | `None` | Deletes elements by their IDs. |
+| `refresh_element_cache()` | `None` | Clears the internal element cache. |
+| `start_transaction(name)` | transaction handle | Starts a new transaction on the document. |
+| `commit_transaction(transaction)` | `bool` | Commits a transaction. Returns `True` on success. |
+| `rollback_transaction(transaction)` | `bool` | Rolls back a transaction. Returns `True` on success. |
+| `is_in_transaction()` | `bool` | Returns whether a transaction is currently active. |
 
 ---
 
-## Transaction
+## DocumentInfo
 
-Manages Revit transactions for model modifications.
+Dataclass containing metadata about a Revit document.
 
-### Usage
+**Module:** `revitpy.api.wrapper`
 
 ```python
-with context.transaction("My Changes") as txn:
-    # Make modifications
-    wall.set_parameter('Comments', 'Updated')
-
-    # Commit or rollback
-    txn.commit()
-    # or txn.rollback()
+@dataclass
+class DocumentInfo:
+    title: str
+    path: str
+    is_modified: bool = False
+    is_read_only: bool = False
+    version: str | None = None
 ```
-
-### Methods
-
-#### `commit()`
-Commits all changes made within the transaction.
-
-#### `rollback()`
-Rolls back all changes made within the transaction.
-
-#### `get_status()`
-Returns the current transaction status.
-
-**Returns:** `str` - One of: `'Started'`, `'Committed'`, `'RolledBack'`
-
----
-
-## QueryResult
-
-Result of an element query operation.
 
 ### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `elements` | `list[Element]` | The queried elements |
-| `count` | `int` | Number of elements |
-| `execution_time` | `float` | Query execution time in seconds |
-
-### Methods
-
-#### `to_list()`
-Converts results to a Python list.
-
-**Returns:** `list[Element]`
-
-#### `to_dict()`
-Converts results to a dictionary keyed by element ID.
-
-**Returns:** `dict[int, Element]`
+| `title` | `str` | Document title including extension. |
+| `path` | `str` | Full file path. |
+| `is_modified` | `bool` | Whether the document has unsaved changes. |
+| `is_read_only` | `bool` | Whether the document is read-only. |
+| `version` | `str` or `None` | Revit version string. |
+| `name` | `str` | Document name without file extension (computed property). |
 
 ---
 
@@ -195,146 +272,78 @@ Converts results to a dictionary keyed by element ID.
 ### Basic Element Access
 
 ```python
-from revitpy import RevitContext
+from revitpy.api.wrapper import RevitAPI
 
-def list_all_walls():
+def list_all_walls(revit_app):
     """List all walls in the active document."""
-    with RevitContext() as context:
-        walls = context.elements.of_category('Walls')
+    with RevitAPI(revit_app) as api:
+        api.connect()
+
+        walls = api.elements.equals("Category", "Walls").execute()
 
         for wall in walls:
-            print(f"Wall ID: {wall.Id}")
-            print(f"Wall Name: {wall.Name}")
-            print(f"Wall Height: {wall.get_parameter('Height').value}")
+            print(f"Wall ID: {wall.id}")
+            print(f"Wall Name: {wall.name}")
+            height = wall.get_parameter_value("Height")
+            print(f"Wall Height: {height}")
             print("---")
 ```
 
 ### Transaction Management
 
 ```python
-def update_wall_comments():
-    """Update comments for all walls."""
-    with RevitContext() as context:
-        walls = context.elements.of_category('Walls')
+from revitpy.api.wrapper import RevitAPI
 
-        with context.transaction("Update Wall Comments") as txn:
+def update_wall_comments(revit_app):
+    """Update comments on all walls."""
+    with RevitAPI(revit_app) as api:
+        api.connect()
+        walls = api.elements.equals("Category", "Walls").to_list()
+
+        with api.transaction("Update Wall Comments"):
             for wall in walls:
-                height = wall.get_parameter('Height').value
-                comment = f"Height: {height:.1f} ft"
-                wall.set_parameter('Comments', comment)
-
-            txn.commit()
+                height = wall.get_parameter_value("Height")
+                wall.set_parameter_value("Comments", f"Height: {height}")
+            # auto-commits on successful exit
 ```
 
 ### Error Handling
 
 ```python
-from revitpy import RevitContext
-from revitpy.exceptions import ElementNotFound, TransactionFailed
+from revitpy.api.wrapper import RevitAPI
+from revitpy.api.exceptions import (
+    ConnectionError,
+    ElementNotFoundError,
+    RevitAPIError,
+)
 
-def safe_element_access(element_id):
+def safe_element_access(revit_app, element_id):
     """Safely access an element by ID."""
     try:
-        with RevitContext() as context:
-            element = context.get_element_by_id(element_id)
-            return element.Name
-    except ElementNotFound as e:
-        print(f"Element {element_id} not found: {e}")
+        with RevitAPI(revit_app) as api:
+            api.connect()
+            element = api.get_element_by_id(element_id)
+            if element is None:
+                print(f"Element {element_id} not found")
+                return None
+            return element.name
+
+    except ConnectionError as e:
+        print(f"Connection error: {e}")
         return None
-    except TransactionFailed as e:
-        print(f"Transaction failed: {e}")
+    except ElementNotFoundError as e:
+        print(f"Element lookup error: {e}")
         return None
-```
-
----
-
-## Performance Tips
-
-### 1. Use Context Managers
-
-Always use `with RevitContext()` to ensure proper resource cleanup:
-
-```python
-# Good
-with RevitContext() as context:
-    elements = context.elements.of_category('Walls')
-
-# Bad - resources may not be cleaned up
-context = RevitContext()
-elements = context.elements.of_category('Walls')
-```
-
-### 2. Minimize Transactions
-
-Group related operations in a single transaction:
-
-```python
-# Good - Single transaction
-with RevitContext() as context:
-    with context.transaction("Batch Update") as txn:
-        for wall in walls:
-            wall.set_parameter('Comments', 'Updated')
-        txn.commit()
-
-# Bad - Multiple transactions (slower)
-with RevitContext() as context:
-    for wall in walls:
-        with context.transaction("Update Wall") as txn:
-            wall.set_parameter('Comments', 'Updated')
-            txn.commit()
-```
-
-### 3. Cache Frequently Used Data
-
-Store commonly accessed data to avoid repeated queries:
-
-```python
-def process_elements_efficiently():
-    with RevitContext() as context:
-        # Cache wall types once
-        wall_types = {wt.Name: wt for wt in context.elements.of_category('WallTypes')}
-
-        for wall in context.elements.of_category('Walls'):
-            wall_type_name = wall.WallType.Name
-            wall_type = wall_types.get(wall_type_name)  # Fast lookup
-            # Process wall with cached type data
-```
-
----
-
-## Thread Safety
-
-<div class="callout callout-warning">
-  <div class="callout-title">Revit API Limitations</div>
-  <p>The Revit API has threading limitations. Operations that modify the model must be performed on the main UI thread. Use RevitPy's async support for better concurrency patterns.</p>
-</div>
-
-Each thread needs its own RevitContext:
-
-```python
-import threading
-from revitpy import RevitContext
-
-def process_in_thread():
-    with RevitContext() as context:
-        walls = context.elements.of_category('Walls')
-        return len(walls)
-
-threads = []
-for i in range(4):
-    thread = threading.Thread(target=process_in_thread)
-    threads.append(thread)
-    thread.start()
-
-for thread in threads:
-    thread.join()
+    except RevitAPIError as e:
+        print(f"Revit API error: {e}")
+        return None
 ```
 
 ---
 
 ## Next Steps
 
-- **[ORM Layer]({{ '/reference/api/orm/' | relative_url }})**: Learn about LINQ-style queries
-- **[Async Support]({{ '/reference/api/async/' | relative_url }})**: Asynchronous operations
-- **[Events]({{ '/reference/api/events/' | relative_url }})**: Event handling
-- **[Testing]({{ '/reference/api/testing/' | relative_url }})**: Testing utilities
+- **[Element API]({{ '/reference/api/element-api/' | relative_url }})**: Detailed element manipulation
+- **[Transaction API]({{ '/reference/api/transaction-api/' | relative_url }})**: Transaction management
+- **[Query API]({{ '/reference/api/query/' | relative_url }})**: LINQ-style queries
+- **[ORM Layer]({{ '/reference/api/orm/' | relative_url }})**: Higher-level ORM context

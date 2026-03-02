@@ -28,6 +28,41 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# -- Alerting system --
+# Default interval between threshold evaluations (seconds)
+DEFAULT_ALERTING_EVALUATION_INTERVAL_SECONDS = 30
+# Window (seconds) during which metric must stay normal to auto-resolve an alert
+AUTO_RESOLVE_WINDOW_SECONDS = 300
+
+# -- Dashboard --
+# Interval between dashboard data refreshes (seconds)
+DASHBOARD_UPDATE_INTERVAL_SECONDS = 30
+# Maximum number of data points sent to dashboard charts
+MAX_CHART_DATA_POINTS = 60
+
+# -- Trend analysis --
+# Hours of data used to calculate "short term" dashboard trend
+SHORT_TERM_TREND_HOURS = 0.25
+# Minimum trend strength to report something other than "stable"
+MIN_TREND_STRENGTH = 0.1
+# Hours of historical data used when predicting future issues
+PREDICTION_TREND_WINDOW_HOURS = 72
+# Minimum confidence for a degrading trend to generate a prediction
+DEGRADING_TREND_CONFIDENCE_THRESHOLD = 0.7
+
+# -- Health score penalties --
+CRITICAL_ALERT_SCORE_PENALTY = 30
+WARNING_ALERT_SCORE_PENALTY = 10
+UNACKNOWLEDGED_ALERT_SCORE_PENALTY = 5
+# Percent above which CPU/memory usage deducts from the health score
+HIGH_USAGE_THRESHOLD_PERCENT = 80
+# Points deducted per percent above the usage threshold
+USAGE_SCORE_PENALTY_PER_PERCENT = 0.5
+
+# -- Recommendation thresholds --
+VERY_HIGH_MEMORY_USAGE_PERCENT = 85
+LOW_CACHE_HIT_RATIO = 0.8
+
 
 @dataclass
 class PerformanceThreshold:
@@ -222,7 +257,9 @@ class MetricsCollector:
                         custom_metrics = callback()
                         if custom_metrics:
                             self.record_metrics_batch(custom_metrics)
-                    except Exception as e:
+                    except (
+                        Exception
+                    ) as e:  # User-provided callback may raise any exception
                         logger.warning(
                             "Custom metrics collection callback failed: %s", e
                         )
@@ -233,6 +270,7 @@ class MetricsCollector:
                 time.sleep(sleep_time)
 
             except Exception as e:
+                # Broad catch required: background thread must not crash; logs and retries
                 logger.error("Metrics collection error: %s", e)
                 time.sleep(self.collection_interval)
 
@@ -318,7 +356,7 @@ class MetricsCollector:
                     ]
                 )
 
-            except Exception as e:
+            except OSError as e:
                 logger.warning("Failed to collect system metrics: %s", e)
 
         return metrics
@@ -335,7 +373,7 @@ class AlertingSystem:
         self.alert_callbacks = []
 
         # Alerting configuration
-        self.evaluation_interval = 30  # seconds
+        self.evaluation_interval = DEFAULT_ALERTING_EVALUATION_INTERVAL_SECONDS
         self._alerting_active = False
         self._alerting_thread = None
         self._lock = threading.Lock()
@@ -516,6 +554,7 @@ class AlertingSystem:
                 time.sleep(sleep_time)
 
             except Exception as e:
+                # Broad catch required: background thread must not crash; logs and retries
                 logger.error("Alerting evaluation error: %s", e)
                 time.sleep(self.evaluation_interval)
 
@@ -585,7 +624,9 @@ class AlertingSystem:
                 for callback in self.alert_callbacks:
                     try:
                         callback(alert)
-                    except Exception as e:
+                    except (
+                        Exception
+                    ) as e:  # User-provided callback may raise any exception
                         logger.warning("Alert callback failed: %s", e)
 
                 logger.warning("Alert triggered: %s", alert.message)
@@ -613,7 +654,7 @@ class AlertingSystem:
     def _check_alert_auto_resolution(self):
         """Check if any alerts should be auto-resolved."""
         time.time()
-        auto_resolve_window = 300  # 5 minutes
+        auto_resolve_window = AUTO_RESOLVE_WINDOW_SECONDS
 
         with self._lock:
             alerts_to_resolve = []
@@ -677,7 +718,7 @@ class PerformanceMonitor:
 
         # Dashboard data
         self.dashboard_data = {}
-        self.dashboard_update_interval = 30  # seconds
+        self.dashboard_update_interval = DASHBOARD_UPDATE_INTERVAL_SECONDS
 
         # Monitoring state
         self._monitoring_active = False
@@ -815,11 +856,14 @@ class PerformanceMonitor:
 
         # Analyze trends for prediction
         trends = self.analyze_performance_trends(
-            time_window_hours=72
-        )  # Use 72h for prediction
+            time_window_hours=PREDICTION_TREND_WINDOW_HOURS
+        )
 
         for metric_name, trend in trends.items():
-            if trend.trend_direction == "degrading" and trend.confidence > 0.7:
+            if (
+                trend.trend_direction == "degrading"
+                and trend.confidence > DEGRADING_TREND_CONFIDENCE_THRESHOLD
+            ):
                 # Get current value and threshold
                 current_stats = self.metrics_collector.get_metric_statistics(
                     metric_name, 3600
@@ -914,7 +958,7 @@ class PerformanceMonitor:
 
             return metrics
 
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError, OSError) as e:
             logger.warning("Failed to collect optimizer metrics: %s", e)
             return []
 
@@ -933,7 +977,7 @@ class PerformanceMonitor:
                 )
                 try:
                     self.performance_optimizer.optimize_memory()
-                except Exception as e:
+                except (OSError, RuntimeError, TypeError, ValueError) as e:
                     logger.error("Auto-remediation failed: %s", e)
 
         elif alert.metric_name == "system.cpu.percent" and alert.severity == "critical":
@@ -968,6 +1012,7 @@ class PerformanceMonitor:
                 time.sleep(sleep_time)
 
             except Exception as e:
+                # Broad catch required: background thread must not crash; logs and retries
                 logger.error("Trend analysis error: %s", e)
                 time.sleep(self.trend_analysis_interval)
 
@@ -990,6 +1035,7 @@ class PerformanceMonitor:
                 time.sleep(sleep_time)
 
             except Exception as e:
+                # Broad catch required: background thread must not crash; logs and retries
                 logger.error("Dashboard update error: %s", e)
                 time.sleep(self.dashboard_update_interval)
 
@@ -1028,9 +1074,9 @@ class PerformanceMonitor:
         for metric_name in metric_names:
             history = self.metrics_collector.get_metric_history(metric_name, 3600)
             if history:
-                # Sample data points for chart (max 60 points)
-                if len(history) > 60:
-                    step = len(history) // 60
+                # Sample data points for chart
+                if len(history) > MAX_CHART_DATA_POINTS:
+                    step = len(history) // MAX_CHART_DATA_POINTS
                     sampled_history = history[::step]
                 else:
                     sampled_history = history
@@ -1135,9 +1181,9 @@ class PerformanceMonitor:
 
     def _get_short_term_trend(self, metric_name: str) -> str:
         """Get short-term trend (last 15 minutes) for dashboard."""
-        trend = self._calculate_trend(metric_name, 0.25)  # 15 minutes
+        trend = self._calculate_trend(metric_name, SHORT_TERM_TREND_HOURS)
         if trend:
-            if trend.trend_strength > 0.1:
+            if trend.trend_strength > MIN_TREND_STRENGTH:
                 return trend.trend_direction
         return "stable"
 
@@ -1148,20 +1194,31 @@ class PerformanceMonitor:
         base_score = 100.0
 
         # Deduct points for alerts
-        base_score -= alert_summary.get("critical_alerts", 0) * 30
-        base_score -= alert_summary.get("warning_alerts", 0) * 10
-        base_score -= alert_summary.get("unacknowledged_alerts", 0) * 5
+        base_score -= (
+            alert_summary.get("critical_alerts", 0) * CRITICAL_ALERT_SCORE_PENALTY
+        )
+        base_score -= (
+            alert_summary.get("warning_alerts", 0) * WARNING_ALERT_SCORE_PENALTY
+        )
+        base_score -= (
+            alert_summary.get("unacknowledged_alerts", 0)
+            * UNACKNOWLEDGED_ALERT_SCORE_PENALTY
+        )
 
         # Deduct points for poor metrics
         if "system.cpu.percent" in metric_stats:
             cpu_usage = metric_stats["system.cpu.percent"].get("mean", 0)
-            if cpu_usage > 80:
-                base_score -= (cpu_usage - 80) * 0.5
+            if cpu_usage > HIGH_USAGE_THRESHOLD_PERCENT:
+                base_score -= (
+                    cpu_usage - HIGH_USAGE_THRESHOLD_PERCENT
+                ) * USAGE_SCORE_PENALTY_PER_PERCENT
 
         if "system.memory.percent" in metric_stats:
             memory_usage = metric_stats["system.memory.percent"].get("mean", 0)
-            if memory_usage > 80:
-                base_score -= (memory_usage - 80) * 0.5
+            if memory_usage > HIGH_USAGE_THRESHOLD_PERCENT:
+                base_score -= (
+                    memory_usage - HIGH_USAGE_THRESHOLD_PERCENT
+                ) * USAGE_SCORE_PENALTY_PER_PERCENT
 
         # Ensure score is within bounds
         return max(0.0, min(100.0, base_score))
@@ -1195,14 +1252,14 @@ class PerformanceMonitor:
         # Metric-based recommendations
         if "system.memory.percent" in metric_stats:
             memory_usage = metric_stats["system.memory.percent"].get("mean", 0)
-            if memory_usage > 85:
+            if memory_usage > VERY_HIGH_MEMORY_USAGE_PERCENT:
                 recommendations.append(
                     "High memory usage - consider memory optimization"
                 )
 
         if "optimizer.cache.hit_ratio" in metric_stats:
             hit_ratio = metric_stats["optimizer.cache.hit_ratio"].get("mean", 1.0)
-            if hit_ratio < 0.8:
+            if hit_ratio < LOW_CACHE_HIT_RATIO:
                 recommendations.append("Low cache hit ratio - review caching strategy")
 
         # Trend-based recommendations
@@ -1210,7 +1267,7 @@ class PerformanceMonitor:
             metric
             for metric, trend in trends.items()
             if trend.get("direction") == "degrading"
-            and trend.get("confidence", 0) > 0.7
+            and trend.get("confidence", 0) > DEGRADING_TREND_CONFIDENCE_THRESHOLD
         ]
 
         if degrading_trends:

@@ -1,5 +1,7 @@
 # RevitPy - Modern Python Gateway for Advanced Revit Analytics
 
+[![CI](https://github.com/aj-geddes/revitpy/actions/workflows/ci.yml/badge.svg)](https://github.com/aj-geddes/revitpy/actions/workflows/ci.yml)
+
 RevitPy unlocks the full Python ecosystem for advanced Revit development capabilities that are impossible with IronPython. While PyRevit excels at UI tools and basic automation, RevitPy enables data science, machine learning, and modern cloud integration to complement your existing workflow.
 
 ## 🚀 What PyRevit Can't Do

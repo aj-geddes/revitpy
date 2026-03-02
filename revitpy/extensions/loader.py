@@ -94,7 +94,9 @@ class ExtensionLoader:
             return metadata
 
         except Exception as e:
-            raise ValueError(f"Invalid extension metadata in {metadata_file}: {e}")
+            raise ValueError(
+                f"Invalid extension metadata in {metadata_file}: {e}"
+            ) from e
 
     async def _discover_extension_classes(
         self, py_file: Path

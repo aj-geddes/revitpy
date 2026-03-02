@@ -11,7 +11,7 @@ from typing import Any, Protocol, TypeVar
 from loguru import logger
 
 from .element import Element, ElementSet, IRevitElement
-from .exceptions import ConnectionError, ModelError, RevitAPIError
+from .exceptions import ConnectionError, ElementNotFoundError, ModelError, RevitAPIError
 from .query import IElementProvider, Query, QueryBuilder
 from .transaction import (
     ITransactionProvider,
@@ -97,7 +97,7 @@ class RevitDocumentProvider(IElementProvider, ITransactionProvider):
 
         except Exception as e:
             logger.error(f"Failed to get all elements: {e}")
-            raise RevitAPIError("Failed to retrieve elements", e)
+            raise RevitAPIError("Failed to retrieve elements", e) from e
 
     def get_elements_of_type(self, element_type: type[Element]) -> list[Element]:
         """Get elements of specific type."""
@@ -107,7 +107,14 @@ class RevitDocumentProvider(IElementProvider, ITransactionProvider):
         return [elem for elem in all_elements if isinstance(elem, element_type)]
 
     def get_element_by_id(self, element_id: Any) -> Element | None:
-        """Get element by ID."""
+        """Get element by ID.
+
+        Returns:
+            Element if found, None if the element does not exist.
+
+        Raises:
+            ElementNotFoundError: If the lookup fails due to an API error.
+        """
         try:
             # Check cache first
             if isinstance(element_id, int) and element_id in self._element_cache:
@@ -127,7 +134,7 @@ class RevitDocumentProvider(IElementProvider, ITransactionProvider):
 
         except Exception as e:
             logger.warning(f"Failed to get element by ID {element_id}: {e}")
-            return None
+            raise ElementNotFoundError(element_id=element_id, cause=e) from e
 
     def delete_elements(self, element_ids: list[Any]) -> None:
         """Delete elements by IDs."""
@@ -143,7 +150,7 @@ class RevitDocumentProvider(IElementProvider, ITransactionProvider):
 
         except Exception as e:
             logger.error(f"Failed to delete elements: {e}")
-            raise RevitAPIError("Failed to delete elements", e)
+            raise RevitAPIError("Failed to delete elements", e) from e
 
     def refresh_element_cache(self) -> None:
         """Refresh the element cache."""
@@ -208,7 +215,15 @@ class RevitAPI:
 
     @property
     def active_document(self) -> RevitDocumentProvider | None:
-        """Get the active document provider."""
+        """Get the active document provider.
+
+        Returns:
+            RevitDocumentProvider if connected and a document is active,
+            None if not connected.
+
+        Raises:
+            RevitAPIError: If connected but retrieving the active document fails.
+        """
         if not self.is_connected:
             return None
 
@@ -218,7 +233,8 @@ class RevitAPI:
                 if active_doc is not None:
                     self._active_document = RevitDocumentProvider(active_doc)
             except Exception as e:
-                logger.warning(f"Failed to get active document: {e}")
+                logger.error(f"Failed to get active document: {e}")
+                raise RevitAPIError("Failed to get active document", cause=e) from e
 
         return self._active_document
 
@@ -247,7 +263,7 @@ class RevitAPI:
         except Exception as e:
             self._is_connected = False
             logger.error(f"Failed to connect to Revit: {e}")
-            raise ConnectionError("Failed to connect to Revit application", e)
+            raise ConnectionError("Failed to connect to Revit application", e) from e
 
     def disconnect(self) -> None:
         """Disconnect from Revit application."""
@@ -280,7 +296,7 @@ class RevitAPI:
 
         except Exception as e:
             logger.error(f"Failed to open document {file_path}: {e}")
-            raise RevitAPIError(f"Failed to open document: {file_path}", e)
+            raise RevitAPIError(f"Failed to open document: {file_path}", e) from e
 
     def create_document(
         self, template_path: str | None = None
@@ -306,7 +322,7 @@ class RevitAPI:
 
         except Exception as e:
             logger.error(f"Failed to create document: {e}")
-            raise RevitAPIError("Failed to create document", e)
+            raise RevitAPIError("Failed to create document", e) from e
 
     def get_document_info(
         self, provider: RevitDocumentProvider | None = None
@@ -343,7 +359,7 @@ class RevitAPI:
 
         except Exception as e:
             logger.error(f"Failed to save document: {e}")
-            raise RevitAPIError("Failed to save document", e)
+            raise RevitAPIError("Failed to save document", e) from e
 
     def close_document(
         self, provider: RevitDocumentProvider | None = None, save_changes: bool = True
@@ -371,7 +387,7 @@ class RevitAPI:
 
         except Exception as e:
             logger.error(f"Failed to close document: {e}")
-            raise RevitAPIError("Failed to close document", e)
+            raise RevitAPIError("Failed to close document", e) from e
 
     def query(self, element_type: type[T] | None = None) -> QueryBuilder[T]:
         """Create a typed query."""

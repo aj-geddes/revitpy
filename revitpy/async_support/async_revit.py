@@ -23,6 +23,9 @@ from .task_queue import Task, TaskPriority, TaskQueue
 
 T = TypeVar("T")
 
+# Small delay between element-update batches to avoid overwhelming Revit
+INTER_BATCH_DELAY_SECONDS = 0.01
+
 
 class AsyncRevit:
     """
@@ -315,7 +318,7 @@ class AsyncRevit:
                     )
 
                 # Small delay between batches to avoid overwhelming Revit
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(INTER_BATCH_DELAY_SECONDS)
 
             if progress_reporter:
                 if cancellation_token and cancellation_token.is_cancelled:
