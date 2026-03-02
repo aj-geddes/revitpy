@@ -340,7 +340,7 @@ class TestAPILatencyPerformance:
             for _ in range(performance_config.WARMUP_ITERATIONS):
                 try:
                     operation()
-                except:
+                except Exception:  # noqa: S110
                     pass
 
             # Benchmark

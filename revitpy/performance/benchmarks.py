@@ -617,7 +617,7 @@ class BenchmarkSuite:
         for _ in range(benchmark.warmup_iterations):
             try:
                 benchmark.operation()
-            except Exception:
+            except Exception:  # noqa: S110
                 pass  # Safe to swallow: warmup errors are expected and non-critical
 
         # Force garbage collection before measurement

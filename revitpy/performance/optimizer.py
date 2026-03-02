@@ -148,7 +148,7 @@ class ObjectPool(Generic[T]):
                 with self._lock:
                     self._returned_count += 1
                 return True
-        except Exception:
+        except Exception:  # noqa: S110
             # Safe to swallow: reset_func is user-provided and put_nowait may raise Full;
             # failure to return object to pool is non-critical
             pass
@@ -706,7 +706,7 @@ class PerformanceOptimizer:
         for _ in range(warmup_iterations):
             try:
                 operation()
-            except Exception:
+            except Exception:  # noqa: S110
                 pass  # Safe to swallow: warmup errors are expected and non-critical
 
         # Benchmark
