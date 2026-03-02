@@ -2,7 +2,7 @@
 # Focused on essential dependencies only
 
 # Core web framework
-fastapi==0.104.1
+fastapi==0.135.1
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
 
