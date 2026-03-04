@@ -97,7 +97,8 @@ class IfcImporter:
         for entity_type in self._ELEMENT_TYPES:
             try:
                 entities = ifc_file.by_type(entity_type)
-            except Exception:
+            except Exception:  # noqa: S112
+                # Entity type not supported by this IFC file; skip gracefully
                 continue
 
             for entity in entities:
