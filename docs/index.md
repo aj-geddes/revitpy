@@ -1,19 +1,22 @@
 ---
 layout: default
 title: RevitPy Documentation
-description: Modern Python Framework for Revit Development
+description: "RevitPy is a modern Python framework for Autodesk Revit development with LINQ-style queries, ORM, async support, IFC, AI agents, and cloud automation."
 ---
 
 <section class="hero">
     <div class="hero-content">
-        <span class="hero-badge">v1.0.0 - Enterprise Ready</span>
+        <span class="hero-badge">v0.1.0 - Open Source</span>
         <h1 class="hero-title">RevitPy</h1>
         <p class="hero-subtitle">
-            The modern, enterprise-ready Python framework that transforms how you develop, deploy, and manage extensions for Autodesk Revit.
+            A modern Python framework that brings async/await, LINQ-style queries, and comprehensive testing to Autodesk Revit development.
         </p>
+        <div class="install-box">
+            <code>pip install revitpy</code>
+        </div>
         <div class="hero-cta">
-            <a href="{{ '/getting-started/' | relative_url }}" class="btn btn-primary">Get Started</a>
-            <a href="{{ '/examples/' | relative_url }}" class="btn btn-secondary">View Examples</a>
+            <a href="{{ '/user/getting-started/' | relative_url }}" class="btn btn-primary">Get Started</a>
+            <a href="{{ '/developer/api-reference/' | relative_url }}" class="btn btn-secondary">API Reference</a>
         </div>
     </div>
 </section>
@@ -21,227 +24,193 @@ description: Modern Python Framework for Revit Development
 <div class="container" markdown="1">
 <div class="main-content" markdown="1">
 
-## What is RevitPy?
-
-RevitPy is a comprehensive Python framework designed to modernize Revit automation development. Built on Python 3.11+ with enterprise-grade architecture, RevitPy provides developers with intuitive APIs, advanced ORM capabilities, and professional-grade tooling that makes Revit development productive, maintainable, and scalable.
-
-## Key Features
+## Feature Highlights
 
 <section class="features">
     <div class="features-grid">
+        <a href="{{ '/user/features/query-builder/' | relative_url }}" class="feature-card" style="text-decoration:none;color:inherit;">
+            <div class="feature-icon">Q</div>
+            <h3 class="feature-title">Query Builder</h3>
+            <p class="feature-description">LINQ-style fluent queries with filtering, sorting, pagination, and lazy evaluation for Revit elements.</p>
+        </a>
+        <a href="{{ '/user/features/orm/' | relative_url }}" class="feature-card" style="text-decoration:none;color:inherit;">
+            <div class="feature-icon">O</div>
+            <h3 class="feature-title">ORM Layer</h3>
+            <p class="feature-description">Object-relational mapping with change tracking, caching, relationships, and Pydantic-based validation models.</p>
+        </a>
+        <a href="{{ '/user/features/events/' | relative_url }}" class="feature-card" style="text-decoration:none;color:inherit;">
+            <div class="feature-icon">E</div>
+            <h3 class="feature-title">Event System</h3>
+            <p class="feature-description">Decorator-based event handlers with priority levels, filtering, throttling, and async dispatch.</p>
+        </a>
         <div class="feature-card">
-            <div class="feature-icon">&#128640;</div>
-            <h3 class="feature-title">Modern Python</h3>
-            <p class="feature-description">Python 3.11+ with full async/await support, type annotations, and the latest language features.</p>
+            <div class="feature-icon">X</div>
+            <h3 class="feature-title">Extensions</h3>
+            <p class="feature-description">Plugin architecture with lifecycle management, dependency injection, and decorator-based registration of commands, services, and tools.</p>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">&#128269;</div>
-            <h3 class="feature-title">Intuitive ORM</h3>
-            <p class="feature-description">LINQ-style queries for Revit elements with relationship navigation and intelligent caching.</p>
+            <div class="feature-icon">A</div>
+            <h3 class="feature-title">Async Support</h3>
+            <p class="feature-description">Native async/await for Revit operations with task queues, progress reporting, and cancellation tokens.</p>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">&#9889;</div>
-            <h3 class="feature-title">Hot Reload</h3>
-            <p class="feature-description">Instant code updates during development without restarting Revit.</p>
+            <div class="feature-icon">T</div>
+            <h3 class="feature-title">Testing</h3>
+            <p class="feature-description">Mock Revit environment with MockDocument, MockElement, and MockApplication for testing without a Revit installation.</p>
         </div>
-        <div class="feature-card">
-            <div class="feature-icon">&#128187;</div>
-            <h3 class="feature-title">VS Code Integration</h3>
-            <p class="feature-description">Full IntelliSense, debugging, and project management in Visual Studio Code.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">&#128274;</div>
-            <h3 class="feature-title">Type Safety</h3>
-            <p class="feature-description">Complete type annotations for improved code quality and IDE support.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">&#127970;</div>
-            <h3 class="feature-title">Enterprise Ready</h3>
-            <p class="feature-description">MSI installer, Group Policy support, security scanning, and audit capabilities.</p>
-        </div>
+        <a href="{{ '/user/features/extract/' | relative_url }}" class="feature-card" style="text-decoration:none;color:inherit;">
+            <div class="feature-icon">Q</div>
+            <h3 class="feature-title">Quantity Extraction</h3>
+            <p class="feature-description">Quantity takeoff engine with material aggregation, cost estimation, and multi-format data export for BIM workflows.</p>
+        </a>
+        <a href="{{ '/user/features/ifc/' | relative_url }}" class="feature-card" style="text-decoration:none;color:inherit;">
+            <div class="feature-icon">I</div>
+            <h3 class="feature-title">IFC Interop</h3>
+            <p class="feature-description">IFC export/import with element mapping, IDS validation, BCF issue tracking, and model diff capabilities.</p>
+        </a>
+        <a href="{{ '/user/features/ai/' | relative_url }}" class="feature-card" style="text-decoration:none;color:inherit;">
+            <div class="feature-icon">M</div>
+            <h3 class="feature-title">AI & MCP</h3>
+            <p class="feature-description">Model Context Protocol server with tool registration, safety guardrails, and prompt templates for AI-assisted workflows.</p>
+        </a>
+        <a href="{{ '/user/features/sustainability/' | relative_url }}" class="feature-card" style="text-decoration:none;color:inherit;">
+            <div class="feature-icon">S</div>
+            <h3 class="feature-title">Sustainability</h3>
+            <p class="feature-description">Embodied carbon calculations, EPD database integration, compliance checking, and sustainability reporting.</p>
+        </a>
+        <a href="{{ '/user/features/interop/' | relative_url }}" class="feature-card" style="text-decoration:none;color:inherit;">
+            <div class="feature-icon">P</div>
+            <h3 class="feature-title">Speckle Interop</h3>
+            <p class="feature-description">Speckle connector with type mapping, diff, merge, and real-time subscriptions for collaborative BIM data exchange.</p>
+        </a>
+        <a href="{{ '/user/features/cloud/' | relative_url }}" class="feature-card" style="text-decoration:none;color:inherit;">
+            <div class="feature-icon">C</div>
+            <h3 class="feature-title">Cloud Automation</h3>
+            <p class="feature-description">APS Design Automation integration with batch processing, cloud job orchestration, and CI/CD pipeline helpers.</p>
+        </a>
     </div>
 </section>
 
-## Quick Start
-
-Get up and running in minutes:
-
-```bash
-# Install RevitPy
-pip install revitpy
-
-# Configure Revit integration
-revitpy doctor --install
-
-# Create your first project
-revitpy create my-first-script --template basic-script
-cd my-first-script
-
-# Run in development mode
-revitpy dev --watch
-```
-
 ## Code Example
 
-Query elements with modern ORM syntax:
+Query Revit elements and modify them inside a transaction:
 
 ```python
-from revitpy import RevitContext
+from revitpy import RevitAPI
 
-# Query walls with modern ORM syntax
-with RevitContext() as context:
-    walls = context.elements.where(
-        lambda e: e.Category == 'Walls' and e.Height > 10.0
-    )
+# Connect to Revit
+api = RevitAPI()
+api.connect()
 
+# Query walls using the fluent query builder
+walls = (api.query("Wall")
+         .where("Height", "greater_than", 10.0)
+         .order_by("Name")
+         .take(50)
+         .execute())
+
+# Modify elements inside a transaction
+with api.transaction("Update Wall Comments") as txn:
     for wall in walls:
-        print(f"Wall: {wall.Name}, Height: {wall.Height}")
-```
-
-### Advanced Filtering with Relationships
-
-```python
-from revitpy import RevitContext
-
-with RevitContext() as context:
-    # Find rooms with specific area requirements
-    large_rooms = (context.elements
-                   .of_category('Rooms')
-                   .where(lambda r: r.Area > 500)
-                   .include('Boundaries.Wall')
-                   .to_list())
-
-    for room in large_rooms:
-        wall_count = len(room.Boundaries)
-        print(f"Room {room.Name}: {room.Area} sq ft, {wall_count} walls")
+        wall.set_parameter_value("Comments", "Reviewed")
 ```
 
 ### Async Operations
 
 ```python
-import asyncio
-from revitpy import AsyncRevitContext
+from revitpy import AsyncRevit
 
 async def process_elements():
-    async with AsyncRevitContext() as context:
-        # Process large datasets asynchronously
-        elements = await context.elements.where(
-            lambda e: e.Category == 'Windows'
-        ).to_list_async()
+    revit = AsyncRevit()
+    await revit.initialize()
 
-        tasks = [update_element(elem) for elem in elements]
-        results = await asyncio.gather(*tasks)
-        return results
+    # Query elements asynchronously
+    elements = await revit.query_elements_async(
+        element_type="Window"
+    )
 
-async def update_element(element):
-    await asyncio.sleep(0.1)
-    return f"Processed {element.Name}"
+    # Batch process with progress tracking
+    async with revit.progress_scope(len(elements), "Updating windows"):
+        await revit.update_elements_async(elements)
 ```
+
+### Mock Testing
+
+```python
+from revitpy import MockRevit
+
+# Create a mock Revit environment -- no Revit installation needed
+mock = MockRevit()
+doc = mock.create_document("TestProject.rvt")
+
+# Create test elements with parameters
+wall = mock.create_element(
+    name="Wall-01",
+    category="Walls",
+    element_type="Wall",
+    parameters={"Height": 12.0, "Comments": ""}
+)
+
+assert wall.HasParameter("Height")
+assert doc.GetElementCount() == 1
+```
+
+## Documentation Tiers
+
+<div class="tier-cards">
+    <a href="{{ '/developer/' | relative_url }}" class="tier-card">
+        <h3>Developer Guide</h3>
+        <p>Architecture, API reference, setup instructions, testing strategies, and contribution guidelines for framework developers.</p>
+    </a>
+    <a href="{{ '/technical/' | relative_url }}" class="tier-card">
+        <h3>Technical Reference</h3>
+        <p>System design, data models, and internal details for understanding how RevitPy works under the hood.</p>
+    </a>
+    <a href="{{ '/user/' | relative_url }}" class="tier-card">
+        <h3>User Guide</h3>
+        <p>Getting started tutorials, feature walkthroughs for the query builder, ORM, and event system.</p>
+    </a>
+</div>
 
 ## Component Overview
 
-| Component | Purpose | Key Features |
-|-----------|---------|--------------|
-| **Core API** | Primary developer interface | Element access, transactions, utilities |
-| **ORM Layer** | Object-relational mapping | LINQ-style queries, relationships, caching |
-| **Extension System** | Plugin architecture | Dependency injection, lifecycle management |
-| **Async Support** | Asynchronous operations | Progress tracking, cancellation, task queues |
-| **.NET Bridge** | Python-Revit interop | Type conversion, memory management, error handling |
-| **Package Manager** | Distribution system | Secure packages, dependency resolution |
-| **VS Code Extension** | Development environment | IntelliSense, debugging, project management |
+| Component | Module | Purpose |
+|-----------|--------|---------|
+| **Core API** | `revitpy.api` | RevitAPI wrapper, Element, Transaction, QueryBuilder, exceptions |
+| **ORM** | `revitpy.orm` | RevitContext, change tracking, caching, relationships, validation models |
+| **Events** | `revitpy.events` | EventManager, event types, decorator-based handlers |
+| **Extensions** | `revitpy.extensions` | Extension lifecycle, ExtensionManager, decorator registration |
+| **Async** | `revitpy.async_support` | AsyncRevit, TaskQueue, ProgressReporter, CancellationToken |
+| **Testing** | `revitpy.testing` | MockRevit, MockDocument, MockElement, MockApplication |
+| **Performance** | `revitpy.performance` | PerformanceOptimizer, BenchmarkSuite, MemoryManager |
+| **Config** | `revitpy.config` | Config, ConfigManager |
+| **Extract** | `revitpy.extract` | Quantity takeoff, material aggregation, cost estimation, data export |
+| **IFC** | `revitpy.ifc` | IFC export/import, element mapping, IDS validation, BCF, diff |
+| **AI** | `revitpy.ai` | MCP server, tool registration, safety guardrails, prompt templates |
+| **Sustainability** | `revitpy.sustainability` | Carbon calculations, EPD database, compliance checking, reports |
+| **Interop** | `revitpy.interop` | Speckle sync, type mapping, diff, merge, real-time subscriptions |
+| **Cloud** | `revitpy.cloud` | APS Design Automation, batch processing, CI/CD helpers |
 
-## What Makes RevitPy Different?
+## Community and Support
 
-### From PyRevit
-- **Modern Python**: Python 3.11+ vs IronPython 2.7
-- **Type Safety**: Full type annotations and IntelliSense support
-- **ORM Queries**: LINQ-style syntax vs manual element collection
-- **Async Support**: Native async/await vs synchronous only
-- **Package Management**: Secure distribution vs manual file copying
-- **Enterprise Ready**: MSI installer, security, monitoring vs basic deployment
-
-### From Dynamo
-- **Full Python**: Complete Python ecosystem vs limited nodes
-- **Professional IDE**: VS Code integration vs visual scripting
-- **Version Control**: Git-friendly text files vs binary graphs
-- **Debugging**: Full debugger support vs limited error messages
-- **Team Collaboration**: Standard development practices vs sharing graphs
-
-### From RevitPythonShell
-- **Modern Runtime**: Python 3.11+ vs Python 2.7/3.x
-- **Framework Features**: ORM, extensions, async vs basic shell
-- **Development Tools**: Full IDE integration vs simple console
-- **Package Management**: Secure packages vs manual installation
-- **Enterprise Support**: Professional deployment vs individual setup
-
-## Performance Benchmarks
-
-RevitPy delivers significant performance improvements over traditional approaches:
-
-| Operation | PyRevit | RevitPy | Improvement |
-|-----------|---------|---------|-------------|
-| Element Query (1000 elements) | 450ms | 120ms | **3.8x faster** |
-| Parameter Access | 25ms | 8ms | **3.1x faster** |
-| Bulk Updates (500 elements) | 2.1s | 650ms | **3.2x faster** |
-| Memory Usage (large model) | 245MB | 89MB | **2.8x less** |
-| Startup Time | 850ms | 280ms | **3.0x faster** |
-
-*Benchmarks performed on Revit 2024, Intel i7-12700K, 32GB RAM*
-
-## Quick Navigation
-
-<div class="examples-grid">
-    <a href="{{ '/getting-started/' | relative_url }}" class="example-card">
-        <div class="example-icon">&#128337;</div>
-        <h3 class="example-title">Get Started</h3>
-        <p class="example-description">Install RevitPy and create your first script in under 5 minutes.</p>
-    </a>
-    <a href="{{ '/examples/' | relative_url }}" class="example-card">
-        <div class="example-icon">&#128214;</div>
-        <h3 class="example-title">Examples</h3>
-        <p class="example-description">Real-world examples covering energy analysis, ML, IoT, and more.</p>
-    </a>
-    <a href="{{ '/pyrevit-integration/' | relative_url }}" class="example-card">
-        <div class="example-icon">&#128279;</div>
-        <h3 class="example-title">PyRevit Integration</h3>
-        <p class="example-description">Migrate from PyRevit with side-by-side code comparisons.</p>
-    </a>
-    <a href="{{ '/documentation/' | relative_url }}" class="example-card">
-        <div class="example-icon">&#128218;</div>
-        <h3 class="example-title">API Reference</h3>
-        <p class="example-description">Complete API documentation with examples and type information.</p>
-    </a>
-</div>
-
-## Community & Support
-
-### Get Help & Connect
 - **GitHub**: [Issues](https://github.com/aj-geddes/revitpy/issues) for bug reports and feature requests
 - **Discussions**: [GitHub Discussions](https://github.com/aj-geddes/revitpy/discussions) for community chat
-- **Documentation**: Complete guides, tutorials, and API reference
-
-### Contributing
-
-RevitPy is an open-source project that thrives on community contributions. Whether you're fixing bugs, adding features, improving documentation, or sharing packages, we welcome your involvement!
-
-<div style="margin-top: var(--space-6);">
-    <a href="https://github.com/aj-geddes/revitpy/blob/main/CONTRIBUTING.md" class="btn btn-outline">Start Contributing</a>
-</div>
+- **Contributing**: See the [Contributing Guide]({{ '/developer/contributing/' | relative_url }})
 
 ## License
 
-RevitPy Framework is released under the **MIT License**, enabling both personal and commercial use.
+RevitPy is released under the **MIT License**.
 
-- **Open Source License**: [MIT License](https://github.com/aj-geddes/revitpy/blob/main/LICENSE)
-- **Repository**: [github.com/aj-geddes/revitpy](https://github.com/aj-geddes/revitpy)
+- [MIT License](https://github.com/aj-geddes/revitpy/blob/main/LICENSE)
+- [Repository](https://github.com/aj-geddes/revitpy)
 
 ---
 
 <section class="cta-section">
     <div class="cta-container">
         <h2 class="cta-title">Ready to Get Started?</h2>
-        <p class="cta-description">Transform your Revit development experience with modern Python, enterprise architecture, and professional tooling.</p>
-        <a href="{{ '/getting-started/' | relative_url }}" class="btn btn-primary">Install RevitPy</a>
+        <p class="cta-description">Install RevitPy and start building modern Revit extensions with Python.</p>
+        <a href="{{ '/user/getting-started/' | relative_url }}" class="btn btn-primary">Install RevitPy</a>
     </div>
 </section>
 

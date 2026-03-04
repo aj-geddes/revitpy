@@ -1,564 +1,262 @@
-# RevitPy - Modern Python Gateway for Advanced Revit Analytics
+# RevitPy
 
 [![CI](https://github.com/aj-geddes/revitpy/actions/workflows/ci.yml/badge.svg)](https://github.com/aj-geddes/revitpy/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Development Status](https://img.shields.io/badge/status-alpha-orange.svg)]()
 
-RevitPy unlocks the full Python ecosystem for advanced Revit development capabilities that are impossible with IronPython. While PyRevit excels at UI tools and basic automation, RevitPy enables data science, machine learning, and modern cloud integration to complement your existing workflow.
+A modern Python framework for Autodesk Revit development featuring LINQ-style queries, an ORM layer with change tracking, an event system, extension framework, async support, quantity extraction, IFC interoperability, AI agent integration, sustainability analytics, Speckle connectivity, and cloud automation.
 
-## 🚀 What PyRevit Can't Do
+> **Status**: Alpha (Development Status 3). The API surface is functional but may change before 1.0.
 
-RevitPy bridges the gap between PyRevit's IronPython limitations and the modern Python ecosystem:
-
-### Data Science & Analytics
-- **NumPy & Pandas**: Advanced data analysis of building information
-- **SciPy & Matplotlib**: Statistical modeling and visualization
-- **Time Series Analysis**: Building performance forecasting
-- **Scientific Computing**: Complex engineering calculations
-
-### Machine Learning Applications
-- **TensorFlow & PyTorch**: AI-powered design optimization
-- **scikit-learn**: Predictive maintenance models
-- **Computer Vision**: Construction monitoring and quality control
-- **Space Planning AI**: Intelligent layout optimization
-
-### Modern Cloud & IoT Integration
-- **Async/Await Support**: Real-time data synchronization with cloud services
-- **OAuth2 & SAML**: Enterprise authentication with cloud platforms
-- **IoT Sensor Integration**: Live building performance monitoring
-- **Modern REST APIs**: Integration with contemporary web services
-- **WebSocket Connections**: Real-time collaboration and updates
-
-### Seamless PyRevit Integration
-- **Complementary Workflow**: PyRevit handles UI, RevitPy handles analytics
-- **Data Exchange**: Seamless data flow between PyRevit and RevitPy scripts
-- **Existing Tool Enhancement**: Add advanced capabilities to current PyRevit tools
-- **Gradual Adoption**: Integrate RevitPy incrementally with existing workflows
-
-## 🤝 Perfect Together: PyRevit + RevitPy
-
-| Capability | PyRevit | RevitPy | Recommended Use |
-|-----------|---------|---------|------------------|
-| **UI Panels & Tools** | ✅ Excellent | ⚠️ Complex | Use PyRevit |
-| **Basic Scripting** | ✅ Perfect | ⚠️ Overkill | Use PyRevit |
-| **Productivity Commands** | ✅ 200+ built-in | ⚠️ Build your own | Use PyRevit |
-| **Data Science** | ❌ Impossible | ✅ Full ecosystem | Use RevitPy |
-| **Machine Learning** | ❌ No TensorFlow/PyTorch | ✅ All frameworks | Use RevitPy |
-| **Cloud APIs** | ❌ Limited async support | ✅ Modern patterns | Use RevitPy |
-| **Advanced Analytics** | ❌ No NumPy/Pandas | ✅ Scientific computing | Use RevitPy |
-
-## 🔬 Advanced Analytics Use Cases
-
-### Building Energy Performance Analysis
-**Problem**: Need advanced statistical analysis of building energy data
-**PyRevit Limitation**: Cannot run NumPy/Pandas/SciPy for complex calculations
-**RevitPy Solution**: Full data science stack for energy modeling and optimization
-**ROI**: Replace $50,000+ specialized energy modeling software
-
-```python
-import pandas as pd
-import numpy as np
-from revitpy import RevitContext
-
-# Extract building data for analysis (impossible in PyRevit)
-with RevitContext() as context:
-    elements = context.elements.of_category('Walls')
-
-    # Create DataFrame for analysis
-    df = pd.DataFrame([{
-        'area': wall.area,
-        'u_value': wall.thermal_properties.u_value,
-        'orientation': wall.orientation
-    } for wall in elements])
-
-    # Advanced statistical analysis
-    thermal_performance = df.groupby('orientation')['u_value'].agg(['mean', 'std'])
-    energy_loss = np.sum(df['area'] * df['u_value'] * 24 * 365)  # Annual heat loss
-
-    print(f"Total annual heat loss: {energy_loss:,.0f} BTU/year")
-```
-
-### ML-Powered Space Optimization
-**Problem**: Need AI algorithms for intelligent space planning
-**PyRevit Limitation**: Cannot run TensorFlow/PyTorch for machine learning
-**RevitPy Solution**: Full ML framework access for optimization algorithms
-**ROI**: 30-50% improvement in space utilization efficiency
-
-```python
-import tensorflow as tf
-from revitpy import RevitContext
-
-# AI-powered space planning (impossible in PyRevit)
-def optimize_space_layout(rooms, constraints):
-    # Load pre-trained space optimization model
-    model = tf.keras.models.load_model('space_optimizer.h5')
-
-    # Extract room features for ML model
-    features = extract_room_features(rooms)
-
-    # Generate optimized layout
-    optimal_layout = model.predict(features)
-
-    return optimal_layout
-```
-
-### Real-time IoT Data Integration
-**Problem**: Need async cloud data synchronization with building sensors
-**PyRevit Limitation**: No async/await support for real-time operations
-**RevitPy Solution**: Modern async patterns with cloud SDKs
-**ROI**: $100,000+ in facility management automation
-
-```python
-import asyncio
-import aiohttp
-from revitpy import AsyncRevitContext
-
-async def sync_building_sensors():
-    """Sync real-time sensor data with Revit model (impossible in PyRevit)"""
-
-    async with AsyncRevitContext() as context:
-        while True:
-            # Fetch live sensor data from cloud
-            async with aiohttp.ClientSession() as session:
-                async with session.get('https://api.buildingsensors.com/data') as resp:
-                    sensor_data = await resp.json()
-
-            # Update Revit parameters with live data
-            for sensor in sensor_data:
-                element = await context.elements.find_by_id(sensor['element_id'])
-                await element.set_parameter('Temperature', sensor['temperature'])
-                await element.set_parameter('Humidity', sensor['humidity'])
-
-            await asyncio.sleep(300)  # Update every 5 minutes
-
-# Run continuously in background
-asyncio.create_task(sync_building_sensors())
-```
-
-## 🛠️ Integration Patterns
-
-### Pattern 1: PyRevit UI → RevitPy Analysis → PyRevit Display
-
-```python
-# PyRevit script (handles UI)
-import pyrevit
-from pyrevit import forms, UI
-import revitpy_bridge
-
-@pyrevit.command
-def analyze_energy_performance():
-    """PyRevit command that uses RevitPy for analysis"""
-
-    # PyRevit handles element selection
-    selection = pyrevit.ui.get_selected_elements()
-
-    if not selection:
-        forms.alert("Please select walls to analyze")
-        return
-
-    # RevitPy performs advanced analysis
-    analysis_results = revitpy_bridge.analyze_thermal_performance(selection)
-
-    # PyRevit displays results
-    output = pyrevit.script.get_output()
-    output.print_md("# Energy Performance Analysis")
-
-    for result in analysis_results:
-        output.print_md(f"**{result['name']}**: {result['u_value']:.3f} BTU/hr·ft²·°F")
-        output.chart([result['monthly_data']], title=result['name'])
-```
-
-```python
-# RevitPy bridge (handles advanced computation)
-import pandas as pd
-import numpy as np
-from revitpy import RevitContext
-
-def analyze_thermal_performance(elements):
-    """Advanced thermal analysis using RevitPy data science capabilities"""
-
-    with RevitContext() as context:
-        # Convert PyRevit selection to RevitPy elements
-        revitpy_elements = [context.elements.get_by_id(elem.Id) for elem in elements]
-
-        # Advanced analysis using pandas/numpy
-        df = pd.DataFrame([{
-            'id': elem.id,
-            'name': elem.name,
-            'area': elem.area,
-            'u_value': elem.thermal_properties.u_value,
-            'orientation': elem.orientation
-        } for elem in revitpy_elements])
-
-        # Complex calculations impossible in PyRevit
-        results = []
-        for _, row in df.iterrows():
-            monthly_data = calculate_monthly_heat_loss(row)
-            annual_cost = estimate_energy_cost(row, monthly_data)
-
-            results.append({
-                'id': row['id'],
-                'name': row['name'],
-                'u_value': row['u_value'],
-                'annual_cost': annual_cost,
-                'monthly_data': monthly_data
-            })
-
-        return results
-
-def calculate_monthly_heat_loss(wall_data):
-    """Complex thermal calculation using scientific libraries"""
-    # Use NumPy for advanced calculations
-    monthly_temps = np.array([-5, 0, 8, 18, 24, 30, 33, 31, 25, 15, 5, -2])  # °C
-    indoor_temp = 22
-
-    heat_loss = wall_data['area'] * wall_data['u_value'] * (indoor_temp - monthly_temps) * 24 * 30
-    return heat_loss.tolist()
-```
-
-### Pattern 2: Background Data Processing
-
-```python
-# RevitPy background service
-import asyncio
-from revitpy import AsyncRevitContext, ConfigManager
-
-class BuildingMonitoringService:
-    """Continuous monitoring service using RevitPy async capabilities"""
-
-    def __init__(self):
-        self.config = ConfigManager.load('monitoring_config.yaml')
-        self.running = False
-
-    async def start_monitoring(self):
-        """Start continuous building performance monitoring"""
-        self.running = True
-
-        async with AsyncRevitContext() as context:
-            while self.running:
-                try:
-                    # Collect real-time data from multiple sources
-                    tasks = [
-                        self.fetch_sensor_data(),
-                        self.fetch_weather_data(),
-                        self.fetch_energy_usage()
-                    ]
-
-                    sensor_data, weather_data, energy_data = await asyncio.gather(*tasks)
-
-                    # Advanced analysis combining all data sources
-                    analysis = await self.perform_complex_analysis(
-                        sensor_data, weather_data, energy_data
-                    )
-
-                    # Update Revit model with insights
-                    await self.update_model_parameters(context, analysis)
-
-                    # Store historical data for trend analysis
-                    await self.store_historical_data(analysis)
-
-                except Exception as e:
-                    print(f"Monitoring error: {e}")
-
-                await asyncio.sleep(self.config.update_interval)
-
-# Start background monitoring
-service = BuildingMonitoringService()
-asyncio.create_task(service.start_monitoring())
-```
-
-## 🏗️ Architecture for Advanced Analytics
-
-RevitPy's architecture is specifically designed to enable advanced Python capabilities:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    PyRevit Integration Layer               │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐          │
-│  │  UI Panels  │ │  Commands   │ │Data Bridge  │          │
-│  └─────────────┘ └─────────────┘ └─────────────┘          │
-├─────────────────────────────────────────────────────────────┤
-│              RevitPy Advanced Analytics Layer              │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐          │
-│  │  Data Sci   │ │   ML/AI     │ │  Cloud APIs │          │
-│  │  (Pandas,   │ │(TensorFlow, │ │ (Async/IoT) │          │
-│  │   NumPy)    │ │ PyTorch)    │ │             │          │
-│  └─────────────┘ └─────────────┘ └─────────────┘          │
-├─────────────────────────────────────────────────────────────┤
-│              Core Runtime Layer (Python 3.11+)           │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐          │
-│  │  CPython    │ │   Package   │ │   Async     │          │
-│  │  Ecosystem  │ │  Management │ │   Runtime   │          │
-│  └─────────────┘ └─────────────┘ └─────────────┘          │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 📋 Requirements
-
-- **Python**: 3.11 or later (for advanced ecosystem access)
-- **Revit**: 2021-2025 (Windows)
-- **.NET**: 6.0 or later
-- **OS**: Windows 10/11 (64-bit)
-- **PyRevit**: Optional but recommended for UI components
-
-## 🚀 Quick Start - Alongside PyRevit
-
-### Installation (Coexists with PyRevit)
+## Installation
 
 ```bash
-# Install RevitPy (PyRevit can remain installed)
 pip install revitpy
-
-# Create analytics project
-revitpy new building-analytics --template=data-science
-
-# Install scientific computing packages
-cd building-analytics
-pip install pandas numpy scipy matplotlib tensorflow
-
-# Start development server
-revitpy dev --integrate-pyrevit
 ```
 
-### Your First Analytics Script
+For development:
+
+```bash
+git clone https://github.com/aj-geddes/revitpy.git
+cd revitpy
+pip install -e ".[dev]"
+```
+
+## Key Features
+
+### LINQ-Style Query Builder
+
+Fluent query interface for filtering, sorting, and paginating Revit elements.
 
 ```python
-# building_analysis.py - Advanced analytics with RevitPy
-import pandas as pd
-import numpy as np
-from revitpy import RevitContext
+from revitpy import RevitAPI
 
-def analyze_building_performance():
-    """Advanced analysis impossible with PyRevit's IronPython"""
+api = RevitAPI()
 
-    with RevitContext() as context:
-        # Extract all building elements into pandas DataFrame
-        rooms = context.elements.of_category('Rooms')
-
-        df = pd.DataFrame([{
-            'id': room.id,
-            'name': room.name,
-            'area': room.area,
-            'volume': room.volume,
-            'occupancy': room.get_parameter('Occupancy'),
-            'lighting_load': room.get_parameter('Lighting Load Density')
-        } for room in rooms])
-
-        # Advanced statistical analysis
-        stats = {
-            'total_area': df['area'].sum(),
-            'avg_occupancy': df['occupancy'].mean(),
-            'area_per_person': df['area'].sum() / df['occupancy'].sum(),
-            'lighting_efficiency': df['lighting_load'].mean()
-        }
-
-        # Identify optimization opportunities
-        underutilized = df[df['occupancy'] < df['area'] * 0.1]  # Low occupancy density
-        overlighted = df[df['lighting_load'] > 1.2]  # High lighting load
-
-        return {
-            'summary': stats,
-            'optimization': {
-                'underutilized_rooms': underutilized.to_dict('records'),
-                'overlighted_rooms': overlighted.to_dict('records')
-            }
-        }
-
-if __name__ == "__main__":
-    results = analyze_building_performance()
-    print(f"Building Analysis Complete:")
-    print(f"Total Area: {results['summary']['total_area']:,.0f} sq ft")
-    print(f"Area per Person: {results['summary']['area_per_person']:.0f} sq ft/person")
-    print(f"Optimization opportunities found: {len(results['optimization']['underutilized_rooms'])} rooms")
+# Chain filters with a fluent interface
+results = (
+    api.query()
+    .where("category", FilterOperator.EQUALS, "Walls")
+    .contains("name", "Exterior")
+    .order_by_descending("height")
+    .skip(0)
+    .take(50)
+    .execute()
+)
 ```
 
-### Integrate with Existing PyRevit Tools
+### ORM with Change Tracking
+
+Entity framework-inspired ORM with Pydantic validation, caching, and relationship management.
 
 ```python
-# PyRevit script that calls RevitPy for advanced analytics
-from pyrevit import forms
-import building_analysis  # RevitPy module
+from revitpy.orm import create_context, RevitContext
 
-__doc__ = "Advanced Building Analytics (powered by RevitPy)"
+context = create_context(provider)
 
-def main():
-    # PyRevit handles the UI
-    result = forms.alert(
-        "Run advanced building performance analysis?",
-        "This tool uses RevitPy for advanced analytics not possible with PyRevit.",
-        ok=True, cancel=True
-    )
+# Query through the ORM
+walls = context.all(WallElement)
+tall_walls = context.where(WallElement, lambda w: w.height > 10)
 
-    if result:
-        # RevitPy handles the complex analysis
-        analysis = building_analysis.analyze_building_performance()
-
-        # PyRevit displays the results
-        output = script.get_output()
-        output.print_md("# Advanced Building Analysis Results")
-        output.print_md(f"**Total Area**: {analysis['summary']['total_area']:,.0f} sq ft")
-        output.print_md(f"**Utilization Efficiency**: {analysis['summary']['area_per_person']:.0f} sq ft/person")
-
-        if analysis['optimization']['underutilized_rooms']:
-            output.print_md("## Optimization Opportunities")
-            for room in analysis['optimization']['underutilized_rooms']:
-                output.print_md(f"- **{room['name']}**: Consider alternative use or consolidation")
-
-if __name__ == "__main__":
-    main()
+# Change tracking
+context.attach(element)
+element.name = "Updated Wall"
+count = context.save_changes()  # Persists tracked changes
 ```
 
-## 🔧 Configuration for PyRevit Integration
+### Event System
 
-```yaml
-# revitpy_config.yaml
-integration:
-  pyrevit:
-    enabled: true
-    data_bridge: true
-    shared_context: true
-
-analytics:
-  packages:
-    - pandas>=1.5.0
-    - numpy>=1.21.0
-    - scipy>=1.9.0
-    - matplotlib>=3.5.0
-    - tensorflow>=2.10.0  # Optional: for ML workloads
-    - scikit-learn>=1.1.0  # Optional: for ML workloads
-
-  compute:
-    max_workers: 4
-    memory_limit: "8GB"
-    enable_gpu: false  # Set true for ML workloads
-```
-
-## 🧪 Testing Advanced Analytics
+Priority-based event dispatching with sync and async handler support.
 
 ```python
-# test_analytics.py
-import pytest
-import pandas as pd
-from revitpy.testing import mock_revit, create_mock_room
-from building_analysis import analyze_building_performance
+from revitpy import EventManager, event_handler
 
-@mock_revit
-def test_building_analysis():
-    """Test advanced analytics with mock data"""
+@event_handler(EventType.ELEMENT_CHANGED, priority=EventPriority.HIGH)
+def on_element_changed(event_data):
+    print(f"Element {event_data.element_id} was modified")
 
-    # Create test building data
-    rooms = [
-        create_mock_room('Conference Room A', area=300, occupancy=20),
-        create_mock_room('Open Office', area=2000, occupancy=80),
-        create_mock_room('Storage', area=150, occupancy=1)  # Underutilized
-    ]
-
-    # Test analysis
-    results = analyze_building_performance()
-
-    assert results['summary']['total_area'] == 2450
-    assert len(results['optimization']['underutilized_rooms']) == 1
-    assert results['optimization']['underutilized_rooms'][0]['name'] == 'Storage'
-
-@mock_revit
-def test_performance_benchmarks():
-    """Test that advanced analytics meet performance requirements"""
-    import time
-
-    start_time = time.time()
-    results = analyze_building_performance()
-    duration = time.time() - start_time
-
-    # Analysis should complete in reasonable time even with pandas/numpy
-    assert duration < 2.0  # Less than 2 seconds
-    assert 'summary' in results
-    assert 'optimization' in results
+manager = EventManager.get_instance()
+manager.register_class_handlers(my_handler_instance)
 ```
 
-## 📚 When to Use Each Tool
+### Extension Framework
 
-### Use PyRevit for:
-- **UI Development**: Panels, commands, and user interfaces
-- **Basic Automation**: Simple scripts and productivity tools
-- **Existing Workflows**: Mature ecosystem with 200+ built-in tools
-- **Team Onboarding**: Easier learning curve for basic scripting
-- **Quick Wins**: Fast deployment of simple automation
+Plugin architecture with lifecycle management and dependency injection.
 
-### Use RevitPy for:
-- **Data Science**: When you need pandas, NumPy, SciPy for analysis
-- **Machine Learning**: AI/ML applications requiring TensorFlow, PyTorch
-- **Cloud Integration**: Modern APIs requiring async/await patterns
-- **Complex Analytics**: Statistical modeling and advanced computations
-- **IoT Integration**: Real-time sensor data and building automation
-- **Scientific Computing**: Engineering calculations beyond basic math
+```python
+from revitpy import Extension
 
-### Use Both Together for:
-- **Comprehensive Solutions**: PyRevit for UI, RevitPy for analytics
-- **Gradual Migration**: Start with PyRevit, add RevitPy capabilities incrementally
-- **Team Flexibility**: Different team members can use appropriate tools
-- **Maximum Capability**: Best of both worlds - established UI tools + modern analytics
+class MyExtension(Extension):
+    async def load(self):
+        self.log_info("Extension loading")
 
-## 🚀 Next Steps
+    async def activate(self):
+        self.log_info("Extension active")
 
-### Immediate Actions (5 minutes)
-1. **Keep PyRevit**: No need to remove existing PyRevit installation
-2. **Install RevitPy**: `pip install revitpy` - works alongside PyRevit
-3. **Try Analytics**: Run first data science example with your models
-4. **Explore Integration**: See how PyRevit and RevitPy work together
+    async def deactivate(self):
+        pass
 
-### Short-term Integration (1-2 hours)
-1. **Identify Analytics Opportunities**: Where do you need advanced capabilities?
-2. **Create Hybrid Scripts**: PyRevit UI + RevitPy analytics
-3. **Install Scientific Packages**: pandas, NumPy for your specific use cases
-4. **Test Integration**: Verify smooth data flow between tools
+    async def dispose(self):
+        pass
+```
 
-### Long-term Strategy (1-2 weeks)
-1. **Team Training**: Train team on when to use each tool
-2. **Advanced Use Cases**: Implement ML or cloud integration features
-3. **Workflow Integration**: Establish patterns for PyRevit + RevitPy development
-4. **Continuous Improvement**: Identify additional opportunities for advanced analytics
+### Transaction Management
 
-## 💬 Community & Support
+Context manager support for safe, rollback-capable transactions.
 
-### Get Help
-- **GitHub Issues**: [Technical issues and feature requests](https://github.com/aj-geddes/revitpy/issues)
-- **Documentation**: [Complete integration guide](https://docs.revitpy.dev/integration/pyrevit)
+```python
+from revitpy import RevitAPI
 
-### Share Your Success
-- **Showcase Projects**: Share your PyRevit + RevitPy integrations
-- **Best Practices**: Contribute integration patterns and examples
-- **Community Packages**: Publish analytics tools for others to use
+api = RevitAPI()
 
-## 📄 License
+with api.transaction("Rename Walls") as txn:
+    for element in elements:
+        element.name = f"Wall-{element.id}"
+    # Auto-commits on exit, rolls back on exception
+```
 
-RevitPy is open source software licensed under the [MIT License](LICENSE). Works seamlessly with PyRevit's existing license terms.
+### Testing Without Revit
 
-## 🏢 Enterprise Support
+Mock environment for unit testing outside of Revit.
 
-**Need help integrating RevitPy with your existing PyRevit workflows?**
+```python
+from revitpy import MockRevit
 
-- **Integration Consulting**: Custom PyRevit + RevitPy integration services
-- **Team Training**: Specialized training for hybrid development approaches
-- **Custom Analytics**: Bespoke data science solutions for your organization
-- **Enterprise Deployment**: Secure deployment alongside existing PyRevit infrastructure
+mock = MockRevit()
+doc = mock.create_document("Test.rvt")
+element = mock.create_element(name="Test Wall", category="Walls")
 
-Contact: [aj_geddes@yahoo.com](mailto:aj_geddes@yahoo.com)
+assert element.Name == "Test Wall"
+assert doc.GetElementCount() == 1
+```
 
----
+### Quantity Extraction
 
-**Made with ❤️ by AJ Geddes**
+Extract quantities, materials, costs, and export data from Revit elements.
 
-*Extending PyRevit's capabilities with the full Python ecosystem*
+```python
+from revitpy.extract import QuantityExtractor, DataExporter
 
-## Quick Comparison: What Each Tool Does Best
+extractor = QuantityExtractor()
+items = extractor.extract(elements)
+grouped = extractor.extract_grouped(elements, group_by=AggregationLevel.LEVEL)
 
-| Task | PyRevit ✅ | RevitPy 🔬 | Why? |
-|------|-----------|-------------|------|
-| Create UI panels | Perfect | Complex | PyRevit's mature UI framework |
-| Basic element queries | Excellent | Overkill | PyRevit's simple approach is ideal |
-| Productivity commands | 200+ built-in | Build your own | PyRevit's established ecosystem |
-| Data science analysis | Impossible | Native | Need pandas/NumPy ecosystem |
-| Machine learning | Impossible | Full support | Need TensorFlow/PyTorch |
-| Real-time cloud APIs | Limited | Modern async | Need async/await patterns |
-| Statistical modeling | Basic math only | Scientific computing | Need SciPy/statsmodels |
-| IoT sensor integration | Not supported | Full support | Need modern protocols |
+exporter = DataExporter()
+exporter.to_csv([item.__dict__ for item in items], Path("takeoff.csv"))
+```
 
-**Recommendation**: Use both tools together for maximum capability! 🚀
+### IFC Interoperability
+
+Bidirectional IFC workflows via IfcOpenShell (optional).
+
+```python
+from revitpy.ifc import IfcExporter, IfcVersion
+
+exporter = IfcExporter()
+exporter.export(elements, Path("model.ifc"), version=IfcVersion.IFC4)
+```
+
+### AI & MCP Server
+
+Expose RevitPy operations as MCP tools for AI agents with safety guardrails.
+
+```python
+from revitpy.ai import McpServer, RevitTools, SafetyGuard
+
+tools = RevitTools()
+guard = SafetyGuard()
+
+async with McpServer(tools, safety_guard=guard) as server:
+    await server.start()
+```
+
+### Sustainability & Carbon Analytics
+
+Embodied carbon calculations, EPD database, and compliance checking.
+
+```python
+from revitpy.sustainability import CarbonCalculator, ComplianceChecker
+
+calculator = CarbonCalculator()
+results = calculator.calculate(materials)
+summary = calculator.summarize(results)
+benchmark = calculator.benchmark(summary, building_area_m2=5000.0)
+```
+
+### Cloud & Design Automation
+
+Submit Design Automation jobs to Autodesk Platform Services.
+
+```python
+from revitpy.cloud import ApsClient, JobManager
+
+client = ApsClient(credentials)
+jobs = JobManager(client)
+job_id = await jobs.submit(config)
+result = await jobs.wait_for_completion(job_id)
+```
+
+## Architecture
+
+```
+revitpy/
+  api/             Core API: RevitAPI, Element, Transaction, QueryBuilder
+  orm/             ORM layer: RevitContext, change tracking, caching, validation
+  events/          Event system: manager, engine, decorators, filters
+  extensions/      Plugin framework: Extension, ExtensionManager, DI
+  async_support/   Async: AsyncRevit, TaskQueue, progress, cancellation
+  performance/     Optimizer, benchmarks, memory management
+  testing/         MockRevit, MockDocument, MockElement
+  config.py        Configuration management
+  extract/         Quantity takeoff, material aggregation, cost estimation, data export
+  ifc/             IFC export/import, element mapping, IDS validation, BCF, diff
+  ai/              MCP server, tool registration, safety guardrails, prompt templates
+  sustainability/  Carbon calculations, EPD database, compliance checking, reports
+  interop/         Speckle sync, type mapping, diff, merge, subscriptions
+  cloud/           APS Design Automation, batch processing, CI/CD helpers
+```
+
+## Requirements
+
+- Python 3.11+
+- See [pyproject.toml](pyproject.toml) for full dependency list
+
+Optional dependencies:
+
+```bash
+pip install revitpy[ifc]          # IFC support (ifcopenshell)
+pip install revitpy[interop]      # Speckle connectivity (specklepy)
+pip install revitpy[all]          # All optional dependencies
+```
+
+## Development
+
+```bash
+# Run tests
+pytest tests/
+
+# Lint and format
+ruff check revitpy/ tests/
+ruff format revitpy/ tests/
+
+# Type check
+mypy revitpy/
+
+# Pre-commit hooks
+pre-commit install
+pre-commit run --all-files
+```
+
+## Documentation
+
+Full documentation is available at [aj-geddes.github.io/revitpy](https://aj-geddes.github.io/revitpy/).
+
+- [Getting Started](https://aj-geddes.github.io/revitpy/user/getting-started/)
+- [API Reference](https://aj-geddes.github.io/revitpy/developer/api-reference/)
+- [User Guide](https://aj-geddes.github.io/revitpy/user/)
+- [Contributing](https://aj-geddes.github.io/revitpy/developer/contributing/)
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.

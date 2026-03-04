@@ -2,46 +2,35 @@
 layout: default
 ---
 
-<article class="api-doc">
-    <header class="api-header">
-        <h1 class="api-title">{{ page.title }}</h1>
-        {% if page.description %}
-        <p class="api-description">{{ page.description }}</p>
-        {% endif %}
+<article class="doc-page doc-page--api">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <ol>
+            <li><a href="{{ '/' | relative_url }}">Home</a></li>
+            <li><a href="{{ '/developer/' | relative_url }}">Developer</a></li>
+            <li><a href="{{ '/developer/api-reference/' | relative_url }}">API Reference</a></li>
+            {% if page.title %}
+            <li aria-current="page">{{ page.title }}</li>
+            {% endif %}
+        </ol>
+    </nav>
 
-        {% if page.version %}
-        <span class="api-version">Version: {{ page.version }}</span>
+    <header class="page-header">
+        <h1 class="page-title">{{ page.title }}</h1>
+        {% if page.description %}
+        <p class="page-description">{{ page.description }}</p>
+        {% endif %}
+        {% if page.module %}
+        <code class="module-path">{{ page.module }}</code>
         {% endif %}
     </header>
 
-    <nav class="api-toc">
-        <h3>On This Page</h3>
-        <p><em>Navigate using the headings below</em></p>
-    </nav>
-
-    <div class="api-content">
+    <div class="page-content api-content">
         {{ content }}
     </div>
 
-    <footer class="api-footer">
-        <div class="api-navigation">
-            {% if page.previous %}
-            <a href="{{ page.previous.url | relative_url }}" class="prev-page">
-                ← {{ page.previous.title }}
-            </a>
-            {% endif %}
-
-            {% if page.next %}
-            <a href="{{ page.next.url | relative_url }}" class="next-page">
-                {{ page.next.title }} →
-            </a>
-            {% endif %}
-        </div>
-
-        <div class="improve-page">
-            <a href="https://github.com/revitpy/revitpy/edit/main/docs/{{ page.path }}" target="_blank">
-                Edit this page on GitHub
-            </a>
-        </div>
+    <footer class="page-footer">
+        <a href="https://github.com/aj-geddes/revitpy/edit/main/docs/{{ page.path }}" class="edit-link" target="_blank" rel="noopener noreferrer">
+            Edit this page on GitHub
+        </a>
     </footer>
 </article>

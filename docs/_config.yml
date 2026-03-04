@@ -1,26 +1,32 @@
 # Jekyll Configuration for RevitPy Documentation
-# Modern, SEO-optimized documentation site
+# Three-tier documentation: Developer, Technical, User
 
 # Site settings
 title: RevitPy
 tagline: Modern Python Framework for Revit Development
 description: >-
-  RevitPy is an enterprise-grade Python framework for Autodesk Revit development.
-  Build faster with async/await, LINQ-style queries, machine learning integration,
-  and comprehensive type safety.
+  RevitPy is a modern Python framework for Autodesk Revit development with LINQ-style queries,
+  ORM, async support, IFC interoperability, AI agent integration, and cloud automation.
 baseurl: "/revitpy"
 url: "https://aj-geddes.github.io"
-author: RevitPy Team
-email: support@revitpy.org
+author: aj-geddes
 repository: aj-geddes/revitpy
 
 # Branding
 logo: /assets/images/logo.svg
-twitter_username: revitpy
-github_username: revitpy
+
+# Social / SEO (used by jekyll-seo-tag)
+twitter:
+  card: summary
+social:
+  name: RevitPy
+  links:
+    - https://github.com/aj-geddes/revitpy
+
+# Default image for social sharing
+defaults_og_image: /assets/images/logo.svg
 
 # Build settings
-layouts_dir: _layouts
 markdown: kramdown
 highlighter: rouge
 permalink: pretty
@@ -37,12 +43,6 @@ kramdown:
     span:
       css_class: highlight
 
-# Collections
-collections:
-  examples:
-    output: true
-    permalink: /examples/:path/
-
 # Defaults
 defaults:
   - scope:
@@ -50,21 +50,21 @@ defaults:
       type: "pages"
     values:
       layout: "default"
-      image: /assets/images/social-card.png
   - scope:
-      path: ""
-      type: "examples"
+      path: "developer"
     values:
-      layout: "example"
+      layout: "page"
+      doc_tier: "developer"
   - scope:
-      path: "reference"
+      path: "technical"
     values:
-      layout: "api"
+      layout: "page"
+      doc_tier: "technical"
   - scope:
-      path: ""
+      path: "user"
     values:
-      image: /assets/images/social-card.png
-      og_type: website
+      layout: "page"
+      doc_tier: "user"
 
 # Navigation
 navigation:
@@ -72,49 +72,101 @@ navigation:
     - title: Home
       url: /
     - title: Getting Started
-      url: /getting-started/
-    - title: Examples
-      url: /examples/
-    - title: PyRevit
-      url: /pyrevit-integration/
-    - title: Documentation
-      url: /documentation/
+      url: /user/getting-started/
+    - title: Developer
+      url: /developer/
+    - title: Technical
+      url: /technical/
+    - title: User Guide
+      url: /user/
     - title: GitHub
       url: https://github.com/aj-geddes/revitpy
       external: true
 
+  developer:
+    - title: Overview
+      url: /developer/
+    - title: Architecture
+      url: /developer/architecture/
+    - title: Setup Guide
+      url: /developer/setup/
+    - title: API Reference
+      url: /developer/api-reference/
+    - title: Testing
+      url: /developer/testing/
+    - title: Contributing
+      url: /developer/contributing/
+    - title: Code Style
+      url: /developer/code-style/
+
+  technical:
+    - title: Overview
+      url: /technical/
+    - title: System Design
+      url: /technical/system-design/
+    - title: Data Model
+      url: /technical/data-model/
+    - title: Performance
+      url: /technical/performance/
+    - title: Security
+      url: /technical/security/
+    - title: Infrastructure
+      url: /technical/infrastructure/
+
+  user:
+    - title: Overview
+      url: /user/
+    - title: Getting Started
+      url: /user/getting-started/
+    - title: Query Builder
+      url: /user/features/query-builder/
+    - title: ORM
+      url: /user/features/orm/
+    - title: Events
+      url: /user/features/events/
+    - title: Extensions
+      url: /user/features/extensions/
+    - title: Async Support
+      url: /user/features/async/
+    - title: Testing Utilities
+      url: /user/features/testing/
+    - title: Quantity Extraction
+      url: /user/features/extract/
+    - title: IFC Interop
+      url: /user/features/ifc/
+    - title: AI & MCP Server
+      url: /user/features/ai/
+    - title: Sustainability
+      url: /user/features/sustainability/
+    - title: Speckle Interop
+      url: /user/features/interop/
+    - title: Cloud Automation
+      url: /user/features/cloud/
+    - title: Configuration
+      url: /user/configuration/
+    - title: FAQ
+      url: /user/faq/
+    - title: Troubleshooting
+      url: /user/troubleshooting/
+
   footer:
     documentation:
       - title: Getting Started
-        url: /getting-started/
+        url: /user/getting-started/
       - title: API Reference
-        url: /documentation/
-      - title: Examples
-        url: /examples/
-      - title: PyRevit Integration
-        url: /pyrevit-integration/
+        url: /developer/api-reference/
+      - title: User Guide
+        url: /user/
     community:
       - title: GitHub
         url: https://github.com/aj-geddes/revitpy
-      - title: Discussions
-        url: https://github.com/aj-geddes/revitpy/discussions
       - title: Issues
         url: https://github.com/aj-geddes/revitpy/issues
       - title: Contributing
-        url: /contributing/
-    resources:
-      - title: Blog
-        url: /blog/
-      - title: Changelog
-        url: /changelog/
-      - title: Roadmap
-        url: /roadmap/
-      - title: License
-        url: /license/
+        url: /developer/contributing/
 
 # Plugins (GitHub Pages safe)
 plugins:
-  - jekyll-feed
   - jekyll-seo-tag
   - jekyll-sitemap
 
@@ -127,59 +179,16 @@ exclude:
   - .sass-cache
   - .jekyll-cache
   - .jekyll-metadata
-  - .venv
-  - __pycache__
-  - mkdocs.yml
-  - requirements-docs.txt
   - README.md
-
-# Include files
-include:
-  - _pages
 
 # Sass/SCSS
 sass:
   sass_dir: _sass
   style: compressed
 
-# SEO and Social
-twitter:
-  username: revitpy
-  card: summary_large_image
-
-facebook:
-  app_id:
-  publisher:
-  admins:
-
-social:
-  name: RevitPy
-  links:
-    - https://github.com/revitpy/revitpy
-    - https://twitter.com/revitpy
-
-# Webmaster verification
-webmaster_verifications:
-  google:
-  bing:
-  alexa:
-  yandex:
-
-# Analytics (optional)
-# google_analytics: G-XXXXXXXXXX
-
-# Features configuration
+# Features
 features:
   copy_code_button: true
   dark_mode: true
   search: true
   toc: true
-
-# Version
-version: "1.0.0"
-revit_versions:
-  - "2021"
-  - "2022"
-  - "2023"
-  - "2024"
-  - "2025"

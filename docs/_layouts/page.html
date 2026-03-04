@@ -2,7 +2,19 @@
 layout: default
 ---
 
-<article class="page">
+<article class="doc-page">
+    {% if page.doc_tier %}
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <ol>
+            <li><a href="{{ '/' | relative_url }}">Home</a></li>
+            <li><a href="{{ '/' | append: page.doc_tier | append: '/' | relative_url }}">{{ page.doc_tier | capitalize }}</a></li>
+            {% if page.title %}
+            <li aria-current="page">{{ page.title }}</li>
+            {% endif %}
+        </ol>
+    </nav>
+    {% endif %}
+
     <header class="page-header">
         <h1 class="page-title">{{ page.title }}</h1>
         {% if page.description %}
@@ -14,11 +26,11 @@ layout: default
         {{ content }}
     </div>
 
-    {% if page.last_modified_at %}
+    {% if page.doc_tier %}
     <footer class="page-footer">
-        <p class="last-modified">
-            Last updated: {{ page.last_modified_at | date: "%B %d, %Y" }}
-        </p>
+        <a href="https://github.com/aj-geddes/revitpy/edit/main/docs/{{ page.path }}" class="edit-link" target="_blank" rel="noopener noreferrer">
+            Edit this page on GitHub
+        </a>
     </footer>
     {% endif %}
 </article>
