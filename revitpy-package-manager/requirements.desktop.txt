@@ -18,7 +18,7 @@ httpx==0.25.2
 aiohttp==3.9.1
 
 # Security
-cryptography==42.0.2
+cryptography==46.0.5
 bcrypt==4.1.2
 python-jose[cryptography]==3.3.0
 
