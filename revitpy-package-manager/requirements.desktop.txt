@@ -23,7 +23,7 @@ bcrypt==4.1.2
 python-jose[cryptography]==3.3.0
 
 # Package management
-packaging==23.2
+packaging==26.0
 
 # CLI and output
 click==8.1.7
