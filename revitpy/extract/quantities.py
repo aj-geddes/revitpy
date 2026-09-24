@@ -28,11 +28,53 @@ _QUANTITY_ATTR_MAP: dict[QuantityType, tuple[str, str]] = {
 }
 
 
+# Revit parameters read from revitpy.api Element wrappers, with the factor
+# from Revit internal units (feet-based) to the metric default unit.
+_REVIT_PARAMETERS: dict[QuantityType, tuple[str, float]] = {
+    QuantityType.AREA: ("Area", 0.09290304),  # ft2 -> m2
+    QuantityType.VOLUME: ("Volume", 0.028316846592),  # ft3 -> m3
+    QuantityType.LENGTH: ("Length", 0.3048),  # ft -> m
+}
+
+
+def _safe_attr(element: Any, name: str, default: Any = None) -> Any:
+    """``getattr`` that also tolerates property errors (e.g. missing Revit
+    parameters behind revitpy.api descriptors)."""
+    try:
+        value = getattr(element, name, default)
+    except Exception:
+        return default
+    return default if value is None else value
+
+
+def _quantity_value(element: Any, qty_type: QuantityType, attr_name: str) -> Any:
+    """Read a quantity from an attribute, else from a Revit parameter."""
+    value = _safe_attr(element, attr_name)
+    if value is not None:
+        return value
+
+    from ..api.element import Element
+
+    parameter = _REVIT_PARAMETERS.get(qty_type)
+    if parameter is None or not isinstance(element, Element):
+        return None
+    name, factor = parameter
+    try:
+        raw = element.get_parameter_value(name)
+        return float(raw) * factor if raw not in (None, "") else None
+    except Exception:
+        return None
+
+
 class QuantityExtractor:
     """Extract measured quantities from Revit elements.
 
     Elements are duck-typed objects with optional area, volume, length,
     count, weight, name, category, level, and system attributes.
+    ``revitpy.api`` element wrappers (live Revit or MockRevit) are also
+    supported: missing area/volume/length attributes are read from the
+    ``Area``/``Volume``/``Length`` parameters and converted from Revit
+    internal units (feet) to m2/m3/m.
     """
 
     def __init__(self, context: Any | None = None) -> None:
@@ -91,14 +133,16 @@ class QuantityExtractor:
         """Extract quantities from a single element."""
         items: list[QuantityItem] = []
         element_id = getattr(element, "id", None)
-        element_name = getattr(element, "name", str(element_id) or "Unknown")
-        category = getattr(element, "category", "Uncategorized")
-        level = getattr(element, "level", "")
-        system = getattr(element, "system", "")
+        element_name = getattr(element, "name", None) or (
+            str(element_id) if element_id is not None else "Unknown"
+        )
+        category = _safe_attr(element, "category", "Uncategorized")
+        level = _safe_attr(element, "level", "")
+        system = _safe_attr(element, "system", "")
 
         for qty_type in quantity_types:
             attr_name, default_unit = _QUANTITY_ATTR_MAP[qty_type]
-            value = getattr(element, attr_name, None)
+            value = _quantity_value(element, qty_type, attr_name)
 
             if value is not None:
                 try:
@@ -107,7 +151,7 @@ class QuantityExtractor:
                     continue
 
                 if float_value > 0:
-                    unit = getattr(element, f"{attr_name}_unit", default_unit)
+                    unit = _safe_attr(element, f"{attr_name}_unit", default_unit)
                     items.append(
                         QuantityItem(
                             element_id=element_id,
@@ -123,7 +167,7 @@ class QuantityExtractor:
 
         # COUNT is special: if requested and element exists, always count 1
         if QuantityType.COUNT in quantity_types:
-            count_val = getattr(element, "count", None)
+            count_val = _safe_attr(element, "count")
             if count_val is None:
                 items.append(
                     QuantityItem(

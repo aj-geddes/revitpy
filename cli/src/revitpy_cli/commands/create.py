@@ -47,9 +47,9 @@ def project(
     """Create a new RevitPy project from a template.
 
     Examples:
-        revitpy create my-project
-        revitpy create my-addin --template addin
-        revitpy create my-plugin --template plugin --output ./projects
+        revitpy-dev create project my-project
+        revitpy-dev create project my-addin --template addin
+        revitpy-dev create project my-plugin --template plugin --output ./projects
     """
     start_time = time.time()
     log_command_start(
@@ -461,11 +461,11 @@ def show_next_steps(project_path: Path, template: str) -> None:
     elif (project_path / "pyproject.toml").exists():
         console.print("2. [dim]pip install -e .[dev][/dim]")
 
-    console.print("3. [dim]revitpy dev[/dim] - Start development server")
-    console.print("4. [dim]revitpy build[/dim] - Build your project")
+    console.print("3. [dim]revitpy-dev dev[/dim] - Start development server")
+    console.print("4. [dim]revitpy-dev build[/dim] - Build your project")
 
     # Template-specific suggestions
     if template in ["addin", "plugin"]:
         console.print("5. [dim]Configure Revit installation path in revitpy.toml[/dim]")
 
-    console.print("\n[dim]For help: revitpy --help[/dim]")
+    console.print("\n[dim]For help: revitpy-dev --help[/dim]")

@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    ARRAY,
     Boolean,
     DateTime,
     Float,
@@ -14,10 +13,11 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+from .types import JSONDict, StringArray
 
 
 class PackageSignature(Base):
@@ -57,7 +57,7 @@ class PackageSignature(Base):
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Additional metadata
-    signature_metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
+    signature_metadata: Mapped[dict] = mapped_column(JSONDict, default=dict)
 
     # Relationships
     version = relationship("PackageVersion", back_populates="signatures")
@@ -101,7 +101,7 @@ class VulnerabilityReport(Base):
     cvss_vector: Mapped[str | None] = mapped_column(String(200))
 
     # Affected versions
-    affected_versions: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    affected_versions: Mapped[list[str]] = mapped_column(StringArray, default=list)
     fixed_in_version: Mapped[str | None] = mapped_column(String(50))
 
     # Source information
@@ -124,9 +124,9 @@ class VulnerabilityReport(Base):
     )
 
     # Additional details
-    tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    references: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    vulnerability_metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
+    tags: Mapped[list[str]] = mapped_column(StringArray, default=list)
+    references: Mapped[list[str]] = mapped_column(StringArray, default=list)
+    vulnerability_metadata: Mapped[dict] = mapped_column(JSONDict, default=dict)
 
     # Relationships
     version = relationship("PackageVersion", back_populates="vulnerability_reports")
@@ -181,7 +181,7 @@ class ScanResult(Base):
 
     # Detailed results
     results_summary: Mapped[str] = mapped_column(Text)
-    detailed_results: Mapped[dict] = mapped_column(JSONB, default=dict)
+    detailed_results: Mapped[dict] = mapped_column(JSONDict, default=dict)
 
     # Error information
     error_message: Mapped[str | None] = mapped_column(Text)
@@ -228,8 +228,8 @@ class TrustedPublisher(Base):
     )
 
     # Configuration
-    allowed_packages: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    configuration: Mapped[dict] = mapped_column(JSONB, default=dict)
+    allowed_packages: Mapped[list[str]] = mapped_column(StringArray, default=list)
+    configuration: Mapped[dict] = mapped_column(JSONDict, default=dict)
 
     # Relationships
     user = relationship("User")

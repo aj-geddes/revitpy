@@ -93,18 +93,27 @@ class TestQueryPlan:
         assert plan.operations[0][0] == "filter"
         assert plan.estimated_cost == 2.0
 
-    def test_optimize_query_plan(self):
-        """Test query plan optimization."""
+    def test_optimize_moves_filter_before_sort(self):
+        """A filter after a sort can run first without changing results."""
         plan = QueryPlan()
-        plan.add_operation("select", lambda x: x.name, 1.0)
+        plan.add_operation("order_by", (lambda x: x.name, False), 3.0)
         plan.add_operation("filter", lambda x: x.category == "Wall", 2.0)
 
         optimized = plan.optimize()
 
-        # Filters should come before projections
-        assert optimized.operations[0][0] == "filter"
-        assert optimized.operations[1][0] == "select"
+        assert [op for op, _ in optimized.operations] == ["filter", "order_by"]
         assert optimized.estimated_cost < plan.estimated_cost
+
+    @pytest.mark.parametrize(
+        "before", ["select", "take", "skip", "distinct"], ids=lambda op: f"after-{op}"
+    )
+    def test_optimize_keeps_order_that_affects_results(self, before):
+        """Filters must not move across projections, paging or distinct."""
+        plan = QueryPlan()
+        plan.add_operation(before, 1 if before in ("take", "skip") else None)
+        plan.add_operation("filter", lambda x: True)
+
+        assert [op for op, _ in plan.optimize().operations] == [before, "filter"]
 
 
 class TestLazyQueryExecutor:
@@ -205,7 +214,31 @@ class TestQueryBuilder:
         projected = builder.select(lambda x: x.name)
 
         assert isinstance(projected, QueryBuilder)
-        assert projected._element_type != MockElement  # Type should change
+        assert projected.to_list() == [e.name for e in builder.to_list()]
+        # Builders are immutable: projecting must not alter the source query.
+        assert all(isinstance(e, MockElement) for e in builder.to_list())
+
+    def test_optimization_preserves_results(self, mock_provider, cache_manager):
+        """take/skip before where must not be reordered."""
+        builder = QueryBuilder(mock_provider, MockElement, cache_manager)
+        everything = builder.to_list()
+
+        taken_then_filtered = builder.take(2).where(lambda x: x.category == "Wall")
+        expected = [e for e in everything[:2] if e.category == "Wall"]
+        assert taken_then_filtered.to_list() == expected
+
+        skipped_then_filtered = builder.skip(1).where(lambda x: x.category == "Wall")
+        expected = [e for e in everything[1:] if e.category == "Wall"]
+        assert skipped_then_filtered.to_list() == expected
+
+    def test_different_predicates_are_not_served_from_cache(
+        self, mock_provider, cache_manager
+    ):
+        """Two lambdas must never share a cached result."""
+        builder = QueryBuilder(mock_provider, MockElement, cache_manager)
+        for _ in range(3):
+            assert builder.any(lambda x: x.category == "Wall") is True
+            assert builder.any(lambda x: x.category == "NonExistent") is False
 
     def test_order_by(self, mock_provider, cache_manager):
         """Test ordering functionality."""

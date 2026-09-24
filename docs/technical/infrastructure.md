@@ -5,8 +5,6 @@ description: Cloud deployment architecture for RevitPy with APS Design Automatio
 doc_tier: technical
 ---
 
-# Infrastructure & Cloud
-
 This document describes RevitPy's cloud integration layer: authentication against Autodesk Platform Services (APS), the Design Automation job pipeline, batch processing, CI/CD generation, webhook handling, and the rate limiting and retry strategies that tie them together.
 
 ## APS Integration Architecture
@@ -29,7 +27,7 @@ All HTTP communication uses `httpx.AsyncClient`. The entire cloud layer is fully
 
 ### Region Support
 
-`ApsClient` accepts a `CloudRegion` enum (`US` or `EMEA`) at construction time, allowing requests to be routed to the appropriate APS regional endpoint.
+`ApsClient(authenticator, *, region=CloudRegion.US, timeout=None, download_timeout=None, da_base_path=None)` uses the region to choose the Design Automation v3 base path (`client.da_base_path`). Only `US` is mapped (`/da/us-east/v3`). Other regions, including `EMEA`, fall back to `/da/us-east/v3` with a logged warning. Pass `da_base_path="/da/<region>/v3"` to override. `JobManager` sends every work-item request to `JobManager.workitems_path` (`{da_base_path}/workitems`). `timeout` and `download_timeout` accept an `httpx.Timeout` or a number of seconds; downloads get a longer read timeout by default.
 
 ## OAuth2 Authentication Flow
 
@@ -83,7 +81,7 @@ def is_expired(self) -> bool:
 
 ## Design Automation Job Pipeline
 
-The `JobManager` class wraps the APS Design Automation v3 WorkItems API (`/da/us-east/v3/workitems`), providing a high-level interface for the full job lifecycle.
+The `JobManager` class wraps the APS Design Automation v3 WorkItems API (`{da_base_path}/workitems`, by default `/da/us-east/v3/workitems`), providing a high-level interface for the full job lifecycle.
 
 ### Job Lifecycle State Machine
 
@@ -132,7 +130,7 @@ On success the method returns the `job_id` string. On failure it raises `JobSubm
 
 ### Poll and Wait
 
-`JobManager.wait_for_completion(job_id, timeout=600.0, poll_interval=5.0) -> JobResult` polls `GET /da/us-east/v3/workitems/{job_id}` at the specified interval until the job reaches a terminal state (`COMPLETED`, `FAILED`, `CANCELLED`, or `TIMED_OUT`).
+`JobManager.wait_for_completion(job_id, timeout=600.0, poll_interval=5.0) -> JobResult` polls `GET {da_base_path}/workitems/{job_id}` at the specified interval until the job reaches a terminal state (`COMPLETED`, `FAILED`, `CANCELLED`, or `TIMED_OUT`).
 
 - If the job completes successfully, a `JobResult` is returned with `output_files`, `logs` (report URL), and `duration_ms`.
 - If the job fails, a `JobExecutionError` is raised.
@@ -275,23 +273,15 @@ ci.save_workflow(gl_yaml, ".gitlab-ci.yml")
 
 ### HMAC Signature Verification
 
-When a `WebhookConfig` is supplied with a `secret`, `verify_signature(payload, signature)` computes an HMAC-SHA256 digest of the raw request body and compares it against the hex-encoded signature from the request header using `hmac.compare_digest` (constant-time comparison to prevent timing attacks).
-
-```python
-def verify_signature(self, payload: bytes, signature: str) -> bool:
-    expected = hmac.new(
-        self._config.secret.encode("utf-8"),
-        payload,
-        hashlib.sha256,
-    ).hexdigest()
-    return hmac.compare_digest(expected, signature)
-```
-
-If no secret is configured, calling `verify_signature` raises `WebhookError` to prevent accidental unverified processing.
+Signatures follow the APS Webhooks scheme. The `x-adsk-signature` header is `sha1hash=` followed by the hex **HMAC-SHA1** of the raw request body, keyed with the hook's secret. `compute_signature(secret, payload)` produces that value. `verify_signature(payload, signature)` accepts it with or without the `sha1hash=` prefix and compares in constant time (`hmac.compare_digest`). If no secret is configured, `verify_signature` raises `WebhookError`.
 
 ### Event Routing
 
-`handle_event(event_data: dict) -> WebhookEvent` parses the incoming JSON payload, extracts `eventType`, `jobId`, `status`, and `timestamp`, maps the raw status to a `JobStatus` enum member, and dispatches the event to registered callbacks.
+```python
+handle_event(event_data=None, *, raw_body=None, signature=None, verify=True) -> WebhookEvent
+```
+
+With `verify=True` (the default), a secret must be configured and both `raw_body` and `signature` are required. The event is parsed from the verified `raw_body`, and `event_data` is ignored. Pass `verify=False` to accept unsigned payloads from `event_data` or `raw_body`, for example Design Automation `onComplete` callbacks, which APS does not sign. The payload's `eventType`, `jobId`, `status` and `timestamp` are extracted, the raw status is mapped to a `JobStatus`, and the event is dispatched to registered callbacks.
 
 ### Callback Registration
 

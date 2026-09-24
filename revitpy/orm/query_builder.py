@@ -13,12 +13,13 @@ import itertools
 import json
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import (
     TYPE_CHECKING,
     Any,
     Generic,
     TypeVar,
+    cast,
 )
 
 from loguru import logger
@@ -53,6 +54,30 @@ OPTIMIZATION_IMPROVEMENT_FACTOR = 0.8
 PARALLEL_EXECUTION_COST_THRESHOLD = 10.0
 
 
+def _contains_callable(value: Any) -> bool:
+    """Return True if ``value`` is, or (shallowly nested) contains, a callable."""
+    if callable(value):
+        return True
+    if isinstance(value, dict):
+        return any(_contains_callable(v) for v in value.values())
+    if isinstance(value, list | tuple | set | frozenset):
+        return any(_contains_callable(v) for v in value)
+    return False
+
+
+def plan_is_cacheable(plan: QueryPlan) -> bool:
+    """Whether a plan's results may be served from the result cache.
+
+    Plans containing callables (``where``/``select``/``order_by`` lambdas)
+    are never cached: a callable has no stable identity to key on (a new
+    lambda can reuse a freed one's address, and closures capture mutable
+    state), so a cache hit could return another query's results.
+    """
+    return plan.cache_strategy != CachePolicy.NONE and not any(
+        _contains_callable(details) for _, details in plan.operations
+    )
+
+
 @dataclass
 class QueryPlan:
     """Represents an optimized query execution plan."""
@@ -69,14 +94,29 @@ class QueryPlan:
         self.estimated_cost += cost
 
     def optimize(self) -> QueryPlan:
-        """Optimize the query plan."""
-        # Move filters before projections
-        filters = [op for op in self.operations if op[0] == "filter"]
-        projections = [op for op in self.operations if op[0] == "select"]
-        others = [op for op in self.operations if op[0] not in ("filter", "select")]
+        """Optimize the query plan without changing its results.
+
+        The only reordering applied is moving a filter ahead of an immediately
+        preceding sort (filtering then sorting yields the same sequence as
+        sorting then filtering, but sorts fewer elements). Filters are never
+        moved across ``select`` (the predicate may expect projected values),
+        ``skip``/``take`` or ``distinct`` (which would change which elements
+        are returned).
+        """
+        operations = list(self.operations)
+        for i in range(1, len(operations)):
+            j = i
+            while (
+                j > 0
+                and operations[j][0] == "filter"
+                and operations[j - 1][0] in ("order_by", "then_by")
+            ):
+                operations[j - 1], operations[j] = operations[j], operations[j - 1]
+                j -= 1
+        filters = [op for op in operations if op[0] == "filter"]
 
         optimized = QueryPlan()
-        optimized.operations = filters + others + projections
+        optimized.operations = operations
         optimized.estimated_cost = self.estimated_cost * OPTIMIZATION_IMPROVEMENT_FACTOR
         optimized.use_index = len(filters) > 0
         optimized.parallel_execution = (
@@ -110,6 +150,11 @@ class LazyQueryExecutor(Generic[T]):
         self._query_hash = None  # Reset hash when plan changes
 
     @property
+    def is_cacheable(self) -> bool:
+        """Whether results of this plan may be cached (see ``plan_is_cacheable``)."""
+        return plan_is_cacheable(self._query_plan)
+
+    @property
     def query_hash(self) -> str:
         """Get hash of the current query plan."""
         if self._query_hash is None:
@@ -126,7 +171,7 @@ class LazyQueryExecutor(Generic[T]):
             return self._results
 
         # Check cache first
-        if self._query_plan.cache_strategy != CachePolicy.NONE:
+        if self.is_cacheable:
             cache_key = CacheKey(
                 entity_type=self._element_type.__name__
                 if self._element_type
@@ -142,7 +187,7 @@ class LazyQueryExecutor(Generic[T]):
                 return self._results
 
         # Execute query
-        start_time = datetime.utcnow()
+        start_time = datetime.now(UTC)
 
         try:
             # Get initial elements
@@ -167,8 +212,7 @@ class LazyQueryExecutor(Generic[T]):
 
             # Cache results if enabled
             if (
-                self._query_plan.cache_strategy != CachePolicy.NONE
-                and len(self._results) < _LAZY_EVAL_THRESHOLD
+                self.is_cacheable and len(self._results) < _LAZY_EVAL_THRESHOLD
             ):  # Don't cache huge result sets
                 cache_key = CacheKey(
                     entity_type=self._element_type.__name__
@@ -178,7 +222,7 @@ class LazyQueryExecutor(Generic[T]):
                 )
                 self._cache_manager.set(cache_key, self._results)
 
-            execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+            execution_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
             logger.debug(
                 f"Query executed in {execution_time:.2f}ms, returned {len(self._results)} elements"
             )
@@ -201,17 +245,28 @@ class LazyQueryExecutor(Generic[T]):
         return await asyncio.get_event_loop().run_in_executor(None, self.execute)
 
     async def execute_streaming(self, batch_size: int = 100) -> AsyncIterator[list[T]]:
-        """Execute query with streaming results."""
-        if self._query_plan.parallel_execution:
-            # For large queries, execute in chunks
-            full_results = await self.execute_async()
+        """Execute the query lazily, yielding lists of at most ``batch_size``.
 
-            for i in range(0, len(full_results), batch_size):
-                yield full_results[i : i + batch_size]
+        The operation pipeline is consumed incrementally (except ``order_by``,
+        which must see every element), and control returns to the event loop
+        between batches.
+        """
+        if batch_size < 1:
+            raise ValueError("batch_size must be at least 1")
+
+        if self._element_type:
+            elements = self._provider.get_elements_of_type(self._element_type)
         else:
-            # For small queries, return all at once
-            results = await self.execute_async()
-            yield results
+            elements = self._provider.get_all_elements()
+
+        current: Iterable[T] = elements
+        for operation, details in self._query_plan.operations:
+            current = self._apply_operation(operation, details, current)
+
+        iterator = iter(current)
+        while batch := list(itertools.islice(iterator, batch_size)):
+            yield batch
+            await asyncio.sleep(0)
 
     def _apply_operation(
         self, operation: str, details: Any, elements: Iterable[T]
@@ -310,12 +365,9 @@ class QueryBuilder(Generic[T], IQueryable[T], IAsyncQueryable[T]):
 
     def select(self, selector: QuerySelector[T, R]) -> QueryBuilder[R]:
         """Project elements using a selector function."""
-        new_builder = QueryBuilder[R](
-            self._provider,
-            cache_manager=self._cache_manager,
-            query_mode=self._query_mode,
-        )
-        new_builder._query_plan = self._query_plan
+        # Keep the source element type: it determines which elements are
+        # fetched before the projection runs.
+        new_builder = cast("QueryBuilder[R]", self._clone())
         new_builder._query_plan.add_operation("select", selector, cost=1.0)
         return new_builder
 
@@ -553,6 +605,11 @@ class QueryBuilder(Generic[T], IQueryable[T], IAsyncQueryable[T]):
         return self.count()
 
     # Internal methods
+
+    @property
+    def is_cacheable(self) -> bool:
+        """Whether this query's results can be served from the result cache."""
+        return plan_is_cacheable(self._query_plan)
 
     def _clone(self) -> QueryBuilder[T]:
         """Create a copy of this query builder."""

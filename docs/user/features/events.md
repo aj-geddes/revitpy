@@ -5,8 +5,6 @@ description: Guide to the RevitPy event system with EventManager, decorator-base
 doc_tier: user
 ---
 
-# Events
-
 RevitPy includes an event system for reacting to changes in the Revit model. The system supports event handlers with priorities, filters, async dispatch, throttling, retry logic, and auto-discovery of handlers.
 
 ## EventManager
@@ -343,7 +341,7 @@ def on_element_deleted(event_data):
 
 ## Registering Class-Based Handlers
 
-If you have a class with decorated handler methods, register all handlers at once:
+Register all decorated methods of an instance at once. Each method gets its own handler bound to that instance (named `ClassName.method`), so several instances of one class receive events independently:
 
 ```python
 class MyHandlers:
@@ -358,6 +356,26 @@ class MyHandlers:
 handlers = MyHandlers()
 registered = manager.register_class_handlers(handlers)
 ```
+
+## Native Revit Events
+
+Inside Revit, forward Revit's own application events into the `EventManager`:
+
+```python
+manager = EventManager.get_instance()
+manager.connect_to_revit(__revit__)   # UIApplication or Application; main thread only
+# ...
+manager.disconnect_from_revit()
+```
+
+| Revit event | RevitPy event(s) |
+|---|---|
+| `DocumentOpened` | `DOCUMENT_OPENED` |
+| `DocumentSaved` | `DOCUMENT_SAVED` |
+| `DocumentClosing` | `DOCUMENT_CLOSED` |
+| `DocumentChanged` | `ELEMENT_CREATED` / `ELEMENT_MODIFIED` / `ELEMENT_DELETED`, one per element id, with `category` and `data["transactions"]` |
+
+These events are dispatched immediately on Revit's thread, because Revit only allows model access inside its callback. Exceptions raised by handlers are logged and never propagate into Revit.
 
 ## Handler Auto-Discovery
 

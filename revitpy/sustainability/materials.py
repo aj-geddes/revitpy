@@ -11,6 +11,7 @@ from __future__ import annotations
 from loguru import logger
 
 from .exceptions import SustainabilityError
+from .matching import best_match_value
 from .types import MaterialData
 
 # Classification mappings for common building material categories.
@@ -183,7 +184,10 @@ class MaterialExtractor:
 
         Returns:
             List of MaterialData with updated category fields that include
-            classification codes.
+            classification codes. ``classification_match`` and
+            ``classification_confidence`` record how each name was
+            matched (deterministic scored matching; low-confidence or
+            ambiguous matches are logged as warnings).
         """
         if system == "MasterFormat":
             lookup = _MASTERFORMAT_CLASSIFICATIONS
@@ -192,12 +196,9 @@ class MaterialExtractor:
 
         classified: list[MaterialData] = []
         for mat in materials:
-            key = mat.name.lower().strip()
-            code = None
-            for keyword, classification in lookup.items():
-                if keyword in key:
-                    code = classification
-                    break
+            code, match = best_match_value(
+                mat.name, lookup, context=f"{system} classification"
+            )
 
             new_category = f"{mat.category} [{code}]" if code else mat.category
             classified.append(
@@ -211,6 +212,9 @@ class MaterialExtractor:
                     element_id=mat.element_id,
                     level=mat.level,
                     system=mat.system,
+                    classification_code=code,
+                    classification_match=match.match_type.value,
+                    classification_confidence=match.confidence,
                 )
             )
 

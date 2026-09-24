@@ -15,6 +15,8 @@ from pathlib import Path
 
 from loguru import logger
 
+from revitpy.sustainability.matching import MatchResult, MatchType, best_match_value
+
 from .exceptions import CostEstimationError
 from .types import (
     AggregationLevel,
@@ -138,8 +140,9 @@ class CostEstimator:
         """Map quantities to costs and produce a summary.
 
         For each QuantityItem, the estimator looks up the unit cost
-        by category name. If a category is not found in the database,
-        it is skipped with a warning.
+        by category name (see :meth:`_lookup_cost`). Each CostItem records
+        the matched database key, match type and confidence. Categories
+        with no match are skipped.
 
         Args:
             quantities: List of QuantityItem instances.
@@ -158,13 +161,14 @@ class CostEstimator:
         total_cost = 0.0
 
         for qty in quantities:
-            unit_cost = self._lookup_cost(qty)
-            if unit_cost is None:
+            found = self._lookup_cost(qty)
+            if found is None:
                 logger.debug(
                     "No cost data for category '{}', skipping",
                     qty.category,
                 )
                 continue
+            unit_cost, match = found
 
             line_cost = qty.value * unit_cost
             cost_item = CostItem(
@@ -176,6 +180,9 @@ class CostEstimator:
                 source=self._source,
                 category=qty.category,
                 system=qty.system,
+                matched_key=match.key or "",
+                match_type=match.match_type.value,
+                match_confidence=match.confidence,
             )
             items.append(cost_item)
             total_cost += line_cost
@@ -200,25 +207,26 @@ class CostEstimator:
         )
         return summary
 
-    def _lookup_cost(self, qty: QuantityItem) -> float | None:
-        """Look up unit cost for a quantity item.
+    def _lookup_cost(self, qty: QuantityItem) -> tuple[float, MatchResult] | None:
+        """Look up the unit cost for a quantity item.
 
-        Tries exact category match, then case-insensitive, then
-        partial match.
+        Uses deterministic scored matching of ``qty.category`` against the
+        database keys: exact (case/punctuation-insensitive), then
+        whole-token, then substring; ties are broken by head-noun
+        position, key length, then alphabetically. Low-confidence or
+        ambiguous matches are logged as warnings.
+
+        Returns:
+            ``(unit_cost, match)`` or ``None`` when no key matches.
         """
-        # Exact match
         if qty.category in self._database:
-            return self._database[qty.category]
+            return self._database[qty.category], MatchResult(
+                qty.category, MatchType.EXACT, 1.0, qty.category
+            )
 
-        # Case-insensitive match
-        lower_category = qty.category.lower()
-        for key, value in self._database.items():
-            if key.lower() == lower_category:
-                return value
-
-        # Partial match
-        for key, value in self._database.items():
-            if key.lower() in lower_category or lower_category in key.lower():
-                return value
-
-        return None
+        value, match = best_match_value(
+            qty.category, self._database, context="cost lookup"
+        )
+        if value is None:
+            return None
+        return value, match

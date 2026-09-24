@@ -1043,3 +1043,52 @@ class TestCascadingDeletes:
             .all()
         )
         assert len(remaining_deps) == 0
+
+
+class TestStringArrayContains:
+    """StringArray.contains works on SQLite and stays native on PostgreSQL."""
+
+    def test_postgresql_renders_native_array_containment(self):
+        from sqlalchemy import select
+        from sqlalchemy.dialects import postgresql
+
+        sql = str(
+            select(Package.id)
+            .where(Package.categories.contains("utilities"))
+            .compile(dialect=postgresql.dialect())
+        )
+
+        assert "packages.categories @> ARRAY[" in sql
+        assert "json_each" not in sql
+
+    def test_sqlite_membership_queries(self, db_session):
+        from sqlalchemy import select
+
+        owner = User(username="arr", email="arr@example.com", password_hash="x")
+        db_session.add(owner)
+        db_session.flush()
+        db_session.add_all(
+            [
+                Package(
+                    name=name,
+                    normalized_name=name,
+                    owner_id=owner.id,
+                    keywords=keywords,
+                    categories=[],
+                )
+                for name, keywords in (
+                    ("pkg-a", ["walls", "doors"]),
+                    ("pkg-b", ["walls"]),
+                    ("pkg-c", ["wall"]),  # substring of "walls" must not match
+                )
+            ]
+        )
+        db_session.commit()
+
+        def names(clause):
+            rows = db_session.execute(select(Package.name).where(clause))
+            return sorted(rows.scalars())
+
+        assert names(Package.keywords.contains("walls")) == ["pkg-a", "pkg-b"]
+        assert names(Package.keywords.contains(["walls", "doors"])) == ["pkg-a"]
+        assert names(Package.keywords.contains("roofs")) == []

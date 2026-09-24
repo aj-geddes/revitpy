@@ -12,7 +12,7 @@ import pytest
 from revitpy.ai._protocol import McpRequest, McpResponse
 from revitpy.ai.prompts import PromptLibrary
 from revitpy.ai.safety import SafetyGuard
-from revitpy.ai.server import McpServer
+from revitpy.ai.server import LATEST_PROTOCOL_VERSION, McpServer
 from revitpy.ai.tools import RevitTools
 from revitpy.ai.types import (
     McpServerConfig,
@@ -99,7 +99,7 @@ class TestMcpServer:
         assert isinstance(response, McpResponse)
         assert response.id == 1
         result = response.result
-        assert result["protocolVersion"] == "2024-11-05"
+        assert result["protocolVersion"] == LATEST_PROTOCOL_VERSION
         assert "tools" in result["capabilities"]
         assert "prompts" in result["capabilities"]
         assert result["serverInfo"]["name"] == "revitpy-mcp"
@@ -126,14 +126,15 @@ class TestMcpServer:
     # ----------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_handle_tools_call_success(self, server):
+    async def test_handle_tools_call_success(self, fake_api):
         """tools/call with valid args returns a success response."""
+        server = McpServer(RevitTools(fake_api))
         request = McpRequest(
             id=3,
             method="tools/call",
             params={
                 "name": "get_element",
-                "arguments": {"element_id": 42},
+                "arguments": {"element_id": 1},
             },
         )
         response = await server._handle_message(request)
@@ -267,4 +268,27 @@ class TestMcpServer:
 
         ws.send.assert_called_once()
         sent = json.loads(ws.send.call_args[0][0])
-        assert "error" in sent
+        assert sent["error"]["code"] == -32700
+        assert sent["id"] is None
+
+    @pytest.mark.asyncio
+    async def test_handle_connection_tool_error_keeps_request_id(self):
+        """A failing tool over a connection still replies with the request id."""
+        server = McpServer(
+            RevitTools(),
+            safety_guard=SafetyGuard(SafetyConfig(mode=SafetyMode.FULL_ACCESS)),
+        )
+        request = McpRequest(
+            id=42,
+            method="tools/call",
+            params={"name": "get_element", "arguments": {"element_id": 1}},
+        )
+        ws = _AsyncIterFromList([request.to_json()])
+        ws.send = AsyncMock()
+
+        await server._handle_connection(ws)
+
+        sent = json.loads(ws.send.call_args[0][0])
+        assert sent["id"] == 42
+        assert sent["result"]["isError"] is True
+        assert "Not connected" in sent["result"]["content"][0]["text"]

@@ -11,7 +11,7 @@ This guide covers the workflow for contributing code to the RevitPy project.
 
 ## Getting Started
 
-1. Fork the repository on GitHub: `https://github.com/revitpy/revitpy`
+1. Fork the repository on GitHub: `https://github.com/aj-geddes/revitpy`
 2. Clone your fork:
 
    ```bash
@@ -90,14 +90,22 @@ mypy revitpy
 **Tests:**
 
 ```bash
-pytest tests/orm/ -q --tb=short
+pytest            # default suite; slow stress tests are excluded
+pytest -m slow    # the slow tests, when you touch performance-sensitive code
 ```
 
-For the full suite:
+If you changed IFC or Speckle code, install the integrations and run their tests too: `pip install -e ".[dev,all]"`, then `pytest tests/ifc tests/interop`.
+
+**Revit add-in** (only when you change `src/RevitPy.Addin`). This needs the .NET SDK 10.x, which builds every target:
 
 ```bash
-pytest
+dotnet build src/RevitPy.Addin/RevitPy.Addin.csproj -c Release -p:RevitVersion=2024
+dotnet build src/RevitPy.Addin/RevitPy.Addin.csproj -c Release -p:RevitVersion=2027
 ```
+
+Warnings are errors. `src/RevitPy.Addin` is the only C# project.
+
+**Docs:** keep `README.md`, `CHANGELOG.md` and `docs/` in sync with behaviour changes. Add an entry under `[Unreleased]` in `CHANGELOG.md`.
 
 ### Pre-commit Hooks
 
@@ -127,49 +135,20 @@ If a hook fails, fix the issue and re-stage your changes before committing again
 
 ## CI Pipeline
 
-The CI workflow (`.github/workflows/ci.yml`) runs on every push to `main` and on every pull request targeting `main`. It consists of four jobs:
+The CI workflow (`.github/workflows/ci.yml`) runs on every push to `main` and on every pull request targeting `main`:
 
-### 1. Lint
+| Job | Python / platform | Commands |
+|---|---|---|
+| **Lint** | 3.12 | `ruff check revitpy/ tests/`, `ruff format --check revitpy/ tests/` |
+| **Type Check** | 3.11, 3.13 | `mypy revitpy` |
+| **Test** | 3.11, 3.12, 3.13 | `pytest tests/ --cov=revitpy` (optional integrations not installed, so those tests skip) |
+| **Test with optional integrations** | 3.12 | `pip install -e ".[dev,all]"`, then `pytest tests/` |
+| **Security** | 3.12 | `pip-audit --skip-editable`, `ruff check --select S revitpy/ tests/` |
+| **Revit add-in** | .NET 10, ubuntu | `dotnet build src/RevitPy.Addin/RevitPy.Addin.csproj -c Release -p:RevitVersion=<2024-2027>`, uploads the DLLs and manifest as artifacts |
 
-Runs on Python 3.11 and 3.12.
+The security job audits installed dependencies for known vulnerabilities (`pip-audit`) and runs the Bandit-derived `S` rules from ruff.
 
-```
-pip install -e ".[dev]"
-ruff check revitpy/ tests/
-ruff format --check revitpy/ tests/
-```
-
-### 2. Type Check
-
-Runs on Python 3.11 and 3.12.
-
-```
-pip install -e ".[dev]"
-mypy revitpy
-```
-
-### 3. Test
-
-Runs on Python 3.11 and 3.12.
-
-```
-pip install -e ".[dev]"
-pytest tests/orm/ -q --tb=short
-```
-
-### 4. Security
-
-Runs on Python 3.12 only.
-
-```
-pip install -e ".[dev]" pip-audit
-pip-audit
-ruff check --select S revitpy/ tests/
-```
-
-This job audits installed dependencies for known vulnerabilities (`pip-audit`) and runs the Bandit-derived security rules from ruff (`S` rule set).
-
-All four jobs must pass for a pull request to be merge-ready.
+All jobs must pass for a pull request to be merge-ready.
 
 ## Commit Messages
 

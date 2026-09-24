@@ -108,6 +108,11 @@ graph TB
 
 ### Environment Variables
 
+Copy `env.example` to `.env` and fill in the secrets. `docker-compose.yml` has no
+default credentials and refuses to start until `POSTGRES_PASSWORD`,
+`MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `GRAFANA_ADMIN_PASSWORD` and
+`JWT_SECRET_KEY` are set.
+
 ```env
 # Database Configuration
 DATABASE_URL=postgresql+asyncpg://user:pass@localhost/revitpy_registry
@@ -158,10 +163,45 @@ The package registry provides a comprehensive REST API:
 - `GET /api/v1/packages/{name}` - Get package details
 - `POST /api/v1/packages/` - Upload package
 - `GET /api/v1/packages/{name}/versions` - List versions
-- `POST /api/v1/auth/login` - Authenticate user
+- `POST /api/v1/auth/login` - Authenticate user (returns an access + refresh token pair)
+- `POST /api/v1/auth/refresh` - Exchange a refresh token for a new token pair
 - `GET /api/v1/health` - Health check
 
 Full API documentation available at `/docs` when running the registry.
+
+### Authentication tokens
+
+`POST /api/v1/auth/login` returns two JWTs:
+
+```json
+{
+  "access_token": "...",
+  "refresh_token": "...",
+  "token_type": "bearer",
+  "expires_in": 86400,
+  "user": {"...": "..."}
+}
+```
+
+- **Access token** (`"type": "access"`) - sent as `Authorization: Bearer <token>`
+  on API calls. Lifetime `JWT_EXPIRE_HOURS` (default 24h).
+- **Refresh token** (`"type": "refresh"`) - accepted *only* by
+  `POST /api/v1/auth/refresh`, either as `{"refresh_token": "..."}` in the body or
+  as the bearer token. Each refresh returns a new access token **and** a new
+  refresh token; store the new one.
+
+Refresh tokens carry the time of the original password login (`auth_time`), which
+is preserved when they are rotated. They expire `JWT_REFRESH_EXPIRE_DAYS`
+(default 30) after that login, however often they are refreshed, so every session
+has an absolute lifetime and then requires a fresh login.
+
+**Breaking change (security fix):** `/auth/refresh` previously accepted any valid
+access token and issued a new one, so a leaked access token could be renewed
+forever. It now rejects access tokens with `401`. Clients must keep the
+`refresh_token` from the login response and send that instead. Access tokens
+issued before this change (which have no `type` claim) keep working for API calls
+until they expire, but cannot be refreshed. Refresh tokens are rejected on every
+endpoint other than `/auth/refresh`.
 
 ## Development
 

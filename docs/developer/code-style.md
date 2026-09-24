@@ -5,8 +5,6 @@ description: Code style conventions for the RevitPy framework based on ruff and 
 doc_tier: developer
 ---
 
-# Code Style Guide
-
 RevitPy enforces style through **ruff** (linting and formatting) and **mypy** (type checking). The authoritative configuration lives in `pyproject.toml`. This page summarises the rules and supplements them with conventions observed in the codebase.
 
 ## Ruff Configuration

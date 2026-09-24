@@ -28,14 +28,14 @@ class TestEpdDatabase:
 
         assert result is not None
         assert result.material_name == "Concrete"
-        assert result.gwp_per_kg == pytest.approx(0.13)
+        assert result.gwp_per_kg == pytest.approx(0.107)
 
     def test_lookup_exact_match(self, epd_db):
         """Test exact key match in lookup."""
         result = epd_db.lookup("steel")
 
         assert result is not None
-        assert result.gwp_per_kg == pytest.approx(1.55)
+        assert result.gwp_per_kg == pytest.approx(1.46)
 
     def test_lookup_fuzzy_match(self, epd_db):
         """Test fuzzy keyword matching in lookup."""
@@ -69,7 +69,7 @@ class TestEpdDatabase:
         result = epd_db.get_generic_epd("concrete")
 
         assert result is not None
-        assert result.gwp_per_kg == pytest.approx(0.13)
+        assert result.gwp_per_kg == pytest.approx(0.107)
 
     def test_get_generic_epd_category_match(self, epd_db):
         """Test generic EPD retrieval by category name."""
@@ -83,7 +83,8 @@ class TestEpdDatabase:
         result = epd_db.get_generic_epd("insul")
 
         assert result is not None
-        assert result.material_name == "Insulation"
+        assert result.material_name == "Insulation (generic)"
+        assert result.is_generic_fallback
 
     def test_get_generic_epd_returns_none_for_unknown(self, epd_db):
         """Test generic EPD returns None for unknown categories."""
@@ -92,7 +93,7 @@ class TestEpdDatabase:
         assert result is None
 
     def test_generic_epd_values(self, epd_db):
-        """Test correctness of key generic EPD GWP values."""
+        """Generic values match the ICE v2.0 (2011) summary tables (kgCO2e/kg)."""
         concrete = epd_db.lookup("concrete")
         steel = epd_db.lookup("steel")
         timber = epd_db.lookup("timber")
@@ -100,11 +101,11 @@ class TestEpdDatabase:
         aluminum = epd_db.lookup("aluminum")
         brick = epd_db.lookup("brick")
 
-        assert concrete.gwp_per_kg == pytest.approx(0.13)
-        assert steel.gwp_per_kg == pytest.approx(1.55)
-        assert timber.gwp_per_kg == pytest.approx(0.45)
-        assert glass.gwp_per_kg == pytest.approx(0.86)
-        assert aluminum.gwp_per_kg == pytest.approx(8.24)
+        assert concrete.gwp_per_kg == pytest.approx(0.107)
+        assert steel.gwp_per_kg == pytest.approx(1.46)
+        assert timber.gwp_per_kg == pytest.approx(0.31)
+        assert glass.gwp_per_kg == pytest.approx(0.91)
+        assert aluminum.gwp_per_kg == pytest.approx(9.16)
         assert brick.gwp_per_kg == pytest.approx(0.24)
 
     def test_generic_epds_have_lifecycle_stages(self, epd_db):
@@ -125,7 +126,7 @@ class TestEpdDatabase:
         result = new_db.lookup("concrete")
 
         assert result is not None
-        assert result.gwp_per_kg == pytest.approx(0.13)
+        assert result.gwp_per_kg == pytest.approx(0.107)
 
     def test_save_cache_creates_directory(self, epd_db, tmp_path):
         """Test that save_cache creates parent directories."""
@@ -171,7 +172,7 @@ class TestEpdDatabase:
         result = db2.lookup("steel")
 
         assert result is not None
-        assert result.gwp_per_kg == pytest.approx(1.55)
+        assert result.gwp_per_kg == pytest.approx(1.46)
 
     def test_database_init_without_token(self):
         """Test that database initializes correctly without API token."""

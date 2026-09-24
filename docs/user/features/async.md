@@ -5,7 +5,7 @@ description: Guide to async operations in RevitPy with AsyncRevit, async transac
 doc_tier: user
 ---
 
-# Async Support
+> **Live Revit:** `AsyncRevit`, `TaskQueue` and the async decorators run synchronous work in thread-pool executors. The Revit API only works on Revit's main thread, so use these with `MockRevit` or for non-Revit work. For live models, call the API directly from the script, or use `revitpy.revit.host.call_on_revit_thread()` from background threads.
 
 RevitPy provides async/await support for long-running Revit operations. The `AsyncRevit` class wraps the synchronous `RevitAPI` with async methods, and decorators like `@async_revit_operation` and `@background_task` make it easy to write non-blocking code.
 

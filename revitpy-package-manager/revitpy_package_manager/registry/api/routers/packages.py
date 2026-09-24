@@ -2,18 +2,31 @@
 
 import hashlib
 from datetime import datetime, timedelta
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from ....security.config import SecurityConfig
 from ...database import get_db_session
 from ...models.download import DownloadStats
 from ...models.package import Package, PackageDependency, PackageVersion
 from ...models.user import User
 from ...services.cache import CacheService
-from ...services.storage import StorageService
+from ...services.storage import StorageService, get_storage_service
 from ..schemas import (
     DownloadStatsResponse,
     PackageCreate,
@@ -36,30 +49,39 @@ def normalize_package_name(name: str) -> str:
 
 @router.get("/", response_model=PackageListResponse)
 async def list_packages(
-    page: int = Query(1, ge=1, description="Page number"),
-    per_page: int = Query(20, ge=1, le=100, description="Items per page"),
-    category: str | None = Query(None, description="Filter by category"),
-    revit_version: str | None = Query(None, description="Filter by Revit version"),
+    page: Annotated[int, Query(ge=1, description="Page number")] = 1,
+    per_page: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 20,
+    category: Annotated[str | None, Query(description="Filter by category")] = None,
+    revit_version: Annotated[
+        str | None, Query(description="Filter by Revit version")
+    ] = None,
     db: AsyncSession = Depends(get_db_session),
 ):
     """List packages with pagination and filtering."""
 
-    query = select(Package).where(Package.is_published, not Package.is_private)
+    # NB: column flags must be compared in SQL (is_(False)); Python's `not`
+    # on a column evaluates to a constant False and filters out every row.
+    query = select(Package).where(
+        Package.is_published.is_(True), Package.is_private.is_(False)
+    )
 
     # Apply filters
     if category:
-        query = query.where(Package.categories.contains([category]))
+        query = query.where(Package.categories.contains(category))
 
     if revit_version:
         # Join with package versions to filter by Revit version
-        query = query.join(PackageVersion).where(
-            PackageVersion.supported_revit_versions.contains([revit_version])
+        # distinct: a package with several matching versions must appear once
+        query = (
+            query.join(PackageVersion)
+            .where(PackageVersion.supported_revit_versions.contains(revit_version))
+            .distinct()
         )
 
     # Count total packages
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
-    total = total_result.scalar()
+    total = total_result.scalar() or 0
 
     # Apply pagination
     offset = (page - 1) * per_page
@@ -80,9 +102,9 @@ async def list_packages(
 
 @router.get("/search", response_model=PackageSearchResponse)
 async def search_packages(
-    q: str = Query(..., min_length=1, description="Search query"),
-    page: int = Query(1, ge=1, description="Page number"),
-    per_page: int = Query(20, ge=1, le=50, description="Items per page"),
+    q: Annotated[str, Query(min_length=1, description="Search query")],
+    page: Annotated[int, Query(ge=1, description="Page number")] = 1,
+    per_page: Annotated[int, Query(ge=1, le=50, description="Items per page")] = 20,
     db: AsyncSession = Depends(get_db_session),
 ):
     """Search packages by name, summary, or keywords."""
@@ -91,13 +113,13 @@ async def search_packages(
     search_term = f"%{q.lower()}%"
     query = select(Package).where(
         and_(
-            Package.is_published,
-            not Package.is_private,
+            Package.is_published.is_(True),
+            Package.is_private.is_(False),
             or_(
                 Package.name.ilike(search_term),
                 Package.summary.ilike(search_term),
                 Package.description.ilike(search_term),
-                Package.keywords.contains([q.lower()]),
+                Package.keywords.contains(q.lower()),
             ),
         )
     )
@@ -105,7 +127,7 @@ async def search_packages(
     # Count total results
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
-    total = total_result.scalar()
+    total = total_result.scalar() or 0
 
     # Apply pagination and ordering
     offset = (page - 1) * per_page
@@ -184,7 +206,10 @@ async def get_package(package_name: str, db: AsyncSession = Depends(get_db_sessi
     result = await db.execute(
         select(Package)
         .options(selectinload(Package.versions))
-        .where(Package.normalized_name == normalized_name, Package.is_published)
+        .where(
+            Package.normalized_name == normalized_name,
+            Package.is_published.is_(True),
+        )
     )
     package = result.scalar_one_or_none()
 
@@ -222,7 +247,7 @@ async def update_package(
         )
 
     # Update package fields
-    for field, value in package_update.dict(exclude_unset=True).items():
+    for field, value in package_update.model_dump(exclude_unset=True).items():
         if hasattr(package, field):
             if (
                 field
@@ -276,7 +301,9 @@ async def delete_package(
 @router.get("/{package_name}/versions", response_model=list[PackageVersionResponse])
 async def list_package_versions(
     package_name: str,
-    include_prereleases: bool = Query(False, description="Include prerelease versions"),
+    include_prereleases: Annotated[
+        bool, Query(description="Include prerelease versions")
+    ] = False,
     db: AsyncSession = Depends(get_db_session),
 ):
     """List all versions of a package."""
@@ -286,7 +313,8 @@ async def list_package_versions(
     # Get package
     result = await db.execute(
         select(Package).where(
-            Package.normalized_name == normalized_name, Package.is_published
+            Package.normalized_name == normalized_name,
+            Package.is_published.is_(True),
         )
     )
     package = result.scalar_one_or_none()
@@ -298,18 +326,39 @@ async def list_package_versions(
 
     # Query versions
     query = select(PackageVersion).where(
-        PackageVersion.package_id == package.id, not PackageVersion.is_yanked
+        PackageVersion.package_id == package.id,
+        PackageVersion.is_yanked.is_(False),
     )
 
     if not include_prereleases:
-        query = query.where(not PackageVersion.is_prerelease)
+        query = query.where(PackageVersion.is_prerelease.is_(False))
 
-    query = query.order_by(desc(PackageVersion.created_at))
+    query = query.order_by(desc(PackageVersion.created_at)).options(
+        selectinload(PackageVersion.dependencies)
+    )
 
     result = await db.execute(query)
     versions = result.scalars().all()
 
     return versions
+
+
+def parse_version_metadata(
+    metadata: Annotated[
+        str, Form(description="JSON-encoded PackageVersionCreate document")
+    ],
+) -> PackageVersionCreate:
+    """Parse the JSON ``metadata`` form field sent alongside the upload.
+
+    Multipart uploads can't carry a JSON body, and list/dict/nested fields
+    (supported_revit_versions, metadata, dependencies) can't be expressed as
+    flat form fields, so clients (see builder CLI ``publish``) send the
+    version metadata as a single JSON-encoded form field.
+    """
+    try:
+        return PackageVersionCreate.model_validate_json(metadata)
+    except ValidationError as e:
+        raise RequestValidationError(e.errors(include_input=False)) from e
 
 
 @router.post(
@@ -320,10 +369,10 @@ async def list_package_versions(
 async def upload_package_version(
     package_name: str,
     file: UploadFile = File(...),
-    metadata: PackageVersionCreate = Depends(),
+    metadata: PackageVersionCreate = Depends(parse_version_metadata),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db_session),
-    storage: StorageService = Depends(),
+    storage: StorageService = Depends(get_storage_service),
 ):
     """Upload a new version of a package."""
 
@@ -357,18 +406,32 @@ async def upload_package_version(
             detail=f"Version {metadata.version} already exists",
         )
 
-    # Read and hash the file
-    file_content = await file.read()
+    # Only a bare file name is meaningful; reject anything path-like
+    filename = file.filename or ""
+    if not filename or "/" in filename or "\\" in filename or filename in (".", ".."):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid upload filename",
+        )
+
+    # Read (bounded) and hash the file
+    file_content = await file.read(SecurityConfig.MAX_UPLOAD_SIZE + 1)
     file_size = len(file_content)
+    if file_size > SecurityConfig.MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Package file exceeds the maximum upload size",
+        )
 
     sha256_hash = hashlib.sha256(file_content).hexdigest()
-    md5_hash = hashlib.md5(file_content).hexdigest()
+    # MD5 is kept only as a legacy checksum, not for security
+    md5_hash = hashlib.md5(file_content, usedforsecurity=False).hexdigest()
 
     # Store file
     storage_path = await storage.store_package(
         package_name=package.name,
         version=metadata.version,
-        filename=file.filename,
+        filename=filename,
         content=file_content,
     )
 
@@ -380,7 +443,7 @@ async def upload_package_version(
         description=metadata.description,
         python_version=metadata.python_version,
         supported_revit_versions=metadata.supported_revit_versions,
-        filename=file.filename,
+        filename=filename,
         file_size=file_size,
         file_hash_sha256=sha256_hash,
         file_hash_md5=md5_hash,
@@ -394,6 +457,8 @@ async def upload_package_version(
     )
 
     db.add(version)
+    # Flush so version.id is assigned before dependencies reference it
+    await db.flush()
 
     # Add dependencies
     for dep_data in metadata.dependencies:
@@ -409,6 +474,9 @@ async def upload_package_version(
 
     await db.commit()
     await db.refresh(version)
+    # The response includes dependencies; load them now, since an implicit
+    # lazy load during serialisation isn't possible on an AsyncSession.
+    await db.refresh(version, attribute_names=["dependencies"])
 
     return version
 
@@ -424,7 +492,8 @@ async def get_package_stats(
     # Get package
     result = await db.execute(
         select(Package).where(
-            Package.normalized_name == normalized_name, Package.is_published
+            Package.normalized_name == normalized_name,
+            Package.is_published.is_(True),
         )
     )
     package = result.scalar_one_or_none()
@@ -569,7 +638,7 @@ async def get_package_stats(
     try:
         await cache_service.set(
             cache_key,
-            stats_response.dict(),
+            stats_response.model_dump(mode="json"),
             ttl=3600,  # 1 hour cache
         )
     except Exception:

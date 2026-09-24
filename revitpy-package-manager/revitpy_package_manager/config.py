@@ -11,7 +11,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, PostgresDsn, RedisDsn, field_validator
+from pydantic import AliasChoices, Field, PostgresDsn, RedisDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,10 +35,15 @@ class StorageType(str, Enum):
 class DatabaseConfig(BaseSettings):
     """Database configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="DB_", case_sensitive=False)
+    model_config = SettingsConfigDict(
+        env_prefix="DB_", case_sensitive=False, populate_by_name=True
+    )
 
+    # DB_URL takes precedence; the legacy DATABASE_URL variable is honoured as
+    # a fallback (documented in env.example / README).
     url: PostgresDsn = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/revitpy",
+        validation_alias=AliasChoices("DB_URL", "DATABASE_URL"),
         description="Database connection URL",
     )
     echo: bool = Field(default=False, description="Enable SQL query logging")
@@ -54,17 +59,6 @@ class DatabaseConfig(BaseSettings):
         ge=0,
         description="Seconds before recycling connections (0=disabled)",
     )
-
-    # Legacy support for DATABASE_URL
-    @field_validator("url", mode="before")
-    @classmethod
-    def support_legacy_database_url(cls, v: Any) -> Any:
-        """Support legacy DATABASE_URL environment variable."""
-        if v is None or (isinstance(v, str) and not v):
-            legacy_url = os.getenv("DATABASE_URL")
-            if legacy_url:
-                return legacy_url
-        return v
 
 
 class JWTConfig(BaseSettings):
@@ -109,7 +103,9 @@ class JWTConfig(BaseSettings):
 class StorageConfig(BaseSettings):
     """File storage configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="STORAGE_", case_sensitive=False)
+    model_config = SettingsConfigDict(
+        env_prefix="STORAGE_", case_sensitive=False, populate_by_name=True
+    )
 
     type: StorageType = Field(default=StorageType.LOCAL, description="Storage backend")
 
@@ -123,9 +119,19 @@ class StorageConfig(BaseSettings):
         default="revitpy-packages", description="S3 bucket name"
     )
     s3_region: str = Field(default="us-east-1", description="AWS region")
-    aws_access_key_id: str | None = Field(default=None, description="AWS access key ID")
+    # Accept both the prefixed names (docker-compose.yml) and the standard
+    # unprefixed AWS variable names (env.example / README).
+    aws_access_key_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("STORAGE_AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID"),
+        description="AWS access key ID",
+    )
     aws_secret_access_key: str | None = Field(
-        default=None, description="AWS secret access key"
+        default=None,
+        validation_alias=AliasChoices(
+            "STORAGE_AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY"
+        ),
+        description="AWS secret access key",
     )
     s3_endpoint_url: str | None = Field(
         default=None, description="Custom S3 endpoint (for S3-compatible services)"
@@ -377,7 +383,8 @@ class Settings(BaseSettings):
             ):
                 # Check if AWS credentials are available via environment/IAM
                 if not (
-                    os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("AWS_SECRET_ACCESS_KEY")
+                    os.getenv("AWS_ACCESS_KEY_ID")
+                    and os.getenv("AWS_SECRET_ACCESS_KEY")
                 ):
                     raise ValueError(
                         "S3 storage requires AWS credentials "

@@ -5,15 +5,21 @@ description: Guide to IFC export, import, and element mapping with RevitPy. Cove
 doc_tier: user
 ---
 
-# IFC Interoperability
-
 RevitPy provides comprehensive IFC (Industry Foundation Classes) support through the `revitpy.ifc` module. Features include bidirectional element mapping, IFC export and import with configurable schema versions, IDS (Information Delivery Specification) validation, BCF (BIM Collaboration Format) issue management, and model diffing.
 
-IFC functionality requires the optional `ifcopenshell` dependency. Install it with:
+IFC export/import requires the optional `ifcopenshell` dependency. Install it with:
 
 ```bash
 pip install revitpy[ifc]
 ```
+
+Optional extras used by this module:
+
+| Package | Used for | Without it |
+|---|---|---|
+| `ifcopenshell` (0.8+) | IFC export/import, `mapper.to_ifc` | Those calls raise `ImportError`; the rest of `revitpy.ifc` still works |
+| `defusedxml` | Safe parsing of BCF archives and IDS XML | Falls back to `xml.etree.ElementTree` |
+| `ifctester` | `IdsValidator.validate_ifc_file` (full IDS 1.0 checking of IFC files) | That method raises `ImportError` |
 
 ## Checking Availability
 
@@ -116,7 +122,9 @@ The mapper can convert elements directly when `ifcopenshell` is available.
 ifc_entity = mapper.to_ifc(wall_element, ifc_file, config=export_config)
 ```
 
-The `to_ifc` method creates an IFC entity in the given `ifc_file`, assigns a new `GlobalId`, copies the element `name`, and applies any property mappings from the registry.
+The `to_ifc` method creates an IFC entity in the given `ifc_file` via `ifcopenshell.api.root.create_entity` (new `GlobalId`, owner history when the file has one), copies the element `name`, and applies property mappings from the registry. A mapped name that is a real attribute of the IFC entity (for example `Description`) is set directly; any other mapped name is written to a `RevitPy_Properties` property set. The mapping is looked up by the element's class name first, then by its `category` attribute.
+
+`to_ifc` only creates the entity. It does not place it in the spatial structure. Use `IfcExporter` for that.
 
 **IFC to dict:**
 
@@ -140,7 +148,18 @@ element_dict = mapper.from_ifc(ifc_entity, target_type="WallElement")
 
 ## IfcExporter
 
-`IfcExporter` converts collections of RevitPy elements into standards-compliant IFC files.
+`IfcExporter` converts collections of RevitPy elements into IFC files with a complete spatial structure.
+
+### What the exported file contains
+
+- **Spatial hierarchy**: `IfcProject` > `IfcSite` > `IfcBuilding` > `IfcBuildingStorey`, linked with `IfcRelAggregates`.
+- **Storeys**: one `IfcBuildingStorey` per Revit level. The level comes from `element.level`, which can be a string or an object with `name` and an optional `elevation` in metres. If that is missing, `element.level_name` is used. Elements with neither go to a storey named `default_storey_name`.
+- **Containment**: physical elements (walls, doors, and so on) are contained in their storey via `IfcRelContainedInSpatialStructure`. Spaces (`IfcSpace`) are aggregated under the storey.
+- **Placement**: every product gets an `IfcLocalPlacement`.
+- **Context**: owner history (person, organisation, application), SI units (metre, square metre, cubic metre, radian), and a `Model` / `Body` geometric representation context.
+- **Geometry (limited)**: if an element exposes `bounding_box` in metres, it gets an axis-aligned extruded box as its `Body` representation, placed at the box's minimum corner. `bounding_box` can be `{"min": (x, y, z), "max": (x, y, z)}`, an object with `min`/`max`, or a `(min, max)` pair. Elements without a bounding box are exported with no geometric representation. RevitPy does not convert or tessellate Revit geometry.
+
+`include_quantities` and `include_materials` are accepted but not yet used. No quantity sets or materials are written.
 
 ### Export Configuration
 
@@ -149,11 +168,15 @@ Exports are configured through the `IfcExportConfig` dataclass:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `version` | `IfcVersion` | `IfcVersion.IFC4` | IFC schema version |
-| `include_quantities` | `bool` | `True` | Include quantity data |
-| `include_materials` | `bool` | `True` | Include material data |
+| `include_quantities` | `bool` | `True` | Reserved; not yet used |
+| `include_materials` | `bool` | `True` | Reserved; not yet used |
+| `project_name` | `str` | `"RevitPy Export"` | Name for the IfcProject entity |
 | `site_name` | `str` | `"Default Site"` | Name for the IfcSite entity |
 | `building_name` | `str` | `"Default Building"` | Name for the IfcBuilding entity |
-| `author` | `str` | `""` | Author metadata |
+| `default_storey_name` | `str` | `"Default Storey"` | Storey used for elements without a level |
+| `include_geometry` | `bool` | `True` | Write bounding-box geometry when available |
+| `author` | `str` | `""` | Owner-history person (defaults to "RevitPy") |
+| `organization` | `str` | `"RevitPy"` | Owner-history organisation name |
 
 ### Basic Export
 
@@ -341,7 +364,14 @@ reimported = importer.import_file("roundtrip.ifc")
 
 ## IDS Validation
 
-`IdsValidator` checks elements against IDS (Information Delivery Specification) requirements. This does not require `ifcopenshell` -- it works with any duck-typed element objects.
+`IdsValidator` supports three levels of validation. They differ in how closely they follow the buildingSMART standard:
+
+| Method | Input | What it is |
+|---|---|---|
+| `validate(elements, requirements)` | `IdsRequirement` objects | A **RevitPy rule set inspired by IDS**, checked against in-memory elements. Not a buildingSMART format. No `ifcopenshell` needed. |
+| `validate_from_file(elements, path)` with `.json` | RevitPy JSON rule list | The same RevitPy rule set, loaded from JSON. |
+| `validate_from_file(elements, path)` with `.ids` / `.xml`, or `load_ids_xml(path)` | **buildingSMART IDS 1.0 XML** | Reads real IDS files and maps a **subset** onto the rule set (see below). No `ifcopenshell` needed. |
+| `validate_ifc_file(ifc_path, ids_path)` | An IFC file plus an IDS 1.0 file | **Full IDS 1.0 validation**, delegated to `ifctester` (requires `ifcopenshell` and `ifctester`). |
 
 ### Defining Requirements
 
@@ -355,6 +385,12 @@ Requirements are defined using the `IdsRequirement` dataclass:
 | `property_name` | `str` or `None` | `None` | Property to check |
 | `property_value` | `str` or `None` | `None` | Expected value (string comparison) |
 | `required` | `bool` | `True` | Whether the property must exist |
+| `property_set` | `str` or `None` | `None` | Property set to look in first (`element.properties[pset][name]`) |
+| `allowed_values` | `list[str]` | `[]` | Accepted values (IDS `xs:enumeration`) |
+| `prohibited` | `bool` | `True` if IDS cardinality is `prohibited` | The property must be absent |
+| `facet` | `str` | `"property"` | `"property"` or `"attribute"` (informational) |
+
+`entity_type` can be a RevitPy type or category (for example `"WallElement"`) or an IFC entity name (for example `"IFCWALL"`). An IFC name matches when the element's type maps to that IFC class through the `IfcElementMapper`, or when the element has a matching `ifc_type` attribute.
 
 ### Validating Elements Programmatically
 
@@ -400,7 +436,7 @@ for result in results:
 
 ### Validating from a File
 
-Requirements can be loaded from a JSON file. The file should contain a list of requirement objects:
+**RevitPy JSON rules.** Requirements can be loaded from a JSON file that contains a list of requirement objects (optional keys: `property_set`, `allowed_values`, `prohibited`):
 
 ```json
 [
@@ -432,18 +468,48 @@ total = len(results)
 print(f"IDS validation: {passed}/{total} checks passed")
 ```
 
+**buildingSMART IDS 1.0 XML.** Files ending in `.ids` or `.xml` are parsed as IDS 1.0 (namespace `http://standards.buildingsmart.org/IDS`):
+
+```python
+results = validator.validate_from_file(elements, "requirements.ids")
+
+# Or just inspect the requirements that were derived from the IDS file
+requirements = validator.load_ids_xml("requirements.ids")
+```
+
+Supported subset when validating in-memory elements:
+
+- Applicability: the `entity` facet. The name can be a `simpleValue` or an `xs:enumeration`.
+- Requirements: `attribute` facets (`name`) and `property` facets (`propertySet` + `baseName`). Values can be a `simpleValue` or an `xs:enumeration`. `cardinality` can be `required`, `optional`, or `prohibited`.
+- Ignored with a logged warning: other applicability facets (`partOf`, `classification`, `attribute`, `property`, `material`), the `partOf`, `classification`, `material` and `entity` requirement facets, and other value restrictions (patterns, bounds, lengths). For these restrictions only presence is checked.
+- Not checked: `predefinedType`, `dataType`, `ifcVersion`, and specification-level `minOccurs`/`maxOccurs`.
+
+Values are looked up in `element.properties` (or `element.parameters`), first under the property set and then as a flat key. After that, attributes are tried under the exact name and then the lower-case name, so the IDS attribute `Name` matches `element.name`.
+
+**Full IDS validation of an IFC file.** To check an exported IFC file against every IDS facet, use `ifctester`:
+
+```python
+exporter.export(elements, "model.ifc")
+results = validator.validate_ifc_file("model.ifc", "requirements.ids")
+failed = [r for r in results if not r.passed]
+```
+
+Each failing entity/facet becomes one failed `IdsValidationResult` whose `entity_id` is the IFC `GlobalId`. A specification with no entity failures produces a single result with its overall status.
+
 ### Validation Logic
 
-The validator applies these rules for each element/requirement pair:
+For in-memory validation, these rules apply to each element/requirement pair:
 
-1. If the requirement specifies an `entity_type` that does not match the element's type, the check passes (not applicable).
+1. If the requirement specifies an `entity_type` that does not match the element, the check passes (not applicable).
 2. If no `property_name` is specified, the check passes (no property to verify).
-3. If `property_name` is set and `required` is `True`, the property must exist on the element.
-4. If `property_value` is also set, the actual value must match (string comparison).
+3. If `prohibited` is `True`, the check passes only when the property is absent.
+4. If the property is missing, the check fails when `required` is `True` and passes otherwise.
+5. If `allowed_values` is set, the value (as a string) must be one of them.
+6. If `property_value` is set, the actual value must match (string comparison).
 
 ## BCF Issue Management
 
-`BcfManager` provides simplified BCF 2.1 compatible issue tracking. It supports creating issues, serializing them to BCF ZIP archives, and reading them back.
+`BcfManager` creates issues, writes them as buildingSMART **BCF-XML 2.1** archives, and reads them back. It can also read BCF 3.0 topic folders and older RevitPy archives.
 
 ### Creating Issues
 
@@ -472,10 +538,11 @@ print(f"Created issue: {issue.title} ({issue.guid})")
 | `title` | `str` | `""` | Short issue title |
 | `description` | `str` | `""` | Detailed description |
 | `author` | `str` | `""` | Author name |
-| `creation_date` | `datetime` | `datetime.now()` | When the issue was created |
+| `creation_date` | `datetime` | `datetime.now(UTC)` | When the issue was created (timezone-aware) |
 | `status` | `str` | `"Open"` | Issue status (e.g. `"Open"`, `"Closed"`) |
 | `assigned_to` | `str` | `""` | Person assigned to the issue |
 | `element_ids` | `list[str]` | `[]` | Referenced element IDs |
+| `snapshot` | `bytes` or `None` | `None` | PNG snapshot written as `snapshot.png` |
 
 ### Writing BCF Files
 
@@ -489,11 +556,31 @@ bcf.write_bcf(path="issues.bcf")
 bcf.write_bcf(issues=[issue], path="selected_issues.bcf")
 ```
 
-The output is a ZIP archive containing an XML `markup.xml` file for each issue, organized by topic GUID.
+The output follows the BCF-XML 2.1 layout:
+
+```
+issues.bcf
+├── bcf.version               <Version VersionId="2.1">
+└── <topic-guid>/
+    ├── markup.bcf            Markup/Topic (+ Viewpoints entry)
+    ├── viewpoint.bcfv        written when the issue has element_ids or a snapshot
+    └── snapshot.png          written when issue.snapshot is set
+```
+
+- `TopicStatus` is written as an attribute of `Topic`. Child elements follow the order in the BCF 2.1 `markup.xsd`.
+- Element IDs are written into the viewpoint as `Components/Selection/Component`. A 22-character IFC `GlobalId` is written as `IfcGuid`. Any other ID, such as a Revit element ID, is written as `AuthoringToolId` with `OriginatingSystem` set to `RevitPy`. BCF viewers can only resolve `IfcGuid` against an IFC model, so use IFC GlobalIds when the issue is going to another tool.
+- No camera is written, so viewers highlight the components but do not restore a view.
+- BCF requires topic GUIDs to be UUIDs. `create_issue` always generates one. If you pass a non-UUID `guid`, a warning is logged and the issue is still written.
 
 ### Reading BCF Files
 
-Read issues from BCF ZIP archives (`.bcf`, `.bcfzip`, `.zip`) or JSON files:
+Read issues from BCF ZIP archives (`.bcf`, `.bcfzip`, `.zip`) or JSON files. The archive reader accepts:
+
+- BCF 2.1 (`Markup/Viewpoints`)
+- BCF 3.0 (`Topic/Viewpoints/ViewPoint`)
+- legacy RevitPy archives that used `markup.xml`, with element IDs in `ReferenceLink`
+
+When a folder has both files, `markup.bcf` is used. Archive XML is parsed with `defusedxml` when it is installed. A topic that fails to parse (for example, one containing a DTD entity bomb) is skipped with a warning.
 
 ```python
 # Read from a BCF archive

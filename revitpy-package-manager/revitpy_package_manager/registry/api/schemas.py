@@ -2,8 +2,16 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel, EmailStr, Field, HttpUrl
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    EmailStr,
+    Field,
+    HttpUrl,
+    field_validator,
+)
 
 
 class UserBase(BaseModel):
@@ -21,7 +29,10 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema for user creation."""
 
-    password: str = Field(..., min_length=8)
+    # Strength/length policy is enforced by SecurityConfig in the register
+    # endpoint (400 with specific issues). A schema-level min_length would
+    # instead return a 422 that echoes the plaintext password back.
+    password: str
 
 
 class UserUpdate(BaseModel):
@@ -156,6 +167,12 @@ class PackageVersionResponse(PackageVersionBase):
     download_count: int
     created_at: datetime
     dependencies: list[DependencyResponse] = Field(default_factory=list)
+    # The ORM column is ``extra_metadata`` (``metadata`` is reserved by
+    # SQLAlchemy -- reading it off a model yields the table MetaData object).
+    metadata: dict = Field(
+        default_factory=dict,
+        validation_alias=AliasChoices("extra_metadata", "metadata"),
+    )
 
     class Config:
         from_attributes = True
@@ -194,8 +211,28 @@ class APIKeyBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
+    # Stored comma-separated (see APIKey.scopes); clients may send a list.
     scopes: str = Field(default="read")
     expires_at: datetime | None = None
+
+    @field_validator("scopes", mode="before")
+    @classmethod
+    def normalize_scopes(cls, v: Any) -> Any:
+        """Accept a list of scopes or a comma-separated string."""
+        if isinstance(v, str):
+            v = v.split(",")
+        if isinstance(v, list | tuple | set):
+            scopes: list[str] = []
+            for scope in v:
+                if not isinstance(scope, str):
+                    raise ValueError("scopes must be strings")
+                scope = scope.strip()
+                if scope and scope not in scopes:
+                    scopes.append(scope)
+            if not scopes:
+                raise ValueError("at least one scope is required")
+            return ",".join(scopes)
+        return v
 
 
 class APIKeyCreate(APIKeyBase):
@@ -238,6 +275,7 @@ class DownloadStatsResponse(BaseModel):
     downloads_last_month: int
     version_breakdown: dict[str, int]
     country_breakdown: dict[str, int]
+    platform_breakdown: dict[str, int] = Field(default_factory=dict)
 
 
 class VulnerabilityReportResponse(BaseModel):
@@ -297,8 +335,27 @@ class LoginResponse(BaseModel):
     """Schema for login responses."""
 
     access_token: str
+    # Optional so existing constructors/clients that only know about the
+    # access token keep working; the login endpoint always sets it.
+    refresh_token: str | None = None
     token_type: str
+    expires_in: int | None = Field(None, description="Access token lifetime in seconds")
     user: UserResponse
+
+
+class RefreshTokenRequest(BaseModel):
+    """Schema for token refresh requests."""
+
+    refresh_token: str = Field(..., min_length=1)
+
+
+class TokenRefreshResponse(BaseModel):
+    """Schema for token refresh responses (a rotated token pair)."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str
+    expires_in: int = Field(..., description="Access token lifetime in seconds")
 
 
 class HealthResponse(BaseModel):

@@ -8,6 +8,7 @@ token caching and automatic refresh when the token nears expiry.
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 import httpx
@@ -17,6 +18,7 @@ from .exceptions import AuthenticationError
 from .types import ApsCredentials, ApsToken
 
 TOKEN_ENDPOINT = "https://developer.api.autodesk.com/authentication/v2/token"  # noqa: S105
+_AUTH_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
 
 class ApsAuthenticator:
@@ -29,6 +31,9 @@ class ApsAuthenticator:
     def __init__(self, credentials: ApsCredentials) -> None:
         self._credentials = credentials
         self._token: ApsToken | None = None
+        # Serializes refreshes so concurrent callers holding an expired
+        # token trigger exactly one re-authentication.
+        self._refresh_lock = asyncio.Lock()
 
     async def authenticate(self) -> ApsToken:
         """Perform a fresh OAuth2 client-credentials authentication.
@@ -49,7 +54,7 @@ class ApsAuthenticator:
         }
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=_AUTH_TIMEOUT) as client:
                 response = await client.post(
                     TOKEN_ENDPOINT,
                     data=data,
@@ -85,12 +90,23 @@ class ApsAuthenticator:
     async def get_token(self) -> ApsToken:
         """Return a cached token, refreshing it if expired.
 
+        Concurrent callers share a single refresh: the first caller to find
+        the token expired re-authenticates under a lock, and the others
+        reuse the freshly issued token.
+
         Returns:
             A valid ApsToken.
         """
-        if self._token is None or not self.is_token_valid():
-            await self.authenticate()
-        return self._token  # type: ignore[return-value]
+        token = self._token
+        if token is not None and not token.is_expired:
+            return token
+
+        async with self._refresh_lock:
+            # Re-check: another coroutine may have refreshed while we waited.
+            token = self._token
+            if token is None or token.is_expired:
+                token = await self.authenticate()
+            return token
 
     def is_token_valid(self) -> bool:
         """Check whether the cached token is still valid.

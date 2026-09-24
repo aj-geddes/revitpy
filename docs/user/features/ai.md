@@ -5,8 +5,6 @@ description: Expose RevitPy operations as MCP tools for AI agents via WebSocket.
 doc_tier: user
 ---
 
-# AI & MCP Server
-
 RevitPy includes a full AI integration layer that exposes Revit operations through the Model Context Protocol (MCP). This enables AI agents and LLMs to query, analyze, modify, and export Revit model data through a standardized WebSocket interface, with configurable safety guardrails and reusable prompt templates.
 
 ## Overview
@@ -16,7 +14,7 @@ The `revitpy.ai` module provides four core components:
 - **`RevitTools`** -- A tool registry and execution engine that manages tool definitions, validates arguments, dispatches execution, and converts tools to MCP-compatible JSON Schema format.
 - **`SafetyGuard`** -- A safety policy enforcer that controls which tools an AI agent may execute based on a configurable safety mode, with preview and undo support.
 - **`PromptLibrary`** -- A Jinja2-based template library for constructing prompts used in LLM interactions, exposed in MCP prompt-list format.
-- **`McpServer`** -- An asynchronous WebSocket server implementing a subset of MCP, wiring together tools, prompts, and safety controls.
+- **`McpServer`** -- An asynchronous WebSocket server implementing the tools and prompts parts of MCP, with optional bearer-token authentication. It wires together tools, prompts, and safety controls.
 
 ```python
 from revitpy.ai import (
@@ -40,12 +38,23 @@ from revitpy.ai import (
 ```python
 from revitpy.ai import RevitTools
 
-# Without application context (built-in handlers return placeholder data)
-tools = RevitTools()
+from revitpy.api import RevitAPI
 
-# With application context (forwarded to built-in handlers)
-tools = RevitTools(context=revit_app)
+# With a connected RevitPy API: built-in tools work on its active document
+api = RevitAPI(revit_application)
+api.connect()
+tools = RevitTools(context=api)
+
+# Without a context: only custom tools are useful. Every built-in tool fails
+# with ToolExecutionError("Not connected to a Revit document") instead of
+# returning made-up data.
+tools = RevitTools()
 ```
+
+The context can be any object with the shape of `revitpy.ai.tools.RevitContext`:
+an `active_document` (with `get_all_elements()`), `get_element_by_id(id)`, and
+`transaction(name)` returning a context manager that commits on success and rolls
+back on error. `revitpy.api.RevitAPI` satisfies it.
 
 ### Built-in Tools
 
@@ -53,12 +62,15 @@ The following tools are registered automatically when a `RevitTools` instance is
 
 | Tool Name | Category | Required Parameters | Optional Parameters | Description |
 |---|---|---|---|---|
-| `query_elements` | `QUERY` | `category` (string) | `filter` (string, default `""`) | Query Revit elements by category and filter |
-| `get_element` | `QUERY` | `element_id` (integer) | -- | Get a single Revit element by ID |
-| `modify_parameter` | `MODIFY` | `element_id` (integer), `parameter_name` (string), `value` (string) | -- | Modify a parameter value on a Revit element |
-| `get_quantities` | `ANALYZE` | `category` (string) | `group_by` (string, default `"type"`) | Get quantity takeoff for elements |
-| `validate_model` | `ANALYZE` | -- | `checks` (array, default `None`) | Run validation checks on the Revit model |
-| `export_data` | `EXPORT` | `category` (string) | `format` (string, default `"json"`) | Export element data to a structured format |
+| `query_elements` | `QUERY` | `category` (string) | `filter` (string, default `""`) | Elements in a category; `filter` is a case-insensitive substring match on element names |
+| `get_element` | `QUERY` | `element_id` (integer) | -- | One element with its parameters |
+| `modify_parameter` | `MODIFY` | `element_id` (integer), `parameter_name` (string), `value` (string) | -- | Sets a parameter inside a RevitPy transaction; returns `old_value` and `new_value`. The transaction rolls back if the set fails. |
+| `get_quantities` | `ANALYZE` | `category` (string) | `group_by` (string, default `"type"`) | Element **counts** per group (`type`, `family_name`, `level`, or any parameter name). No lengths, areas, or volumes. |
+| `validate_model` | `ANALYZE` | -- | `checks` (array, default: all) | Runs `unnamed_elements` and/or `duplicate_marks`. Unknown check names are rejected. |
+| `export_data` | `EXPORT` | `category` (string) | `format` (`"json"` or `"csv"`, default `"json"`) | Element id, name, and category rows. Other formats are rejected. |
+
+All built-in tools need a connected document. Without one they raise
+`ToolExecutionError` (reported to MCP clients as an `isError` result).
 
 ### Registering a Custom Tool
 
@@ -153,7 +165,7 @@ Each entry in the list has this shape:
       },
       "filter": {
         "type": "string",
-        "description": "Optional filter expression",
+        "description": "Optional case-insensitive substring matched against element names",
         "default": ""
       }
     },
@@ -171,7 +183,7 @@ Each entry in the list has this shape:
 | Mode | Value | Behavior |
 |---|---|---|
 | `SafetyMode.READ_ONLY` | `"read_only"` | Blocks all tools with `ToolCategory.MODIFY`. Query, analyze, and export tools are allowed. |
-| `SafetyMode.CAUTIOUS` | `"cautious"` | Allows all tools but flags categories in `require_confirmation_for` as needing confirmation. This is the default. |
+| `SafetyMode.CAUTIOUS` | `"cautious"` | Tools in `require_confirmation_for` categories (by default `MODIFY`) run only when the `confirmation_callback` returns `True`. With no callback they are **denied**. Other tools are allowed. This is the default mode. |
 | `SafetyMode.FULL_ACCESS` | `"full_access"` | Allows all tools without restriction, except those in the `blocked_tools` list. |
 
 ### SafetyConfig Fields
@@ -180,7 +192,7 @@ Each entry in the list has this shape:
 |---|---|---|---|
 | `mode` | `SafetyMode` | `SafetyMode.CAUTIOUS` | The active safety enforcement level |
 | `max_undo_stack` | `int` | `50` | Maximum number of entries in the undo stack |
-| `require_confirmation_for` | `list[ToolCategory]` | `[]` | Categories that require confirmation in `CAUTIOUS` mode |
+| `require_confirmation_for` | `list[ToolCategory]` | `[ToolCategory.MODIFY]` | Categories that require confirmation in `CAUTIOUS` mode |
 | `blocked_tools` | `list[str]` | `[]` | Tool names that are always denied regardless of mode |
 
 ### Creating a SafetyGuard
@@ -188,7 +200,7 @@ Each entry in the list has this shape:
 ```python
 from revitpy.ai import SafetyGuard, SafetyConfig, SafetyMode, ToolCategory
 
-# Default: CAUTIOUS mode
+# Default: CAUTIOUS mode. MODIFY tools are denied because no callback is set.
 guard = SafetyGuard()
 
 # READ_ONLY mode -- blocks all modify operations
@@ -202,9 +214,41 @@ guard = SafetyGuard(config=SafetyConfig(
 ))
 ```
 
+### Confirming Tool Calls
+
+In `CAUTIOUS` mode, a tool whose category is in `require_confirmation_for` runs
+only when a person (or your own policy code) approves it. You supply that
+decision through `confirmation_callback`. It is called with the
+`ToolDefinition` and the arguments, and it can be sync or async. Only a literal
+`True` approves the call. `False`, any other value, or an exception denies it
+with a `SafetyViolationError`. If no callback is configured, the call is denied.
+
+```python
+from revitpy.ai import SafetyGuard, SafetyConfig, SafetyMode, ToolCategory
+
+def confirm(tool, arguments) -> bool:
+    answer = input(f"Allow {tool.name} with {arguments}? [y/N] ")
+    return answer.strip().lower() == "y"
+
+guard = SafetyGuard(
+    config=SafetyConfig(mode=SafetyMode.CAUTIOUS),  # MODIFY needs confirmation
+    confirmation_callback=confirm,
+)
+
+# The callback can also be set or replaced later.
+guard.confirmation_callback = confirm
+```
+
+`McpServer` awaits async callbacks through `avalidate_tool_call`. The
+synchronous `validate_tool_call` cannot await, so it denies calls that need an
+async callback. Use `await guard.avalidate_tool_call(...)` from async code.
+
+Use `SafetyMode.FULL_ACCESS` to skip confirmation, or `SafetyMode.READ_ONLY` to
+refuse modifications outright.
+
 ### Validating Tool Calls
 
-`validate_tool_call` returns `True` when the call is allowed, or raises `SafetyViolationError` when blocked:
+`validate_tool_call` (or `avalidate_tool_call` in async code) returns `True` when the call is allowed. It raises `SafetyViolationError` when the call is blocked or confirmation is not granted:
 
 ```python
 from revitpy.ai import ToolDefinition, ToolCategory
@@ -230,13 +274,14 @@ print(preview)
 #     "arguments": {"element_id": 12345, ...},
 #     "safety_mode": "cautious",
 #     "requires_confirmation": True,
+#     "confirmation_configured": False,
 #     "is_blocked": False,
 # }
 ```
 
 ### Undo Stack
 
-The undo stack records operations so they can be rolled back. The stack is bounded by `SafetyConfig.max_undo_stack` (default 50); the oldest entry is discarded when the limit is reached.
+The undo stack is a bounded history of changes. `McpServer` pushes an entry (`tool`, `arguments`, `result`, including `old_value` for `modify_parameter`) after each successful `MODIFY` tool call. Nothing is reverted automatically. Your code has to apply the reversal itself. The stack is bounded by `SafetyConfig.max_undo_stack` (default 50), and the oldest entry is discarded when the limit is reached.
 
 ```python
 # Push an operation onto the undo stack
@@ -297,6 +342,7 @@ The `render` method uses Jinja2 with `StrictUndefined`, so missing variables rai
 
 ### Registering Custom Templates
 
+{% raw %}
 ```python
 prompts.register_template(
     "cost_estimate",
@@ -307,6 +353,7 @@ prompts.register_template(
 
 text = prompts.render("cost_estimate", count=50, material="steel beams", unit_price=120)
 ```
+{% endraw %}
 
 ### Listing and Inspecting Templates
 
@@ -339,16 +386,59 @@ mcp_prompts = prompts.to_mcp_prompts_list()
 | `port` | `int` | `8765` | Port number |
 | `name` | `str` | `"revitpy-mcp"` | Server name reported during initialization |
 | `version` | `str` | `"1.0.0"` | Server version reported during initialization |
+| `auth_token` | `str` or `None` | `None` | Shared secret. When set, the WebSocket handshake must include `Authorization: Bearer <token>`, or it is rejected with HTTP 401. Excluded from `repr()`. |
+| `allowed_origins` | `list[str]` | `[]` | Browser origins that may connect. A handshake with an `Origin` header not in this list is rejected with HTTP 403. |
+
+### Authentication and Network Exposure
+
+The server binds to `localhost` by default, and authentication is **off** unless
+you set `auth_token`. On an unauthenticated server, any local process can connect
+and run tools against the open model. Set a token whenever the machine is shared,
+and always before binding to a non-loopback address. If you bind to a non-loopback
+host such as `0.0.0.0` without a token, the server logs a loud warning at startup.
+
+```python
+import secrets
+from revitpy.ai import McpServer, McpServerConfig, RevitTools
+
+token = secrets.token_urlsafe(32)  # give this to the MCP client out of band
+server = McpServer(
+    RevitTools(context=api),
+    config=McpServerConfig(host="localhost", port=8765, auth_token=token),
+)
+```
+
+Clients send the token during the WebSocket handshake:
+
+```python
+from websockets.asyncio.client import connect
+
+async with connect(
+    "ws://localhost:8765",
+    additional_headers={"Authorization": f"Bearer {token}"},
+) as ws:
+    ...
+```
+
+The token is compared in constant time (`hmac.compare_digest`). Because it
+travels as plain `ws://` traffic, use it on loopback or on a trusted network, or
+put a TLS-terminating proxy in front of the server. Browser pages are rejected by
+default through the `Origin` check. Add their origins to `allowed_origins` only
+when you mean to allow them.
+
+The server uses the `websockets` asyncio API (`websockets.asyncio.server`) when it
+is available (websockets 13 or later). It falls back to the legacy implementation
+only on older releases.
 
 ### Creating and Starting a Server
 
 ```python
 from revitpy.ai import McpServer, RevitTools, McpServerConfig
 
-tools = RevitTools()
+tools = RevitTools(context=api)
 server = McpServer(
     tools,
-    config=McpServerConfig(host="0.0.0.0", port=9000),
+    config=McpServerConfig(host="localhost", port=9000, auth_token=token),
 )
 
 # Start and stop manually
@@ -369,7 +459,7 @@ asyncio.run(main())
 
 ```python
 async def main():
-    tools = RevitTools()
+    tools = RevitTools(context=api)
 
     async with McpServer(tools) as server:
         print(f"Server running on {server.config.host}:{server.config.port}")
@@ -381,6 +471,7 @@ async def main():
 
 Pass custom `SafetyGuard` and `PromptLibrary` instances to the server:
 
+{% raw %}
 ```python
 from revitpy.ai import (
     McpServer,
@@ -392,20 +483,24 @@ from revitpy.ai import (
     ToolCategory,
 )
 
-guard = SafetyGuard(config=SafetyConfig(
-    mode=SafetyMode.CAUTIOUS,
-    require_confirmation_for=[ToolCategory.MODIFY],
-))
+guard = SafetyGuard(
+    config=SafetyConfig(
+        mode=SafetyMode.CAUTIOUS,
+        require_confirmation_for=[ToolCategory.MODIFY],
+    ),
+    confirmation_callback=confirm,  # see "Confirming Tool Calls"
+)
 
 prompts = PromptLibrary()
 prompts.register_template("custom_prompt", "Hello, {{ name }}!")
 
 server = McpServer(
-    RevitTools(),
+    RevitTools(context=api),
     safety_guard=guard,
     prompt_library=prompts,
 )
 ```
+{% endraw %}
 
 ### Supported MCP Methods
 
@@ -413,11 +508,41 @@ The server handles the following JSON-RPC methods over the WebSocket connection:
 
 | Method | Description |
 |---|---|
-| `initialize` | Returns protocol version (`"2024-11-05"`), capabilities, and server info |
+| `initialize` | Negotiates the protocol version and returns capabilities and server info. If the client's version is one of `2025-11-25`, `2025-06-18`, `2025-03-26`, or `2024-11-05`, the server echoes it back. Otherwise it answers with `2025-11-25`. |
+| `ping` | Returns an empty result |
 | `tools/list` | Returns all registered tools in MCP JSON Schema format |
-| `tools/call` | Validates the call through the safety guard, then executes the tool |
+| `tools/call` | Validates the call through the safety guard (including confirmation), then runs the tool. The result has JSON `text` content, plus `structuredContent` when the tool returns a dict. |
 | `prompts/list` | Returns all registered prompt templates |
 | `prompts/get` | Renders a prompt template with the supplied arguments |
+
+Notifications such as `notifications/initialized` get no reply. JSON-RPC batches
+are rejected. Resources, sampling, and `listChanged` notifications are not implemented.
+
+### Error Handling
+
+Every error response carries the `id` of the request that caused it. The `id` is
+`null` only when it cannot be read, for example on a parse error. Standard
+JSON-RPC 2.0 codes are used:
+
+| Code | Meaning | Examples |
+|---|---|---|
+| `-32700` | Parse error | Invalid JSON or invalid UTF-8 |
+| `-32600` | Invalid request | Missing `jsonrpc: "2.0"` or `method`, batch arrays, bad `id` type |
+| `-32601` | Method not found | Unsupported method |
+| `-32602` | Invalid params | `params`/`arguments` not an object, unknown tool or prompt, bad prompt arguments |
+| `-32603` | Internal error | Unexpected server exception |
+
+Following the MCP spec, a tool that **fails while running** is not a protocol
+error. This covers safety denials, missing tool arguments, a disconnected document,
+and exceptions raised by the handler. The failure comes back as a normal
+`tools/call` result, so the model can see it and correct itself:
+
+```json
+{"jsonrpc": "2.0", "id": 13, "result": {
+  "content": [{"type": "text", "text": "Tool 'get_element' failed: Element 999 not found"}],
+  "isError": true
+}}
+```
 
 ### Server Properties
 
@@ -428,6 +553,9 @@ print(config.host, config.port)
 
 # View active WebSocket connections
 connections = server.connections  # Returns a set copy
+
+# Actual bound port while running (useful with port=0)
+print(server.port)
 ```
 
 ## Enum Reference
@@ -446,7 +574,7 @@ connections = server.connections  # Returns a set copy
 | Member | Value | Description |
 |---|---|---|
 | `READ_ONLY` | `"read_only"` | Blocks all modify operations |
-| `CAUTIOUS` | `"cautious"` | Allows all operations but flags categories for confirmation |
+| `CAUTIOUS` | `"cautious"` | Requires callback confirmation for `require_confirmation_for` categories (default `MODIFY`). Denies them when no callback is set. |
 | `FULL_ACCESS` | `"full_access"` | Allows all operations (except explicitly blocked tools) |
 
 ### ToolResultStatus
@@ -511,6 +639,7 @@ connections = server.connections  # Returns a set copy
 
 A complete example that wires up all four components and runs the MCP server:
 
+{% raw %}
 ```python
 import asyncio
 from revitpy.ai import (
@@ -527,8 +656,8 @@ from revitpy.ai import (
     ParameterType,
 )
 
-# 1. Set up tools
-tools = RevitTools(context=revit_app)
+# 1. Set up tools against a connected RevitPy API
+tools = RevitTools(context=api)
 
 tools.register_tool(
     definition=ToolDefinition(
@@ -550,11 +679,18 @@ tools.register_tool(
 )
 
 # 2. Configure safety
-guard = SafetyGuard(config=SafetyConfig(
-    mode=SafetyMode.CAUTIOUS,
-    require_confirmation_for=[ToolCategory.MODIFY],
-    max_undo_stack=100,
-))
+async def confirm(tool, arguments) -> bool:
+    # Ask the user through your UI; return True only on explicit approval.
+    return await ask_user_to_approve(tool.name, arguments)
+
+guard = SafetyGuard(
+    config=SafetyConfig(
+        mode=SafetyMode.CAUTIOUS,
+        require_confirmation_for=[ToolCategory.MODIFY],
+        max_undo_stack=100,
+    ),
+    confirmation_callback=confirm,
+)
 
 # 3. Set up prompts
 prompts = PromptLibrary()
@@ -570,7 +706,7 @@ prompts.register_template(
 async def main():
     async with McpServer(
         tools,
-        config=McpServerConfig(host="localhost", port=8765),
+        config=McpServerConfig(host="localhost", port=8765, auth_token=token),
         safety_guard=guard,
         prompt_library=prompts,
     ) as server:
@@ -579,3 +715,4 @@ async def main():
 
 asyncio.run(main())
 ```
+{% endraw %}

@@ -5,8 +5,6 @@ description: Submit APS Design Automation jobs, batch-process Revit files in the
 doc_tier: user
 ---
 
-# Cloud & Design Automation
-
 RevitPy includes a cloud layer for running Revit workloads through the Autodesk Platform Services (APS) Design Automation API. The `revitpy.cloud` module provides OAuth2 authentication, job submission and monitoring, parallel batch processing with retry, CI/CD pipeline generation, and webhook event handling.
 
 Install the cloud extras with:
@@ -80,9 +78,24 @@ credentials = ApsCredentials(
 | `US` | United States region |
 | `EMEA` | Europe, Middle East, and Africa region |
 
+#### Region and Design Automation endpoints
+
+`ApsClient` uses the region to pick the Design Automation v3 base path (`client.da_base_path`), and `JobManager` sends every work-item request to `{da_base_path}/workitems`.
+
+| Region | Design Automation base path |
+|---|---|
+| `US` | `/da/us-east/v3` |
+| `EMEA` | `/da/us-east/v3` (fallback, a warning is logged) |
+
+Autodesk documents Design Automation v3 only at `https://developer.api.autodesk.com/da/us-east/v3` (see the [WorkItems reference](https://aps.autodesk.com/en/docs/design-automation/v3/reference/http/workitems-POST)). The APS gateway has no `/da/eu-west/v3` route, so EMEA credentials fall back to `us-east`. If Autodesk gives you a different regional endpoint, pass it explicitly:
+
+```python
+client = ApsClient(auth, region=CloudRegion.EMEA, da_base_path="/da/<region>/v3")
+```
+
 ## ApsAuthenticator
 
-`ApsAuthenticator` implements the OAuth2 client-credentials flow against the APS token endpoint. It caches the issued token and transparently refreshes it when it nears expiry (with a 60-second buffer).
+`ApsAuthenticator` implements the OAuth2 client-credentials flow against the APS v2 token endpoint (`https://developer.api.autodesk.com/authentication/v2/token`). It caches the issued token and transparently refreshes it when it nears expiry (with a 60-second buffer).
 
 ```python
 from revitpy.cloud import ApsAuthenticator, ApsCredentials
@@ -98,6 +111,9 @@ token = await auth.authenticate()
 print(token.access_token, token.expires_in, token.scope)
 
 # Get a cached token (auto-refreshes if expired)
+# Concurrent callers share one refresh: if many coroutines call get_token()
+# while the token is expired, only one re-authenticates (guarded by an
+# asyncio.Lock) and the rest reuse the new token.
 token = await auth.get_token()
 
 # Check validity manually
@@ -143,6 +159,27 @@ auth = ApsAuthenticator(credentials)
 client = ApsClient(auth, region=CloudRegion.US)
 ```
 
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `region` | `CloudRegion` | `CloudRegion.US` | Selects the Design Automation base path |
+| `timeout` | `httpx.Timeout \| float \| None` | `Timeout(30s, connect=10s)` | Timeout for API requests |
+| `download_timeout` | `httpx.Timeout \| float \| None` | `Timeout(300s, connect=10s)` | Timeout for result and report downloads |
+| `da_base_path` | `str \| None` | derived from `region` | Overrides the Design Automation base path |
+
+### Timeouts
+
+Every request uses an explicit `httpx.Timeout` instead of the httpx 5-second default. A plain number sets all phases to that many seconds, except the connect timeout, which is capped at 10 seconds:
+
+```python
+import httpx
+
+client = ApsClient(
+    auth,
+    timeout=60,                                          # API calls
+    download_timeout=httpx.Timeout(1800.0, connect=10.0),  # large .rvt outputs
+)
+```
+
 ### Making Requests
 
 The client exposes `get`, `post`, and `delete` convenience methods, plus a general `request` method. All return parsed JSON as a `dict`:
@@ -165,15 +202,19 @@ data = await client.request("PATCH", "/some/endpoint", json=body)
 
 `ApsClient` enforces a sliding-window rate limit of 20 requests per second. When the limit is reached, subsequent requests are delayed until a slot opens.
 
-Transient HTTP errors (status codes 429, 500, 502, 503) and connection errors are retried up to 3 times with exponential backoff starting at 1 second. Non-retryable errors raise `ApsApiError` immediately.
+Transient HTTP errors (status codes 429, 500, 502, 503) and connection errors are retried, up to 3 attempts in total, with exponential backoff starting at 1 second. On 429 and 503 the client honors a `Retry-After` header given in seconds, capped at 60 seconds. An HTTP-date `Retry-After` falls back to normal backoff. The client does not sleep after the final attempt. Non-retryable errors raise `ApsApiError` immediately.
+
+When retries run out after a retryable status, the `ApsApiError` still carries `status_code` and the first 500 characters of the last `response_body`, and the message includes `last status <code>`. When retries run out after connection errors, `status_code` is `None` and `cause` holds the underlying `httpx` exception.
 
 | Setting | Value |
 |---|---|
 | Max requests per second | 20 |
 | Retryable status codes | 429, 500, 502, 503 |
-| Max retries | 3 |
+| Max attempts | 3 |
 | Initial backoff | 1.0 second |
 | Backoff multiplier | 2x per attempt |
+| `Retry-After` (429/503) | Honored in seconds form, capped at 60 seconds |
+| Error body snippet | First 500 characters |
 
 ## JobManager
 
@@ -248,6 +289,8 @@ downloaded = await manager.download_results(
 for path in downloaded:
     print(f"Downloaded: {path}")
 ```
+
+Each output is streamed to disk in chunks, so large files are never held fully in memory. The data goes to a `<name>.part` file, which is renamed when the download finishes and deleted if it fails. The local filename is the last path segment of the output URL with the query string removed (signed URLs such as `result.rvt?X-Amz-Signature=...` become `result.rvt`). Downloads use `ApsClient.download_timeout` and follow redirects.
 
 ### Cancelling a Job
 
@@ -457,7 +500,10 @@ print(f"Saved to {path}")
 
 ## WebhookHandler
 
-`WebhookHandler` receives, verifies, and routes incoming APS webhook events. It supports HMAC-SHA256 signature verification and event-type-based callback dispatch.
+`WebhookHandler` receives, verifies, and routes incoming APS webhook events. It verifies signatures the way the [APS Webhooks service](https://aps.autodesk.com/en/docs/webhooks/v1/tutorials/how-to-verify-payload-signature) signs them: the `x-adsk-signature` header holds `sha1hash=` followed by the hex HMAC-SHA1 of the raw request body, keyed with your secret token. It then dispatches callbacks by event type.
+
+> **Signatures are required by default.** `handle_event` rejects a payload with `WebhookError` unless a secret is configured and the raw body and signature are supplied and valid.
+> To accept an unsigned payload, pass `verify=False` explicitly. For example, Design Automation `onComplete` callbacks are not signed by APS.
 
 ### Setting Up a Handler
 
@@ -485,28 +531,40 @@ handler = WebhookHandler(
 
 ```python
 is_valid = handler.verify_signature(
-    payload=request.body,       # raw bytes
-    signature=request.headers["X-Signature"],  # hex HMAC-SHA256
+    payload=request.body,                          # raw bytes
+    signature=request.headers["x-adsk-signature"],  # "sha1hash=<hex>"
 )
 if not is_valid:
     raise ValueError("Invalid webhook signature")
 ```
 
-Raises `WebhookError` if no secret is configured.
+Both `sha1hash=<hex>` and a bare hex digest are accepted, and the hex is compared case-insensitively in constant time. Raises `WebhookError` if no secret is configured. `compute_signature(secret, body)` returns the expected header value, which is useful in tests.
 
 ### Handling Events
 
 ```python
-event = handler.handle_event(event_data={
-    "eventType": "job.completed",
-    "jobId": "abc123",
-    "status": "completed",
-    "timestamp": "2025-01-15T10:30:00Z",
-})
+# Recommended: pass the raw request, and the signature header is looked up
+# case-insensitively.
+event = handler.handle_request(raw_body=request.body, headers=request.headers)
+
+# Equivalent explicit form
+event = handler.handle_event(
+    raw_body=request.body,
+    signature=request.headers.get("x-adsk-signature"),
+)
 print(event.event_type, event.job_id, event.status)
+
+# Unsigned sources only (e.g. Design Automation onComplete callbacks)
+event = handler.handle_event(event_data=payload_dict, verify=False)
 ```
 
-`handle_event` parses the payload into a `WebhookEvent`, dispatches registered callbacks, and returns the event. Raises `WebhookError` if required fields (like `eventType`) are missing.
+With `verify=True` (the default), the event is parsed from the signed `raw_body` and any `event_data` argument is ignored, so callbacks only ever see bytes that were authenticated. `handle_event` raises `WebhookError` in any of these cases:
+
+- verification is on and no secret is configured
+- the signature or raw body is missing
+- the signature is invalid
+- the body is not a JSON object
+- a required field (such as `eventType`) is missing
 
 ### WebhookEvent Dataclass
 

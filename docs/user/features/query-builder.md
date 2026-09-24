@@ -5,8 +5,6 @@ description: Guide to the RevitPy LINQ-style QueryBuilder for filtering, sorting
 doc_tier: user
 ---
 
-# Query Builder
-
 RevitPy provides a LINQ-style `QueryBuilder` for querying Revit elements. It supports filtering, sorting, pagination, and several terminal operations to retrieve results.
 
 The `QueryBuilder` is defined in `revitpy.api.query` and is accessible from the `RevitAPI` class.
@@ -21,14 +19,17 @@ There are several ways to create a query.
 from revitpy import RevitAPI
 
 api = RevitAPI()
-api.connect(revit_application)
+api.connect(__revit__)  # Revit's UIApplication, or MockRevit().application in tests
 
 # Query all elements
 query = api.elements
 
-# Query a specific element type
-query = api.query(WallElement)
+# Query a specific element type (Wall, Floor, Door, Window, Room, Level)
+from revitpy.api import Wall
+query = api.query(Wall)
 ```
+
+`api.query()` and `api.elements` raise `ConnectionError("No active document")` until `connect()` has been called. Typed queries use the element class's `revit_categories` (for example `("OST_Walls", "Walls")`), and elements come back wrapped in that class. On a live model, numeric parameters are in Revit internal units (feet).
 
 ### From the Query Factory
 
@@ -44,7 +45,7 @@ query = Query.from_provider(provider)
 query = Query.from_elements(element_list)
 
 # Typed query
-query = Query.of_type(provider, WallElement)
+query = Query.of_type(provider, Wall)
 ```
 
 ## Filter Methods

@@ -397,38 +397,60 @@ class DIContainer:
     def _exit_scope(self) -> None:
         """Exit a service scope."""
         # Dispose scoped services
-        for service in self._scoped_services.values():
-            if hasattr(service, "dispose"):
-                try:
-                    service.dispose()
-                except Exception as e:
-                    logger.error(f"Error disposing scoped service: {e}")
+        for service in _unique(self._scoped_services.values()):
+            _dispose_sync(service, "scoped")
 
         self._scoped_services.clear()
         self._scope_active = False
 
-    def dispose(self) -> None:
-        """Dispose the container and all singleton services."""
-        with self._lock:
-            # Dispose singletons
-            for service in self._singletons.values():
-                if hasattr(service, "dispose"):
-                    try:
-                        service.dispose()
-                    except Exception as e:
-                        logger.error(f"Error disposing singleton service: {e}")
+    def dispose(self, exclude: tuple[Any, ...] = ()) -> None:
+        """Dispose the container and all singleton/scoped services.
 
-            # Dispose scoped services
-            for service in self._scoped_services.values():
-                if hasattr(service, "dispose"):
-                    try:
-                        service.dispose()
-                    except Exception as e:
-                        logger.error(f"Error disposing scoped service: {e}")
+        Services with an async ``dispose`` are skipped (with a warning); use
+        :meth:`dispose_async` for containers holding them.
+
+        Args:
+            exclude: Services not to dispose (e.g. the caller itself).
+        """
+        with self._lock:
+            services = list(self._singletons.values()) + list(
+                self._scoped_services.values()
+            )
+            for service in _unique(services):
+                if not any(service is e for e in exclude):
+                    _dispose_sync(service, "container")
 
             self._singletons.clear()
             self._scoped_services.clear()
             self._services.clear()
+
+    async def dispose_async(self, exclude: tuple[Any, ...] = ()) -> None:
+        """Dispose all services, awaiting async ``dispose`` methods.
+
+        Args:
+            exclude: Services not to dispose (e.g. the caller itself, which
+                would otherwise recurse into its own ``dispose``).
+        """
+        with self._lock:
+            services = list(self._singletons.values()) + list(
+                self._scoped_services.values()
+            )
+            self._singletons.clear()
+            self._scoped_services.clear()
+            self._services.clear()
+
+        for service in _unique(services):
+            if any(service is e for e in exclude):
+                continue
+            dispose = getattr(service, "dispose", None)
+            if not callable(dispose):
+                continue
+            try:
+                result = dispose()
+                if inspect.isawaitable(result):
+                    await result
+            except Exception as e:
+                logger.error(f"Error disposing service {type(service).__name__}: {e}")
 
     def get_registered_services(self) -> list[type]:
         """Get list of registered service types."""
@@ -592,3 +614,30 @@ def register_services_from_module(container: DIContainer, module: Any) -> int:
             logger.debug(f"Auto-registered service: {obj.__name__} as {lifetime.value}")
 
     return registered_count
+
+
+def _unique(services: Any) -> list[Any]:
+    """De-duplicate by identity (one instance may be registered under many types)."""
+    seen: set[int] = set()
+    result = []
+    for service in services:
+        if id(service) not in seen:
+            seen.add(id(service))
+            result.append(service)
+    return result
+
+
+def _dispose_sync(service: Any, kind: str) -> None:
+    dispose = getattr(service, "dispose", None)
+    if not callable(dispose):
+        return
+    if inspect.iscoroutinefunction(dispose):
+        logger.warning(
+            f"{kind} service {type(service).__name__} has an async dispose(); "
+            "use DIContainer.dispose_async() to dispose it"
+        )
+        return
+    try:
+        dispose()
+    except Exception as e:
+        logger.error(f"Error disposing {kind} service {type(service).__name__}: {e}")

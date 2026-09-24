@@ -445,14 +445,23 @@ class TestCacheManager:
 
     def test_thread_safety(self, cache_config):
         """Test thread-safe operations."""
+        # Room for every entry, so a miss can only mean a concurrency bug
+        # (with max_size=100, LRU could legitimately evict between set/get).
+        cache_config.max_size = 1000
         manager = CacheManager(cache_config)
+        errors: list[BaseException] = []
 
         def worker(worker_id):
-            for i in range(50):
-                key = CacheKey(entity_type="Test", entity_id=f"worker-{worker_id}-{i}")
-                manager.set(key, f"data-{worker_id}-{i}")
-                retrieved = manager.get(key)
-                assert retrieved == f"data-{worker_id}-{i}"
+            try:
+                for i in range(50):
+                    key = CacheKey(
+                        entity_type="Test", entity_id=f"worker-{worker_id}-{i}"
+                    )
+                    manager.set(key, f"data-{worker_id}-{i}")
+                    retrieved = manager.get(key)
+                    assert retrieved == f"data-{worker_id}-{i}"
+            except BaseException as e:  # surface failures to the main thread
+                errors.append(e)
 
         threads = [threading.Thread(target=worker, args=(i,)) for i in range(5)]
         for thread in threads:
@@ -460,7 +469,8 @@ class TestCacheManager:
         for thread in threads:
             thread.join()
 
-        assert manager.size <= 250  # 5 workers * 50 entries, capped by max_size
+        assert not errors, errors
+        assert manager.size == 250  # 5 workers * 50 entries
 
     def test_error_handling(self):
         """Test error handling in cache operations."""

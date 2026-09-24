@@ -181,3 +181,30 @@ class PluginError(RevitPyCliError):
         full_message = f"Plugin '{plugin}' error: {message}"
         super().__init__(full_message)
         self.plugin = plugin
+
+
+class AuthenticationError(RevitPyCliError):
+    """Exception raised when registry authentication fails."""
+
+    def __init__(self, message: str, detail: str | None = None) -> None:
+        """Initialize authentication error.
+
+        Args:
+            message: Error message
+            detail: Optional detail returned by the registry
+        """
+        full_message = f"{message}: {detail}" if detail else message
+        super().__init__(full_message)
+        self.detail = detail
+
+
+class DiagnosticsError(RevitPyCliError):
+    """Exception raised when a diagnostics (doctor) command fails."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize diagnostics error.
+
+        Args:
+            message: Error message
+        """
+        super().__init__(f"Diagnostics failed: {message}")

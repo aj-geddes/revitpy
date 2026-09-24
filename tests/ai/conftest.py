@@ -2,6 +2,7 @@
 Pytest configuration and fixtures for AI module tests.
 """
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -107,3 +108,97 @@ def revit_tools() -> RevitTools:
 def prompt_library() -> PromptLibrary:
     """A PromptLibrary instance with built-in templates."""
     return PromptLibrary()
+
+
+# ----------------------------------------------------------------------
+# Fake RevitPy API context (satisfies revitpy.ai.tools.RevitContext)
+# ----------------------------------------------------------------------
+
+
+class FakeElement:
+    """Minimal stand-in for ``revitpy.api.Element``."""
+
+    def __init__(
+        self,
+        element_id: int,
+        name: str,
+        category: str,
+        log: list[tuple[Any, ...]],
+        **params: Any,
+    ) -> None:
+        self.id = element_id
+        self.name = name
+        self.category = category
+        self.params: dict[str, Any] = dict(params)
+        self.fail_on_set = False
+        self._log = log
+
+    def get_parameter_value(self, name: str) -> Any:
+        if name not in self.params:
+            raise KeyError(name)
+        return self.params[name]
+
+    def set_parameter_value(self, name: str, value: Any) -> None:
+        self._log.append(("set", self.id, name, value))
+        if self.fail_on_set:
+            raise ValueError(f"Parameter {name} is read-only")
+        self.params[name] = value
+
+    def get_all_parameters(self) -> dict[str, Any]:
+        return {k: SimpleNamespace(value=v) for k, v in self.params.items()}
+
+
+class FakeTransaction:
+    """Records start/commit/rollback into the shared log."""
+
+    def __init__(self, name: str | None, log: list[tuple[Any, ...]]) -> None:
+        self.name = name
+        self._log = log
+
+    def __enter__(self) -> "FakeTransaction":
+        self._log.append(("start", self.name))
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
+        self._log.append(("commit",) if exc_type is None else ("rollback",))
+        return False
+
+
+class FakeDocument:
+    def __init__(self, elements: list[FakeElement]) -> None:
+        self.elements = elements
+
+    def get_all_elements(self) -> list[FakeElement]:
+        return list(self.elements)
+
+
+class FakeRevitAPI:
+    """Duck-typed ``revitpy.api.RevitAPI`` with an in-memory document."""
+
+    def __init__(self) -> None:
+        self.log: list[tuple[Any, ...]] = []
+        self.elements = [
+            FakeElement(1, "Wall A", "Walls", self.log, Type="Generic 200", Mark="W1"),
+            FakeElement(2, "Wall B", "Walls", self.log, Type="Generic 200", Mark="W1"),
+            FakeElement(3, "Wall C", "Walls", self.log, Type="Brick 300"),
+            FakeElement(4, "", "Doors", self.log, Type="Single", Mark="D1"),
+        ]
+        self.active_document: FakeDocument | None = FakeDocument(self.elements)
+
+    def get_element_by_id(self, element_id: Any) -> FakeElement | None:
+        return next((e for e in self.elements if e.id == element_id), None)
+
+    def transaction(self, name: str | None = None, **kwargs: Any) -> FakeTransaction:
+        return FakeTransaction(name, self.log)
+
+
+@pytest.fixture
+def fake_api() -> FakeRevitAPI:
+    """An in-memory Revit API context with walls and a door."""
+    return FakeRevitAPI()
+
+
+@pytest.fixture
+def connected_tools(fake_api: FakeRevitAPI) -> RevitTools:
+    """RevitTools bound to the fake API context."""
+    return RevitTools(fake_api)

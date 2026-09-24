@@ -1,5 +1,6 @@
 """Tests for authentication router endpoints."""
 
+import uuid
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -7,7 +8,10 @@ import jwt
 import pytest
 from fastapi import HTTPException, status
 from revitpy_package_manager.registry.api.routers.auth import (
+    JWT_ALGORITHM,
+    JWT_SECRET_KEY,
     create_access_token,
+    create_refresh_token,
     get_current_active_user,
     get_current_superuser,
     get_current_user,
@@ -19,10 +23,28 @@ from revitpy_package_manager.registry.api.routers.auth import (
 )
 from revitpy_package_manager.registry.api.schemas import (
     LoginRequest,
+    RefreshTokenRequest,
     UserCreate,
 )
 from revitpy_package_manager.registry.models.user import User
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _make_user(**overrides) -> User:
+    """Build a realistic (unsaved) User that validates as a UserResponse."""
+    fields = {
+        "id": uuid.uuid4(),
+        "username": "testuser",
+        "email": "test@example.com",
+        "password_hash": "",
+        "is_active": True,
+        "is_verified": False,
+        "created_at": datetime.utcnow(),
+        "last_login_at": None,
+    }
+    fields.update(overrides)
+    return User(**fields)
+
 
 # ============================================================================
 # Test Password Hashing
@@ -93,9 +115,8 @@ class TestJWTToken:
         """Test creating token with custom expiration."""
         data = {"sub": "user123"}
         expires_delta = timedelta(minutes=30)
-        token = create_access_token(data, expires_delta)
 
-        # Decode without verification to check expiration
+        # Sign and decode with the same patched key so the signature verifies
         with patch(
             "revitpy_package_manager.registry.api.routers.auth.JWT_SECRET_KEY",
             "test_secret",
@@ -104,6 +125,7 @@ class TestJWTToken:
                 "revitpy_package_manager.registry.api.routers.auth.JWT_ALGORITHM",
                 "HS256",
             ):
+                token = create_access_token(data, expires_delta)
                 decoded = jwt.decode(token, "test_secret", algorithms=["HS256"])
                 exp = datetime.utcfromtimestamp(decoded["exp"])
                 now = datetime.utcnow()
@@ -146,7 +168,7 @@ class TestGetCurrentUser:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_user = Mock(spec=User, id=1, is_active=True, last_login_at=None)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -162,7 +184,10 @@ class TestGetCurrentUser:
             ):
                 # Create a valid token
                 token = jwt.encode(
-                    {"sub": "1", "exp": datetime.utcnow() + timedelta(hours=1)},
+                    {
+                        "sub": str(uuid.uuid4()),
+                        "exp": datetime.utcnow() + timedelta(hours=1),
+                    },
                     "test_secret",
                     algorithm="HS256",
                 )
@@ -189,7 +214,10 @@ class TestGetCurrentUser:
             ):
                 # Create an expired token
                 token = jwt.encode(
-                    {"sub": "1", "exp": datetime.utcnow() - timedelta(hours=1)},
+                    {
+                        "sub": str(uuid.uuid4()),
+                        "exp": datetime.utcnow() - timedelta(hours=1),
+                    },
                     "test_secret",
                     algorithm="HS256",
                 )
@@ -247,7 +275,7 @@ class TestGetCurrentUser:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_credentials = Mock()
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -260,7 +288,10 @@ class TestGetCurrentUser:
                 "HS256",
             ):
                 token = jwt.encode(
-                    {"sub": "999", "exp": datetime.utcnow() + timedelta(hours=1)},
+                    {
+                        "sub": str(uuid.uuid4()),
+                        "exp": datetime.utcnow() + timedelta(hours=1),
+                    },
                     "test_secret",
                     algorithm="HS256",
                 )
@@ -278,7 +309,7 @@ class TestGetCurrentUser:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_user = Mock(spec=User, id=1, is_active=False)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -293,7 +324,10 @@ class TestGetCurrentUser:
                 "HS256",
             ):
                 token = jwt.encode(
-                    {"sub": "1", "exp": datetime.utcnow() + timedelta(hours=1)},
+                    {
+                        "sub": str(uuid.uuid4()),
+                        "exp": datetime.utcnow() + timedelta(hours=1),
+                    },
                     "test_secret",
                     algorithm="HS256",
                 )
@@ -378,7 +412,7 @@ class TestRegisterEndpoint:
         mock_db = AsyncMock(spec=AsyncSession)
 
         # Mock that username and email don't exist
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -432,7 +466,7 @@ class TestRegisterEndpoint:
         mock_db = AsyncMock(spec=AsyncSession)
 
         existing_user = Mock(spec=User, username="testuser")
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = existing_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -461,11 +495,11 @@ class TestRegisterEndpoint:
         mock_db = AsyncMock(spec=AsyncSession)
 
         # First query (username) returns None, second (email) returns existing user
-        mock_result_username = AsyncMock()
+        mock_result_username = Mock()  # SQLAlchemy Result methods are sync
         mock_result_username.scalar_one_or_none.return_value = None
 
         existing_user = Mock(spec=User, email="test@example.com")
-        mock_result_email = AsyncMock()
+        mock_result_email = Mock()  # SQLAlchemy Result methods are sync
         mock_result_email.scalar_one_or_none.return_value = existing_user
 
         mock_db.execute = AsyncMock(
@@ -496,7 +530,7 @@ class TestRegisterEndpoint:
         """Test that registration sanitizes user inputs."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -527,6 +561,98 @@ class TestRegisterEndpoint:
             assert sanitized_values["test<script>"] == "testscript"
 
 
+class TestAuthHardening:
+    """Regression tests for auth hardening in the router."""
+
+    @pytest.mark.asyncio
+    async def test_register_rejects_markup_in_username(self):
+        mock_db = AsyncMock(spec=AsyncSession)
+        user_data = UserCreate(
+            username="<script>alert(1)</script>",
+            email="test@example.com",
+            password="StrongPassword123!",
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await register(user_data=user_data, db=mock_db)
+
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "<script>" not in exc_info.value.detail
+        mock_db.add.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_register_rejects_password_over_bcrypt_limit(self):
+        mock_db = AsyncMock(spec=AsyncSession)
+        user_data = UserCreate(
+            username="testuser",
+            email="test@example.com",
+            password="Aa1!" + "x" * 80,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await register(user_data=user_data, db=mock_db)
+
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "72 bytes" in exc_info.value.detail
+
+    def test_verify_password_over_bcrypt_limit_is_false(self):
+        hashed = get_password_hash("test_password")
+        assert verify_password("x" * 100, hashed) is False
+        assert verify_password("test_password", "not-a-bcrypt-hash") is False
+
+    @pytest.mark.asyncio
+    async def test_missing_credentials_is_401(self):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(credentials=None, db=AsyncMock(spec=AsyncSession))
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert exc_info.value.headers == {"WWW-Authenticate": "Bearer"}
+
+    @pytest.mark.asyncio
+    async def test_non_uuid_subject_is_401(self):
+        mock_db = AsyncMock(spec=AsyncSession)
+        mock_credentials = Mock()
+
+        with patch(
+            "revitpy_package_manager.registry.api.routers.auth.JWT_SECRET_KEY",
+            "test_secret",
+        ):
+            with patch(
+                "revitpy_package_manager.registry.api.routers.auth.JWT_ALGORITHM",
+                "HS256",
+            ):
+                mock_credentials.credentials = jwt.encode(
+                    {"sub": "1", "exp": datetime.utcnow() + timedelta(hours=1)},
+                    "test_secret",
+                    algorithm="HS256",
+                )
+                with pytest.raises(HTTPException) as exc_info:
+                    await get_current_user(credentials=mock_credentials, db=mock_db)
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        mock_db.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_login_unknown_user_still_runs_bcrypt(self):
+        mock_db = AsyncMock(spec=AsyncSession)
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        with patch(
+            "revitpy_package_manager.registry.api.routers.auth.verify_password",
+            return_value=False,
+        ) as mock_verify:
+            with pytest.raises(HTTPException) as exc_info:
+                await login(
+                    login_data=LoginRequest(username="ghost", password="pw"),
+                    db=mock_db,
+                )
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        mock_verify.assert_called_once()
+
+
 # ============================================================================
 # Test login endpoint
 # ============================================================================
@@ -543,16 +669,11 @@ class TestLoginEndpoint:
         password = "test_password"
         hashed = get_password_hash(password)
 
-        mock_user = Mock(
-            spec=User,
-            id=1,
-            username="testuser",
-            password_hash=hashed,
-            is_active=True,
-            last_login_at=None,
-        )
+        # login() validates the user into a UserResponse, so it needs a
+        # realistic user (UUID id, real field values), not a bare Mock.
+        mock_user = _make_user(username="testuser", password_hash=hashed)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -562,7 +683,9 @@ class TestLoginEndpoint:
 
         assert response.access_token is not None
         assert response.token_type == "bearer"
-        assert response.user == mock_user
+        assert response.user.id == mock_user.id
+        assert response.user.username == "testuser"
+        assert mock_user.last_login_at is not None
         mock_db.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -573,16 +696,9 @@ class TestLoginEndpoint:
         password = "test_password"
         hashed = get_password_hash(password)
 
-        mock_user = Mock(
-            spec=User,
-            id=1,
-            email="test@example.com",
-            password_hash=hashed,
-            is_active=True,
-            last_login_at=None,
-        )
+        mock_user = _make_user(email="test@example.com", password_hash=hashed)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -598,7 +714,7 @@ class TestLoginEndpoint:
         """Test login with non-existent user."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -626,7 +742,7 @@ class TestLoginEndpoint:
             is_active=True,
         )
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -654,7 +770,7 @@ class TestLoginEndpoint:
             is_active=False,
         )
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -673,41 +789,44 @@ class TestLoginEndpoint:
 
 
 class TestRefreshTokenEndpoint:
-    """Tests for token refresh endpoint."""
+    """Tests for token refresh endpoint (full coverage in test_auth_refresh.py)."""
 
     @pytest.mark.asyncio
     async def test_refresh_token_success(self):
-        """Test successful token refresh."""
-        mock_user = Mock(spec=User, id=1, is_active=True)
+        """A refresh token yields a new access token for the same user."""
+        user_id = uuid.uuid4()
+        mock_user = Mock(spec=User, id=user_id, is_active=True)
+        mock_db = AsyncMock(spec=AsyncSession)
+        mock_result = Mock()
+        mock_result.scalar_one_or_none.return_value = mock_user
+        mock_db.execute.return_value = mock_result
 
-        response = await refresh_token(current_user=mock_user)
+        response = await refresh_token(
+            body=RefreshTokenRequest(refresh_token=create_refresh_token(str(user_id))),
+            credentials=None,
+            db=mock_db,
+        )
 
-        assert "access_token" in response
-        assert response["token_type"] == "bearer"
-        assert isinstance(response["access_token"], str)
+        assert response.token_type == "bearer"
+        decoded = jwt.decode(
+            response.access_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM]
+        )
+        assert decoded["sub"] == str(user_id)
+        assert decoded["type"] == "access"
 
     @pytest.mark.asyncio
-    async def test_refresh_token_contains_user_id(self):
-        """Test that refreshed token contains user ID."""
-        mock_user = Mock(spec=User, id=123, is_active=True)
+    async def test_refresh_rejects_access_token(self):
+        """An access token can't be used to refresh (it would renew forever)."""
+        with pytest.raises(HTTPException) as exc_info:
+            await refresh_token(
+                body=RefreshTokenRequest(
+                    refresh_token=create_access_token({"sub": str(uuid.uuid4())})
+                ),
+                credentials=None,
+                db=AsyncMock(spec=AsyncSession),
+            )
 
-        response = await refresh_token(current_user=mock_user)
-
-        # Decode token to verify it contains user ID
-        with patch(
-            "revitpy_package_manager.registry.api.routers.auth.JWT_SECRET_KEY",
-            "test_secret",
-        ):
-            with patch(
-                "revitpy_package_manager.registry.api.routers.auth.JWT_ALGORITHM",
-                "HS256",
-            ):
-                decoded = jwt.decode(
-                    response["access_token"],
-                    "test_secret",
-                    algorithms=["HS256"],
-                )
-                assert decoded["sub"] == "123"
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 # ============================================================================
@@ -724,7 +843,7 @@ class TestAuthIntegration:
         mock_db = AsyncMock(spec=AsyncSession)
 
         # Registration
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -747,16 +866,11 @@ class TestAuthIntegration:
         password = "SecurePass123!"
         hashed = get_password_hash(password)
 
-        mock_user = Mock(
-            spec=User,
-            id=1,
-            username="newuser",
-            password_hash=hashed,
-            is_active=True,
-            last_login_at=None,
+        mock_user = _make_user(
+            username="newuser", email="new@example.com", password_hash=hashed
         )
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 

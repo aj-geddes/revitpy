@@ -43,9 +43,9 @@ def check(
     """Run comprehensive system diagnostics.
 
     Examples:
-        revitpy doctor check
-        revitpy doctor check --verbose --fix
-        revitpy doctor check --output diagnostics.txt
+        revitpy-dev doctor check
+        revitpy-dev doctor check --verbose --fix
+        revitpy-dev doctor check --output diagnostics.txt
     """
     start_time = time.time()
     log_command_start(
@@ -166,9 +166,9 @@ def env(
     """Show environment information.
 
     Examples:
-        revitpy doctor env
-        revitpy doctor env --format json
-        revitpy doctor env --format env
+        revitpy-dev doctor env
+        revitpy-dev doctor env --format json
+        revitpy-dev doctor env --format env
     """
     log_command_start("doctor env", {"format": format})
 
@@ -203,9 +203,9 @@ def performance(
     """Check system performance and resource usage.
 
     Examples:
-        revitpy doctor performance
-        revitpy doctor performance --benchmark
-        revitpy doctor performance --profile
+        revitpy-dev doctor performance
+        revitpy-dev doctor performance --benchmark
+        revitpy-dev doctor performance --profile
     """
     start_time = time.time()
     log_command_start(
@@ -287,9 +287,9 @@ def cleanup(
     """Clean up system files and caches.
 
     Examples:
-        revitpy doctor cleanup
-        revitpy doctor cleanup --logs --backup
-        revitpy doctor cleanup --dry-run
+        revitpy-dev doctor cleanup
+        revitpy-dev doctor cleanup --logs --backup
+        revitpy-dev doctor cleanup --dry-run
     """
     start_time = time.time()
     log_command_start(

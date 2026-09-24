@@ -13,7 +13,7 @@ import functools
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import (
     Any,
     TypeVar,
@@ -49,7 +49,7 @@ class AsyncTransactionContext:
     """Context for async transaction operations."""
 
     transaction_id: UUID = field(default_factory=uuid4)
-    start_time: datetime = field(default_factory=datetime.utcnow)
+    start_time: datetime = field(default_factory=lambda: datetime.now(UTC))
     is_active: bool = True
     is_committed: bool = False
     is_rolled_back: bool = False
@@ -60,7 +60,7 @@ class AsyncTransactionContext:
     @property
     def duration(self) -> float:
         """Get transaction duration in seconds."""
-        return (datetime.utcnow() - self.start_time).total_seconds()
+        return (datetime.now(UTC) - self.start_time).total_seconds()
 
     def add_operation(self, operation: Any) -> None:
         """Add an operation to the transaction."""
@@ -513,9 +513,11 @@ class AsyncRevitContext:
 
         try:
             if element_type:
-                elements = await self._provider.get_elements_of_type_async(element_type)
+                elements = await _call_provider(
+                    self._provider, "get_elements_of_type", element_type
+                )
             else:
-                elements = await self._provider.get_all_elements_async()
+                elements = await _call_provider(self._provider, "get_all_elements")
 
             # Auto-attach to change tracker if enabled
             if self._auto_track_changes:
@@ -536,7 +538,9 @@ class AsyncRevitContext:
             raise AsyncOperationError("Context has been disposed")
 
         try:
-            element = await self._provider.get_element_by_id_async(element_id)
+            element = await _call_provider(
+                self._provider, "get_element_by_id", element_id
+            )
 
             # Auto-attach to change tracker if enabled
             if element and self._auto_track_changes:
@@ -589,19 +593,41 @@ class AsyncRevitContext:
                         )
                     )
 
-            # Process batch operations
+            # Register each change with the unit of work (the persistence
+            # boundary). Without a unit of work, changes are only accepted
+            # in the tracker, matching RevitContext.save_changes().
+            unit_of_work = self._unit_of_work
+
             async def save_operation(operation: BatchOperation) -> Any:
-                # Simulate saving operation
-                await asyncio.sleep(0.001)  # Minimal delay for simulation
-                return f"Saved {operation.operation_type.value}"
+                if unit_of_work is None:
+                    return operation.operation_type.value
+                if operation.operation_type == BatchOperationType.INSERT:
+                    unit_of_work.register_new(operation.entity)
+                elif operation.operation_type == BatchOperationType.UPDATE:
+                    unit_of_work.register_dirty(operation.entity)
+                elif operation.operation_type == BatchOperationType.DELETE:
+                    unit_of_work.register_removed(operation.entity)
+                return operation.operation_type.value
 
             result = await self._batch_processor.process_batch(
                 operations, save_operation
             )
 
-            # Accept changes if all successful
-            if result["error_count"] == 0:
-                self._change_tracker.accept_changes()
+            if result["error_count"]:
+                raise AsyncOperationError(
+                    f"{result['error_count']} of {len(operations)} changes failed "
+                    "to register; nothing was committed",
+                    async_operation="save_changes",
+                )
+
+            if unit_of_work is not None:
+                commit_async = getattr(unit_of_work, "commit_async", None)
+                if commit_async is not None:
+                    await commit_async()
+                else:
+                    unit_of_work.commit()
+
+            self._change_tracker.accept_changes()
 
             logger.info(
                 f"Saved {result['processed_count']} changes async in {result['processing_time']:.2f}s"
@@ -611,6 +637,17 @@ class AsyncRevitContext:
 
         except Exception as e:
             logger.error(f"Failed to save changes async: {e}")
+            if self._unit_of_work is not None:
+                try:
+                    rollback_async = getattr(self._unit_of_work, "rollback_async", None)
+                    if rollback_async is not None:
+                        await rollback_async()
+                    else:
+                        self._unit_of_work.rollback()
+                except Exception as rollback_error:
+                    logger.error(f"Rollback also failed: {rollback_error}")
+            if isinstance(e, AsyncOperationError):
+                raise
             raise AsyncOperationError(
                 f"Failed to save changes: {e}", async_operation="save_changes", cause=e
             )
@@ -770,3 +807,15 @@ async def async_retry(
         raise last_exception
     else:
         raise AsyncOperationError("Async retry failed with no exception")
+
+
+async def _call_provider(provider: Any, method: str, *args: Any) -> Any:
+    """Call ``provider.<method>_async`` if it exists, else ``<method>``.
+
+    The sync fallback runs on the current thread (not a thread pool): Revit
+    document providers must only be used on Revit's main thread.
+    """
+    async_method = getattr(provider, f"{method}_async", None)
+    if async_method is not None:
+        return await async_method(*args)
+    return getattr(provider, method)(*args)

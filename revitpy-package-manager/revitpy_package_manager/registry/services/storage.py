@@ -1,5 +1,6 @@
 """Storage service for package files."""
 
+import re
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
@@ -52,9 +53,26 @@ class LocalStorageBackend(StorageBackend):
 
     def _get_file_path(self, key: str) -> Path:
         """Get the full file path for a key."""
-        # Ensure the key doesn't escape the base directory
-        safe_key = str(Path(key)).replace("..", "")
-        return self.base_path / safe_key
+        # Ensure the key doesn't escape the base directory. Keys are always
+        # treated as relative: leading separators and "."/".." segments are
+        # dropped (the previous str.replace("..", "")
+        # turned "../../etc/passwd" into the absolute path "//etc/passwd").
+        parts = [
+            part
+            for part in re.split(r"[\\/]+", key)
+            if part not in ("", ".", "..")
+        ]
+        if not parts:
+            raise ValueError(f"Invalid storage key: {key!r}")
+
+        file_path = self.base_path.joinpath(*parts)
+
+        # Defence in depth (symlinks inside the storage directory, Windows
+        # drive-qualified segments such as "C:")
+        if not file_path.resolve().is_relative_to(self.base_path):
+            raise ValueError(f"Storage key escapes base directory: {key!r}")
+
+        return file_path
 
     async def store_file(
         self, key: str, content: bytes | BinaryIO, metadata: dict | None = None

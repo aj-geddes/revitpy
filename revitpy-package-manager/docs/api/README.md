@@ -151,9 +151,9 @@ Comprehensive security system:
 
 ### Authentication
 - `POST /api/v1/auth/register` - Register new user
-- `POST /api/v1/auth/login` - Authenticate user
+- `POST /api/v1/auth/login` - Authenticate user (returns access + refresh tokens)
 - `GET /api/v1/auth/me` - Get current user info
-- `POST /api/v1/auth/refresh` - Refresh access token
+- `POST /api/v1/auth/refresh` - Exchange a refresh token (not an access token) for a new token pair; see the package README
 
 ### Packages
 - `GET /api/v1/packages/` - List packages

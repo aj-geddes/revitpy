@@ -127,6 +127,10 @@ class BaseSecurityScanner:
         try:
             await self._perform_scan(package_path, result)
             result.complete_scan()
+        except NotImplementedError:
+            # A scanner that doesn't implement _perform_scan is a programming
+            # error, not a scan failure -- don't mask it as a result error.
+            raise
         except Exception as e:
             result.complete_scan(error=str(e))
 
@@ -145,13 +149,13 @@ class StaticCodeScanner(BaseSecurityScanner):
         (
             re.compile(r"\beval\s*\("),
             "high",
-            "Code Injection",
+            "Code Injection via eval()",
             "Use of eval() function can lead to code injection",
         ),
         (
             re.compile(r"\bexec\s*\("),
             "high",
-            "Code Injection",
+            "Code Injection via exec()",
             "Use of exec() function can lead to code injection",
         ),
         (

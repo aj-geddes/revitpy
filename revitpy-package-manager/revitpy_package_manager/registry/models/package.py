@@ -14,10 +14,11 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+from .types import JSONDict, StringArray
 
 if TYPE_CHECKING:
     from .security import PackageSignature, VulnerabilityReport
@@ -44,8 +45,8 @@ class Package(Base):
     # Package metadata
     summary: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
-    keywords: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    categories: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    keywords: Mapped[list[str]] = mapped_column(StringArray, default=list)
+    categories: Mapped[list[str]] = mapped_column(StringArray, default=list)
 
     # URLs and links
     homepage_url: Mapped[str | None] = mapped_column(String(2048))
@@ -109,7 +110,7 @@ class PackageVersion(Base):
         String(50), nullable=False, default=">=3.11"
     )
     supported_revit_versions: Mapped[list[str]] = mapped_column(
-        ARRAY(String), nullable=False, default=list
+        StringArray, nullable=False, default=list
     )
 
     # File information
@@ -143,7 +144,7 @@ class PackageVersion(Base):
     download_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Additional metadata as JSON (renamed from 'metadata' to avoid SQLAlchemy reserved name)
-    extra_metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
+    extra_metadata: Mapped[dict] = mapped_column(JSONDict, default=dict)
 
     # Relationships
     package: Mapped[Package] = relationship("Package", back_populates="versions")

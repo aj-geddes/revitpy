@@ -37,6 +37,39 @@ class IfcElementMapper:
         "RailingElement": "IfcRailing",
     }
 
+    # Aliases onto the default mappings: revitpy.api element wrapper classes
+    # (live Revit / MockRevit) and Revit categories (built-in and display
+    # names, matched against an element's ``category``).
+    _ALIASES: dict[str, str] = {
+        "Wall": "WallElement",
+        "Floor": "SlabElement",
+        "Door": "DoorElement",
+        "Window": "WindowElement",
+        "Room": "RoomElement",
+        "OST_Walls": "WallElement",
+        "Walls": "WallElement",
+        "OST_Floors": "SlabElement",
+        "Floors": "SlabElement",
+        "OST_Doors": "DoorElement",
+        "Doors": "DoorElement",
+        "OST_Windows": "WindowElement",
+        "Windows": "WindowElement",
+        "OST_Rooms": "RoomElement",
+        "Rooms": "RoomElement",
+        "OST_Roofs": "RoofElement",
+        "Roofs": "RoofElement",
+        "OST_StructuralColumns": "ColumnElement",
+        "OST_Columns": "ColumnElement",
+        "Structural Columns": "ColumnElement",
+        "Columns": "ColumnElement",
+        "OST_StructuralFraming": "BeamElement",
+        "Structural Framing": "BeamElement",
+        "OST_Stairs": "StairElement",
+        "Stairs": "StairElement",
+        "OST_StairsRailing": "RailingElement",
+        "Railings": "RailingElement",
+    }
+
     def __init__(self) -> None:
         self._registry: dict[str, IfcMapping] = {}
         self._reverse_registry: dict[str, str] = {}
@@ -144,10 +177,10 @@ class IfcElementMapper:
                 conversion fails.
         """
         require_ifcopenshell()
-        import ifcopenshell  # noqa: F811
+        import ifcopenshell.api.pset
+        import ifcopenshell.api.root
 
-        element_type = type(element).__name__
-        mapping = self._registry.get(element_type)
+        element_type, mapping = self._resolve_mapping(element)
         if mapping is None:
             raise IfcExportError(
                 f"No IFC mapping found for type: {element_type}",
@@ -155,17 +188,33 @@ class IfcElementMapper:
             )
 
         try:
-            ifc_entity = ifc_file.create_entity(
-                mapping.ifc_entity_type,
-                GlobalId=ifcopenshell.guid.new(),
-                Name=getattr(element, "name", ""),
+            ifc_entity = ifcopenshell.api.root.create_entity(
+                ifc_file,
+                ifc_class=mapping.ifc_entity_type,
+                name=str(getattr(element, "name", "") or ""),
             )
+            if ifc_file.schema == "IFC2X3" and ifc_entity.is_a("IfcSpace"):
+                # Mandatory in IFC2X3 (optional from IFC4 onwards).
+                ifc_entity.InteriorOrExteriorSpace = "INTERNAL"
 
-            # Apply property mappings if any
+            # Apply property mappings: IFC attributes are set directly,
+            # anything else goes into a "RevitPy_Properties" property set.
+            extra: dict[str, Any] = {}
+            attribute_names = set(ifc_entity.get_info(recursive=False))
             for revit_prop, ifc_prop in mapping.property_map.items():
                 value = getattr(element, revit_prop, None)
-                if value is not None:
+                if value is None:
+                    continue
+                if ifc_prop in attribute_names:
                     setattr(ifc_entity, ifc_prop, value)
+                else:
+                    extra[ifc_prop] = value
+
+            if extra:
+                pset = ifcopenshell.api.pset.add_pset(
+                    ifc_file, product=ifc_entity, name="RevitPy_Properties"
+                )
+                ifcopenshell.api.pset.edit_pset(ifc_file, pset=pset, properties=extra)
 
             logger.debug(
                 "Converted {} to {}",
@@ -180,6 +229,22 @@ class IfcElementMapper:
                 element_count=1,
                 cause=exc,
             ) from exc
+
+    def _resolve_mapping(self, element: Any) -> tuple[str, IfcMapping | None]:
+        """Find the mapping for an element.
+
+        The element's class name is tried first, then its ``category``
+        attribute (useful for duck-typed elements).
+        """
+        element_type = type(element).__name__
+        candidates = [element_type, self._ALIASES.get(element_type)]
+        category = getattr(element, "category", None)
+        if isinstance(category, str):
+            candidates += [category, self._ALIASES.get(category)]
+        for candidate in candidates:
+            if candidate is not None and candidate in self._registry:
+                return candidate, self._registry[candidate]
+        return element_type, None
 
     def from_ifc(
         self,

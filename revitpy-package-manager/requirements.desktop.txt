@@ -1,46 +1,44 @@
 # Minimal requirements for desktop package registry
-# Focused on essential dependencies only
+# Focused on essential dependencies only (exact pins for reproducible images).
+# Test tooling lives in the `test` extra: pip install -e ".[test]"
 
 # Core web framework
-fastapi==0.135.1
-uvicorn[standard]==0.41.0
-pydantic==2.5.0
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
 
 # Database (SQLite support)
-sqlalchemy==2.0.48
-aiosqlite==0.19.0
+sqlalchemy[asyncio]==2.0.54
+aiosqlite==0.22.1
 
 # File handling
-aiofiles==23.2.1
+aiofiles==25.1.0
 
 # HTTP client for registry communication
-httpx==0.25.2
-aiohttp==3.9.1
+httpx==0.28.1
+aiohttp==3.14.3
 
 # Security
-cryptography==42.0.2
-bcrypt==4.1.2
-python-jose[cryptography]==3.3.0
+cryptography==50.0.1
+bcrypt==5.0.0
+PyJWT==2.15.0
 
 # Package management
-packaging==23.2
+packaging==26.3
 
 # CLI and output
-click==8.1.7
-rich==14.3.3
-typer==0.9.0
+click==8.5.0
+rich==15.0.0
+typer==0.27.2
 
 # Configuration
-pyyaml==6.0.1
-python-multipart==0.0.6
+pyyaml==6.0.3
+python-multipart==0.0.32
 
 # Optional caching (Redis)
-redis==5.0.0
+redis==8.1.0
 
 # Utilities
-python-dateutil==2.8.2
-python-slugify==8.0.4
-
-# Development/testing (optional)
-pytest==9.0.2
-pytest-asyncio==0.21.1
+python-dateutil==2.9.0.post0
+python-slugify==9.1.1

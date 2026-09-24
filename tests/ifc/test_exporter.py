@@ -71,6 +71,8 @@ class TestIfcExporter:
 
         with (
             patch("revitpy.ifc.exporter.require_ifcopenshell"),
+            patch("revitpy.ifc.exporter._load_api", return_value=mock_ifc.api),
+            patch("revitpy.ifc.exporter._translation", return_value=None),
             patch.dict(sys.modules, {"ifcopenshell": mock_ifc}),
         ):
             result = exporter.export(
@@ -90,6 +92,8 @@ class TestIfcExporter:
 
         with (
             patch("revitpy.ifc.exporter.require_ifcopenshell"),
+            patch("revitpy.ifc.exporter._load_api", return_value=mock_ifc.api),
+            patch("revitpy.ifc.exporter._translation", return_value=None),
             patch.dict(sys.modules, {"ifcopenshell": mock_ifc}),
         ):
             exporter.export(
@@ -112,6 +116,8 @@ class TestIfcExporter:
 
         with (
             patch("revitpy.ifc.exporter.require_ifcopenshell"),
+            patch("revitpy.ifc.exporter._load_api", return_value=mock_ifc.api),
+            patch("revitpy.ifc.exporter._translation", return_value=None),
             patch.dict(sys.modules, {"ifcopenshell": mock_ifc}),
         ):
             result = exporter.export(elements, tmp_path / "out.ifc")
@@ -151,3 +157,38 @@ class TestIfcExporter:
 
         assert (0, len(sample_elements)) in progress_calls
         assert (len(sample_elements), len(sample_elements)) in progress_calls
+
+    def test_export_builds_spatial_structure_with_api(self, tmp_path):
+        """export should aggregate the hierarchy and contain elements."""
+        mock_ifc, mock_file = _make_mock_ifcopenshell()
+        api = mock_ifc.api
+        entity = MagicMock()
+        entity.is_a.return_value = False  # physical element, not spatial
+        exporter = IfcExporter()
+        exporter._mapper.to_ifc = MagicMock(return_value=entity)
+
+        elements = [
+            SimpleNamespace(id=1, name="W1", category="WallElement", level="L1"),
+            SimpleNamespace(id=2, name="W2", category="WallElement", level="L1"),
+            SimpleNamespace(id=3, name="W3", category="WallElement"),
+        ]
+
+        with (
+            patch("revitpy.ifc.exporter.require_ifcopenshell"),
+            patch("revitpy.ifc.exporter._load_api", return_value=api),
+            patch("revitpy.ifc.exporter._translation", return_value=None),
+            patch.dict(sys.modules, {"ifcopenshell": mock_ifc}),
+        ):
+            exporter.export(elements, tmp_path / "out.ifc")
+
+        created = [c.kwargs["ifc_class"] for c in api.root.create_entity.call_args_list]
+        assert created.count("IfcProject") == 1
+        assert created.count("IfcSite") == 1
+        assert created.count("IfcBuilding") == 1
+        # One storey for "L1" and one default storey.
+        assert created.count("IfcBuildingStorey") == 2
+        # site->project, building->site, 2 storeys->building
+        assert api.aggregate.assign_object.call_count == 4
+        assert api.spatial.assign_container.call_count == 3
+        api.unit.assign_unit.assert_called_once()
+        mock_file.write.assert_called_once_with(str(tmp_path / "out.ifc"))

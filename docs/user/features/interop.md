@@ -1,21 +1,33 @@
 ---
 layout: page
 title: Speckle Interoperability
-description: Push and pull Revit elements to Speckle streams with RevitPy. Covers type mapping, real-time WebSocket subscriptions, property diffing, and merge.
+description: Push and pull Revit elements to Speckle projects, models and versions with RevitPy and specklepy. Covers type mapping, real-time version subscriptions, property diffing, and merge.
 doc_tier: user
 ---
 
-# Speckle Interoperability
+RevitPy includes an interop layer for bidirectional synchronisation with [Speckle](https://speckle.systems/). The `revitpy.interop` module provides type mapping between RevitPy elements and Speckle objects, push/pull sync operations built on the official [`specklepy`](https://pypi.org/project/specklepy/) SDK, property-level diffing, conflict-aware merging, and real-time version subscriptions over WebSocket.
 
-RevitPy includes a full interop layer for bidirectional synchronisation with [Speckle](https://speckle.systems/). The `revitpy.interop` module provides type mapping between RevitPy elements and Speckle objects, push/pull sync operations, property-level diffing, conflict-aware merging, and real-time commit subscriptions over WebSocket.
+## Speckle Terminology
 
-The Speckle integration is an optional dependency. Install it with:
+RevitPy follows Speckle's current data model:
+
+| Speckle (current) | Formerly | Meaning |
+|---|---|---|
+| **Project** | Stream | Top-level container you share with collaborators |
+| **Model** | Branch | A named line of data inside a project (e.g. `main`, `structure`) |
+| **Version** | Commit | An immutable snapshot of a model that points at one root object |
+
+Objects themselves live in Speckle's content-addressed object store: every object id is a hash of its content, computed by `specklepy` when the object is sent.
+
+## Installation
+
+Speckle network operations need the optional `interop` extra, which installs `specklepy`:
 
 ```bash
-pip install revitpy[speckle]
+pip install "revitpy[interop]"
 ```
 
-You can check at runtime whether the `specklepy` package is available:
+`revitpy.interop` always imports without it -- type mapping, diffing and merging work offline -- but any call that talks to a Speckle server raises an `ImportError` with the install hint above. Check availability at runtime:
 
 ```python
 from revitpy.interop import speckle_available
@@ -26,38 +38,60 @@ if speckle_available():
 
 ## Quick Start
 
-For simple one-shot operations, use the convenience functions at module level:
+For simple one-shot operations, use the convenience functions at module level. Sending requires a [personal access token](https://speckle.guide/dev/tokens.html):
 
 ```python
 from revitpy.interop import push_to_speckle, pull_from_speckle, sync
 from revitpy.interop import SyncMode, SyncDirection, SpeckleConfig
 
-# Push elements to a stream
+config = SpeckleConfig(token="your-personal-access-token")
+
+# Push elements as a new version of a model
 result = await push_to_speckle(
     elements,
-    stream_id="abc123",
-    branch="main",
+    project_id="abc123",
+    model="main",            # created automatically if it does not exist
     message="Updated wall layout",
+    config=config,
 )
-print(f"Sent {result.objects_sent} objects, commit {result.commit_id}")
+print(f"Sent {result.objects_sent} objects")
+print(f"Version {result.version_id}, root object {result.object_id}")
 
-# Pull elements from a stream
+# Pull elements from a model (latest version unless version_id is given)
 elements = await pull_from_speckle(
-    stream_id="abc123",
-    branch="main",
-    commit_id="def456",  # optional; latest commit if omitted
+    project_id="abc123",
+    model="main",
+    version_id="def456",     # optional
+    config=config,
 )
 
 # Full bidirectional sync
 result = await sync(
     elements,
-    stream_id="abc123",
+    project_id="abc123",
     mode=SyncMode.INCREMENTAL,
     direction=SyncDirection.BIDIRECTIONAL,
+    config=config,
 )
 ```
 
-All three convenience functions accept an optional `config` parameter of type `SpeckleConfig` for connecting to a self-hosted server or providing an auth token.
+All three convenience functions accept an optional `config` parameter of type `SpeckleConfig` for connecting to a self-hosted server or providing an auth token. When `project_id` is omitted, `config.default_project` is used.
+
+### Migrating from stream/branch/commit arguments
+
+Earlier releases used Speckle's legacy names. They still work but emit a `DeprecationWarning`:
+
+| Deprecated | Use instead |
+|---|---|
+| `stream_id=` | `project_id=` |
+| `branch=` | `model=` |
+| `commit_id=` | `version_id=` |
+| `SpeckleClient.get_streams()` / `get_stream()` | `get_projects()` / `get_project()` |
+| `SpeckleClient.get_branches()` | `get_models()` |
+| `SpeckleClient.get_commits()` | `get_versions()` |
+| `SpeckleConfig.default_stream` | `SpeckleConfig.default_project` |
+
+`SyncResult.commit_id` is kept and holds the *version* id (also available as `SyncResult.version_id`). Positional arguments keep their old order and meaning (project, model, version).
 
 ## SpeckleConfig
 
@@ -65,9 +99,10 @@ All three convenience functions accept an optional `config` parameter of type `S
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `server_url` | `str` | `"https://app.speckle.systems"` | Speckle server URL |
-| `token` | `str \| None` | `None` | Personal access token for authentication |
-| `default_stream` | `str \| None` | `None` | Default stream identifier |
+| `server_url` | `str` | `"https://app.speckle.systems"` | Speckle server URL (`http://` disables TLS, e.g. for a local server) |
+| `token` | `str \| None` | `None` | Personal access token; required for sending and for subscriptions |
+| `default_project` | `str \| None` | `None` | Project used when `project_id` is omitted |
+| `default_stream` | `str \| None` | `None` | Deprecated alias of `default_project` |
 
 ```python
 from revitpy.interop import SpeckleConfig
@@ -75,7 +110,7 @@ from revitpy.interop import SpeckleConfig
 config = SpeckleConfig(
     server_url="https://speckle.mycompany.com",
     token="your-personal-access-token",
-    default_stream="abc123",
+    default_project="abc123",
 )
 ```
 
@@ -178,7 +213,7 @@ placeholder = mapper.get_unmapped_status("CustomElement")
 
 ## SpeckleClient
 
-`SpeckleClient` is an async HTTP client that communicates with the Speckle server GraphQL API using `httpx.AsyncClient`.
+`SpeckleClient` is an async wrapper around the `specklepy` SDK (`specklepy.api.client.SpeckleClient`). The SDK client is created lazily and authenticated with `authenticate_with_token` when `config.token` is set. `specklepy` is synchronous, so every call runs in a worker thread via `asyncio.to_thread`. The underlying SDK client is available as `client.sdk_client` for anything RevitPy does not wrap.
 
 ### Connecting
 
@@ -191,79 +226,82 @@ config = SpeckleConfig(
 )
 client = SpeckleClient(config=config)
 
-# Validate the connection (sends a serverInfo query)
+# Validate the connection (fetches server info)
 await client.connect()
 print(client.is_connected)  # True
 
-# Always close when done
+# Release the SDK client when done
 await client.close()
 ```
 
-### Listing Streams and Branches
+### Projects and Models
 
 ```python
-# Get all visible streams
-streams = await client.get_streams()
-for s in streams:
-    print(s["id"], s["name"], s["description"])
+# Projects visible to the authenticated user
+projects = await client.get_projects(limit=25)
+for p in projects:
+    print(p["id"], p["name"])
 
-# Get a single stream by ID
-stream = await client.get_stream("abc123")
+# A single project by ID
+project = await client.get_project("abc123")
 
-# Get branches for a stream
-branches = await client.get_branches("abc123")
-for b in branches:
-    print(b["name"], b["description"])
+# Models in a project
+models = await client.get_models("abc123")
+for m in models:
+    print(m["id"], m["name"])
+
+# Resolve a model name to its id (optionally creating it)
+model_id = await client.resolve_model_id("abc123", "main", create=True)
 ```
 
-### Working with Commits
+### Versions
 
 ```python
-# Get recent commits on a branch
-commits = await client.get_commits(
-    stream_id="abc123",
-    branch="main",
-    limit=10,
-)
-for commit in commits:
-    print(commit.id, commit.message, commit.author, commit.total_objects)
+versions = await client.get_versions("abc123", model="main", limit=10)
+for v in versions:
+    print(v.id, v.message, v.author, v.referenced_object)
 ```
 
-Each commit is returned as a `SpeckleCommit` dataclass:
+Each version is returned as a `SpeckleCommit` dataclass (also exported as `SpeckleVersion`):
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `id` | `str` | -- | Commit identifier |
-| `message` | `str` | -- | Commit message |
+| `id` | `str` | -- | Version identifier |
+| `message` | `str` | -- | Version message |
 | `author` | `str` | -- | Author name |
 | `created_at` | `str` | -- | ISO timestamp |
-| `source_application` | `str` | `"revitpy"` | Application that created the commit |
-| `total_objects` | `int` | `0` | Number of child objects |
+| `source_application` | `str` | `"revitpy"` | Application that created the version |
+| `total_objects` | `int` | `0` | Number of objects sent (set by `send_objects`) |
+| `referenced_object` | `str \| None` | `None` | Content hash of the root object the version points at |
+| `model_id` | `str \| None` | `None` | Model the version belongs to |
+| `project_id` | `str \| None` | `None` | Project the version belongs to |
 
 ### Sending and Receiving Objects
 
+`send_objects` converts each dict into a `specklepy` `Base` object (its `speckle_type` is preserved and the RevitPy `id` is stored as `applicationId`), wraps them in a `Collection`, uploads them with `operations.send` through a `ServerTransport`, and creates a version on the model with `client.version.create(CreateVersionInput(...))`. The model is created if it does not exist.
+
 ```python
-# Send objects and create a commit
-commit = await client.send_objects(
-    stream_id="abc123",
-    objects=[{"speckle_type": "...", "id": "1", "name": "Wall-1"}],
-    branch="main",
+version = await client.send_objects(
+    "abc123",
+    [{"speckle_type": "Objects.BuiltElements.Wall:Wall", "id": "1", "name": "Wall-1"}],
+    model="main",
     message="Pushed walls from RevitPy",
 )
-print(commit.id)
-
-# Receive objects from the latest commit on a branch
-objects = await client.receive_objects(
-    stream_id="abc123",
-    branch="main",
-)
-
-# Receive objects from a specific commit
-objects = await client.receive_objects(
-    stream_id="abc123",
-    commit_id="def456",
-)
+print(version.id)                 # version id
+print(version.referenced_object)  # root object hash returned by operations.send
 ```
+
+`receive_objects` looks up the version's `referencedObject`, downloads it with `operations.receive`, flattens any (nested) collections and returns plain dicts. Each dict carries `id` (the original `applicationId` when present), `speckle_id` (the object hash), `speckle_type` and the object's properties.
+
+```python
+# Latest version of a model
+objects = await client.receive_objects("abc123", model="main")
+
+# A specific version
+objects = await client.receive_objects("abc123", version_id="def456")
+```
+
+`send_objects` requires `config.token`; without one it raises `SpeckleSyncError`. Any other failure is wrapped in `SpeckleSyncError` with the original exception in `.cause`.
 
 ## SpeckleSync
 
@@ -283,28 +321,31 @@ The `mapper` argument is optional; a default `SpeckleTypeMapper` is created when
 
 ### Push
 
-Push local elements to a Speckle stream. Each element is converted via the mapper before sending:
+Push local elements as a new version of a model. Each element is converted via the mapper before sending:
 
 ```python
 result = await syncer.push(
     elements,
-    stream_id="abc123",
-    branch="main",
+    project_id="abc123",
+    model="main",
     message="Layout update",
 )
 print(f"Sent: {result.objects_sent}, Errors: {len(result.errors)}")
-print(f"Commit: {result.commit_id}, Duration: {result.duration_ms:.0f}ms")
+print(f"Version: {result.version_id}, Object: {result.object_id}")
+print(f"Duration: {result.duration_ms:.0f}ms")
 ```
+
+Mapping failures and `SpeckleSyncError`s are collected in `result.errors` rather than raised.
 
 ### Pull
 
-Pull objects from a stream and map them back to RevitPy-compatible dicts:
+Pull objects from a model version and map them back to RevitPy-compatible dicts:
 
 ```python
 elements = await syncer.pull(
-    stream_id="abc123",
-    branch="main",
-    commit_id="def456",  # optional
+    project_id="abc123",
+    model="main",
+    version_id="def456",  # optional; latest version if omitted
 )
 for elem in elements:
     print(elem["type"], elem["name"])
@@ -319,9 +360,10 @@ from revitpy.interop import SyncMode, SyncDirection
 
 result = await syncer.sync(
     elements,
-    stream_id="abc123",
+    project_id="abc123",
     mode=SyncMode.INCREMENTAL,
     direction=SyncDirection.BIDIRECTIONAL,
+    model="main",
 )
 print(f"Sent: {result.objects_sent}, Received: {result.objects_received}")
 ```
@@ -330,7 +372,7 @@ print(f"Sent: {result.objects_sent}, Received: {result.objects_received}")
 
 | Value | Description |
 |---|---|
-| `PUSH` | Send local elements to the remote stream only |
+| `PUSH` | Send local elements to the remote model only |
 | `PULL` | Receive remote objects only |
 | `BIDIRECTIONAL` | Push then pull in a single operation |
 
@@ -350,7 +392,8 @@ print(f"Sent: {result.objects_sent}, Received: {result.objects_received}")
 | `objects_sent` | `int` | `0` | Number of objects pushed |
 | `objects_received` | `int` | `0` | Number of objects pulled |
 | `errors` | `list[str]` | `[]` | Error messages encountered |
-| `commit_id` | `str \| None` | `None` | Commit ID created during push |
+| `commit_id` | `str \| None` | `None` | Id of the version created during push (alias: `version_id` property) |
+| `object_id` | `str \| None` | `None` | Root object hash uploaded during push |
 | `duration_ms` | `float` | `0.0` | Total operation time in milliseconds |
 
 ## SpeckleDiff
@@ -384,11 +427,11 @@ if differ.has_changes(local, remote):
 | `change_type` | `str` | -- | One of `"added"`, `"removed"`, or `"modified"` |
 | `property_name` | `str \| None` | `None` | Property that differs (for `"modified"` entries) |
 | `local_value` | `Any` | `None` | Value in the local model |
-| `remote_value` | `Any` | `None` | Value in the remote stream |
+| `remote_value` | `Any` | `None` | Value in the remote model version |
 
 Change types are determined as follows:
-- **added** -- element exists locally but not on the remote stream
-- **removed** -- element exists on the remote stream but not locally
+- **added** -- element exists locally but not in the remote version
+- **removed** -- element exists in the remote version but not locally
 - **modified** -- element exists in both but one or more properties differ
 
 ## SpeckleMerge
@@ -447,7 +490,13 @@ When `ConflictResolution.MANUAL` is used as the default strategy, `merge()` rais
 
 ## SpeckleSubscriptions
 
-`SpeckleSubscriptions` manages real-time GraphQL subscriptions over WebSocket to receive live commit notifications from Speckle streams.
+`SpeckleSubscriptions` listens for new versions in real time using Speckle's current `projectVersionsUpdated` GraphQL subscription (via `specklepy`'s `client.subscription.project_versions_updated`). The legacy `commitCreated` stream subscription no longer exists on current servers.
+
+Requirements and behaviour:
+
+- `specklepy` must be installed and `SpeckleConfig.token` must be set (WebSocket subscriptions require authentication).
+- Each subscription runs as an `asyncio` task in the current event loop.
+- The server reports version events for every model in the project; RevitPy filters them to the subscribed model.
 
 ```python
 from revitpy.interop import SpeckleClient, SpeckleSubscriptions
@@ -455,27 +504,25 @@ from revitpy.interop import SpeckleClient, SpeckleSubscriptions
 client = SpeckleClient(config=config)
 subs = SpeckleSubscriptions(client=client)
 
-# Subscribe to a stream/branch with a callback
-async def on_commit(payload):
-    print(f"New commit: {payload}")
+# Callbacks may be sync or async
+async def on_version(payload):
+    print(f"New version {payload['version_id']} on {payload['model']}")
 
-await subs.subscribe(
-    stream_id="abc123",
-    branch="main",
-    callback=on_commit,
-)
+await subs.subscribe(project_id="abc123", model="main", callback=on_version)
 
 # List active subscriptions
 print(subs.active_subscriptions)  # ["abc123/main"]
 
-# Unsubscribe from all branches on a stream
-await subs.unsubscribe(stream_id="abc123")
+# Unsubscribe from all models in a project
+await subs.unsubscribe("abc123")
 
 # Close all subscriptions
 await subs.close()
 ```
 
-The `subscribe` method also accepts an optional `event_manager` (passed at construction time) for dispatching subscription events through a centralised event system.
+Each payload is a dict with `project_id`, `model`, `model_id`, `type` (`CREATED`, `UPDATED` or `DELETED`), `version_id`, `referenced_object`, `message`, `source_application`, `created_at` and `author`.
+
+If an `event_manager` with a `dispatch(name, payload)` method is passed to the constructor, every matching event is also dispatched as `"speckle.version_created"`. If the WebSocket connection drops, the subscription is marked inactive (it disappears from `active_subscriptions`); call `unsubscribe` and `subscribe` again to reconnect.
 
 ## Error Handling
 
@@ -484,25 +531,29 @@ All interop errors inherit from `InteropError`. Specific exception types let you
 | Exception | Description |
 |---|---|
 | `InteropError` | Base exception for all interop errors |
-| `SpeckleConnectionError` | Server is unreachable or returned an unexpected response |
-| `SpeckleSyncError` | Push or pull operation failed |
+| `SpeckleConnectionError` | Server is unreachable, authentication failed, or a subscription could not be set up |
+| `SpeckleSyncError` | Send or receive failed (the original error is in `.cause`) |
 | `TypeMappingError` | No mapping found for an element or Speckle type |
 | `MergeConflictError` | Unresolved conflicts remain when using `MANUAL` resolution |
+| `ImportError` | `specklepy` is not installed (`pip install "revitpy[interop]"`) |
+
+`SpeckleSync.push` (and `push_to_speckle`) collect mapping and send errors in `SyncResult.errors`; the lower-level `SpeckleClient` methods raise them.
 
 ```python
-from revitpy.interop import (
-    SpeckleConnectionError,
-    SpeckleSyncError,
-    TypeMappingError,
-    MergeConflictError,
-)
+from revitpy.interop import SpeckleClient, SpeckleConnectionError, SpeckleSyncError
 
+client = SpeckleClient(config=config)
 try:
-    result = await push_to_speckle(elements, stream_id="abc123")
+    await client.connect()
+    version = await client.send_objects("abc123", objects, model="main")
 except SpeckleConnectionError as exc:
     print(f"Connection failed: {exc}")
-except TypeMappingError as exc:
-    print(f"Type not mapped: {exc}")
 except SpeckleSyncError as exc:
-    print(f"Sync error: {exc}")
+    print(f"Send failed: {exc} (cause: {exc.cause!r})")
+finally:
+    await client.close()
+
+result = await push_to_speckle(elements, project_id="abc123", config=config)
+if result.errors:
+    print("Push had problems:", result.errors)
 ```

@@ -47,8 +47,8 @@ class TestCarbonCalculator:
         results = calculator.calculate(materials)
 
         assert len(results) == 1
-        # 1000 kg * 0.13 kgCO2e/kg = 130 kgCO2e
-        assert results[0].embodied_carbon_kgco2e == pytest.approx(130.0, rel=0.01)
+        # 1000 kg * 0.107 kgCO2e/kg (ICE v2.0 concrete, general) = 107 kgCO2e
+        assert results[0].embodied_carbon_kgco2e == pytest.approx(107.0, rel=0.01)
         assert results[0].calculation_method == "mass_based"
 
     def test_calculate_volume_based(self, calculator):
@@ -64,8 +64,8 @@ class TestCarbonCalculator:
         results = calculator.calculate(materials)
 
         assert len(results) == 1
-        # 1 m3 * 312.0 kgCO2e/m3 = 312 kgCO2e
-        assert results[0].embodied_carbon_kgco2e == pytest.approx(312.0, rel=0.01)
+        # 1 m3 * 0.107 kgCO2e/kg * 2400 kg/m3 (assumed density) = 256.8 kgCO2e
+        assert results[0].embodied_carbon_kgco2e == pytest.approx(256.8, rel=0.01)
         assert results[0].calculation_method == "volume_based"
 
     def test_calculate_skips_unknown_materials(self, calculator):
@@ -123,8 +123,8 @@ class TestCarbonCalculator:
         ]
         results = calculator.calculate(materials)
 
-        # 1000 kg * 1.55 kgCO2e/kg = 1550 kgCO2e
-        assert results[0].embodied_carbon_kgco2e == pytest.approx(1550.0, rel=0.01)
+        # 1000 kg * 1.46 kgCO2e/kg (ICE v2.0 steel, EU avg recycled) = 1460 kgCO2e
+        assert results[0].embodied_carbon_kgco2e == pytest.approx(1460.0, rel=0.01)
 
     def test_calculate_timber_accuracy(self, calculator):
         """Test timber carbon calculation accuracy."""
@@ -137,8 +137,8 @@ class TestCarbonCalculator:
         ]
         results = calculator.calculate(materials)
 
-        # 500 kg * 0.45 kgCO2e/kg = 225 kgCO2e
-        assert results[0].embodied_carbon_kgco2e == pytest.approx(225.0, rel=0.01)
+        # 500 kg * 0.31 kgCO2e/kg (ICE v2.0 timber, fossil) = 155 kgCO2e
+        assert results[0].embodied_carbon_kgco2e == pytest.approx(155.0, rel=0.01)
 
     def test_summarize_total_carbon(self, calculator, sample_carbon_results):
         """Test that summarize computes correct total."""

@@ -52,6 +52,16 @@ class MockElement:
 
 
 @pytest.fixture
+def mock_element_cls() -> type[MockElement]:
+    """Expose :class:`MockElement` to tests without importing conftest.
+
+    ``tests/`` is not a package, so ``from tests.extract.conftest import``
+    only works under some rootdir/import-mode configurations.
+    """
+    return MockElement
+
+
+@pytest.fixture
 def sample_elements() -> list[MockElement]:
     """Provide a list of mock elements with various quantity attributes."""
     return [

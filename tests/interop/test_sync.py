@@ -32,20 +32,22 @@ class TestSpeckleSync:
         """push should map elements and send them to Speckle."""
         result = await syncer.push(
             sample_elements,
-            stream_id="stream-001",
+            project_id="stream-001",
             message="test push",
         )
 
         assert result.direction == SyncDirection.PUSH
         assert result.objects_sent == 2
         assert result.commit_id == "commit-002"
+        assert result.version_id == "commit-002"
+        assert result.object_id == "0123456789abcdef0123456789abcdef"
         assert result.errors == []
         assert result.duration_ms > 0
 
     @pytest.mark.asyncio
     async def test_push_with_no_elements(self, syncer):
         """push with empty list should return zero objects sent."""
-        result = await syncer.push([], stream_id="stream-001")
+        result = await syncer.push([], project_id="stream-001")
 
         assert result.objects_sent == 0
         assert result.commit_id is None
@@ -55,7 +57,7 @@ class TestSpeckleSync:
         """push should record errors for unmappable elements."""
         bad_element = UnknownWidget(id="x")
 
-        result = await syncer.push([bad_element], stream_id="stream-001")
+        result = await syncer.push([bad_element], project_id="stream-001")
 
         assert result.objects_sent == 0
         assert len(result.errors) == 1
@@ -68,22 +70,72 @@ class TestSpeckleSync:
     @pytest.mark.asyncio
     async def test_pull_receives_and_maps_objects(self, syncer):
         """pull should receive objects and map them to RevitPy dicts."""
-        elements = await syncer.pull(stream_id="stream-001")
+        elements = await syncer.pull(project_id="stream-001")
 
         assert len(elements) == 2
         assert elements[0]["type"] == "WallElement"
         assert elements[1]["type"] == "RoomElement"
 
     @pytest.mark.asyncio
-    async def test_pull_with_specific_commit(self, syncer, mock_speckle_client):
-        """pull with a commit_id should pass it to the client."""
-        await syncer.pull(stream_id="stream-001", commit_id="commit-001")
+    async def test_pull_with_specific_version(self, syncer, mock_speckle_client):
+        """pull with a version_id should pass it to the client."""
+        await syncer.pull(project_id="stream-001", version_id="commit-001")
 
         mock_speckle_client.receive_objects.assert_called_once_with(
             "stream-001",
-            commit_id="commit-001",
-            branch="main",
+            version_id="commit-001",
+            model="main",
         )
+
+    # ------------------------------------------------------------------
+    # Legacy stream/branch/commit arguments
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_push_legacy_kwargs_warn(
+        self, syncer, mock_speckle_client, sample_elements
+    ):
+        """Legacy stream_id/branch kwargs still work but are deprecated."""
+        with pytest.warns(DeprecationWarning):
+            result = await syncer.push(
+                sample_elements, stream_id="stream-001", branch="dev"
+            )
+
+        assert result.commit_id == "commit-002"
+        args, kwargs = mock_speckle_client.send_objects.call_args
+        assert args[0] == "stream-001"
+        assert kwargs["model"] == "dev"
+
+    @pytest.mark.asyncio
+    async def test_pull_legacy_kwargs_warn(self, syncer, mock_speckle_client):
+        """Legacy commit_id/branch kwargs map to version_id/model."""
+        with pytest.warns(DeprecationWarning):
+            await syncer.pull(stream_id="stream-001", branch="dev", commit_id="c1")
+
+        mock_speckle_client.receive_objects.assert_called_once_with(
+            "stream-001",
+            version_id="c1",
+            model="dev",
+        )
+
+    @pytest.mark.asyncio
+    async def test_push_uses_default_project(
+        self, mock_speckle_client, sample_elements
+    ):
+        """Without a project_id the configured default project is used."""
+        syncer = SpeckleSync(client=mock_speckle_client)
+        await syncer.push(sample_elements)
+
+        assert mock_speckle_client.send_objects.call_args.args[0] == "stream-001"
+
+    @pytest.mark.asyncio
+    async def test_push_without_project_raises(self, sample_elements):
+        """Without a project_id or default an informative TypeError is raised."""
+        from revitpy.interop.client import SpeckleClient
+
+        syncer = SpeckleSync(client=SpeckleClient())
+        with pytest.raises(TypeError, match="project_id"):
+            await syncer.push(sample_elements)
 
     # ------------------------------------------------------------------
     # Bidirectional sync
@@ -94,7 +146,7 @@ class TestSpeckleSync:
         """sync with BIDIRECTIONAL direction should push and pull."""
         result = await syncer.sync(
             sample_elements,
-            stream_id="stream-001",
+            project_id="stream-001",
             direction=SyncDirection.BIDIRECTIONAL,
         )
 
@@ -107,7 +159,7 @@ class TestSpeckleSync:
         """sync with PUSH direction should only send."""
         result = await syncer.sync(
             sample_elements,
-            stream_id="stream-001",
+            project_id="stream-001",
             direction=SyncDirection.PUSH,
         )
 
@@ -120,7 +172,7 @@ class TestSpeckleSync:
         """sync with PULL direction should only receive."""
         result = await syncer.sync(
             sample_elements,
-            stream_id="stream-001",
+            project_id="stream-001",
             direction=SyncDirection.PULL,
         )
 
@@ -144,7 +196,7 @@ class TestSpeckleSync:
         )
         result = await syncer.sync(
             sample_elements,
-            stream_id="stream-001",
+            project_id="stream-001",
             mode=SyncMode.INCREMENTAL,
             direction=SyncDirection.PUSH,
         )
@@ -157,7 +209,7 @@ class TestSpeckleSync:
         """Full sync should send all elements regardless of changes."""
         result = await syncer.sync(
             sample_elements,
-            stream_id="stream-001",
+            project_id="stream-001",
             mode=SyncMode.FULL,
             direction=SyncDirection.PUSH,
         )

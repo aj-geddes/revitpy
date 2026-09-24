@@ -14,6 +14,7 @@ import asyncio
 import cProfile
 import gc
 import logging
+import os
 import pstats
 import threading
 import time
@@ -28,7 +29,12 @@ from io import StringIO
 from queue import Empty, Queue
 from typing import Any, Generic, TypeVar
 
-import psutil
+try:
+    import psutil
+
+    HAS_PSUTIL = True
+except ImportError:  # optional: memory metrics report 0 without it
+    HAS_PSUTIL = False
 
 # Performance monitoring imports
 try:
@@ -104,7 +110,7 @@ class OptimizationConfig:
 
     def __post_init__(self):
         if self.max_worker_threads is None:
-            self.max_worker_threads = min(32, (psutil.cpu_count() or 1) * 2)
+            self.max_worker_threads = min(32, (os.cpu_count() or 1) * 2)
 
 
 class ObjectPool(Generic[T]):
@@ -860,7 +866,9 @@ class PerformanceOptimizer:
                 latencies[:] = latencies[-LATENCY_HISTORY_TRIM_SIZE:]
 
     def _get_memory_usage_mb(self) -> float:
-        """Get current memory usage in MB."""
+        """Get current memory usage in MB (0.0 without psutil)."""
+        if not HAS_PSUTIL:
+            return 0.0
         try:
             process = psutil.Process()
             return process.memory_info().rss / 1024 / 1024

@@ -32,11 +32,14 @@ class TestWebhookHandler:
         handler = WebhookHandler(config=config)
 
         payload = b'{"eventType": "job.completed"}'
-        signature = hmac.new(
-            secret.encode("utf-8"),
-            payload,
-            hashlib.sha256,
-        ).hexdigest()
+        signature = (
+            "sha1hash="
+            + hmac.new(
+                secret.encode("utf-8"),
+                payload,
+                hashlib.sha1,
+            ).hexdigest()
+        )
 
         assert handler.verify_signature(payload, signature) is True
 
@@ -86,7 +89,7 @@ class TestWebhookHandler:
         signature = hmac.new(
             secret.encode("utf-8"),
             original_payload,
-            hashlib.sha256,
+            hashlib.sha1,
         ).hexdigest()
 
         tampered_payload = b'{"status": "failed"}'
@@ -108,7 +111,7 @@ class TestWebhookHandler:
             "extra": "data",
         }
 
-        event = handler.handle_event(event_data)
+        event = handler.handle_event(event_data, verify=False)
 
         assert isinstance(event, WebhookEvent)
         assert event.event_type == "job.completed"
@@ -122,7 +125,7 @@ class TestWebhookHandler:
         handler = WebhookHandler()
 
         with pytest.raises(WebhookError) as exc_info:
-            handler.handle_event({"jobId": "1", "status": "ok"})
+            handler.handle_event({"jobId": "1", "status": "ok"}, verify=False)
 
         assert "eventType" in str(exc_info.value)
 
@@ -131,7 +134,7 @@ class TestWebhookHandler:
         handler = WebhookHandler()
 
         event_data = {"eventType": "job.started"}
-        event = handler.handle_event(event_data)
+        event = handler.handle_event(event_data, verify=False)
 
         assert event.job_id == ""
         assert event.status == JobStatus.PENDING
@@ -145,7 +148,7 @@ class TestWebhookHandler:
             "eventType": "job.custom",
             "status": "unknown_xyz",
         }
-        event = handler.handle_event(event_data)
+        event = handler.handle_event(event_data, verify=False)
 
         assert event.status == JobStatus.PENDING
 
@@ -174,7 +177,7 @@ class TestWebhookHandler:
             "status": "completed",
             "timestamp": "2024-01-15T10:00:00Z",
         }
-        handler.handle_event(event_data)
+        handler.handle_event(event_data, verify=False)
 
         callback.assert_called_once()
         event_arg = callback.call_args[0][0]
@@ -191,7 +194,7 @@ class TestWebhookHandler:
             "eventType": "job.failed",
             "status": "failed",
         }
-        handler.handle_event(event_data)
+        handler.handle_event(event_data, verify=False)
 
         callback.assert_not_called()
 
@@ -201,8 +204,8 @@ class TestWebhookHandler:
         wildcard_cb = MagicMock()
         handler.register_callback("*", wildcard_cb)
 
-        handler.handle_event({"eventType": "job.completed"})
-        handler.handle_event({"eventType": "job.failed"})
+        handler.handle_event({"eventType": "job.completed"}, verify=False)
+        handler.handle_event({"eventType": "job.failed"}, verify=False)
 
         assert wildcard_cb.call_count == 2
 
@@ -218,7 +221,8 @@ class TestWebhookHandler:
             {
                 "eventType": "job.completed",
                 "status": "completed",
-            }
+            },
+            verify=False,
         )
 
         cb1.assert_called_once()
@@ -237,7 +241,8 @@ class TestWebhookHandler:
             {
                 "eventType": "job.completed",
                 "status": "completed",
-            }
+            },
+            verify=False,
         )
 
         bad_cb.assert_called_once()

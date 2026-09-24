@@ -1,5 +1,7 @@
 """Administrative endpoints."""
 
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,7 +36,7 @@ async def list_all_users(
 
 @router.put("/users/{user_id}/deactivate", response_model=UserResponse)
 async def deactivate_user(
-    user_id: str,
+    user_id: uuid.UUID,
     current_user: User = Depends(get_current_superuser),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -57,7 +59,7 @@ async def deactivate_user(
 
 @router.put("/users/{user_id}/activate", response_model=UserResponse)
 async def activate_user(
-    user_id: str,
+    user_id: uuid.UUID,
     current_user: User = Depends(get_current_superuser),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -90,10 +92,11 @@ async def list_all_packages(
     query = select(Package)
 
     if not include_private:
-        query = query.where(not Package.is_private)
+        # SQL comparison; Python `not column` is constant False (drops all rows)
+        query = query.where(Package.is_private.is_(False))
 
     if not include_unpublished:
-        query = query.where(Package.is_published)
+        query = query.where(Package.is_published.is_(True))
 
     query = query.order_by(Package.created_at.desc())
 
@@ -134,8 +137,8 @@ async def unpublish_package(
     "/security/vulnerabilities", response_model=list[VulnerabilityReportResponse]
 )
 async def list_vulnerabilities(
-    severity: str = None,
-    status: str = None,
+    severity: str | None = None,
+    status: str | None = None,
     current_user: User = Depends(get_current_superuser),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -159,8 +162,8 @@ async def list_vulnerabilities(
 
 @router.get("/security/scans", response_model=list[ScanResultResponse])
 async def list_scan_results(
-    scanner: str = None,
-    status: str = None,
+    scanner: str | None = None,
+    status: str | None = None,
     current_user: User = Depends(get_current_superuser),
     db: AsyncSession = Depends(get_db_session),
 ):

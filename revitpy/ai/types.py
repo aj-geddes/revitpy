@@ -95,7 +95,11 @@ class SafetyConfig:
 
     mode: SafetyMode = SafetyMode.CAUTIOUS
     max_undo_stack: int = 50
-    require_confirmation_for: list[ToolCategory] = field(default_factory=list)
+    # In CAUTIOUS mode, tools in these categories must be approved by the
+    # ``SafetyGuard`` confirmation callback; without a callback they are denied.
+    require_confirmation_for: list[ToolCategory] = field(
+        default_factory=lambda: [ToolCategory.MODIFY]
+    )
     blocked_tools: list[str] = field(default_factory=list)
 
 
@@ -107,3 +111,11 @@ class McpServerConfig:
     port: int = 8765
     name: str = "revitpy-mcp"
     version: str = "1.0.0"
+    # Optional shared secret.  When set, clients must send
+    # ``Authorization: Bearer <token>`` during the WebSocket handshake.
+    # Excluded from ``repr`` so it never ends up in logs.
+    auth_token: str | None = field(default=None, repr=False)
+    # Browser origins allowed to connect.  Handshakes that carry an
+    # ``Origin`` header not in this list are rejected with 403, which
+    # stops arbitrary web pages from driving a localhost server.
+    allowed_origins: list[str] = field(default_factory=list)

@@ -8,9 +8,11 @@ MCP-compatible JSON Schema format.
 
 from __future__ import annotations
 
+import csv
+import io
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Protocol
 
 from loguru import logger
 
@@ -24,17 +26,114 @@ from .types import (
     ToolResultStatus,
 )
 
+NOT_CONNECTED_MESSAGE = "Not connected to a Revit document"
+
+_GROUP_BY_ALIASES: dict[str, str] = {
+    "type": "Type",
+    "family_name": "Family",
+    "level": "Level",
+    "name": "Name",
+    "mark": "Mark",
+    "comments": "Comments",
+}
+_SUPPORTED_CHECKS = ("unnamed_elements", "duplicate_marks")
+_EXPORT_FORMATS = ("json", "csv")
+_EXPORT_FIELDS = ["element_id", "name", "category"]
+
+
+class RevitContext(Protocol):
+    """Structural type of the context ``RevitTools`` expects.
+
+    Satisfied by :class:`revitpy.api.RevitAPI`.  ``transaction`` must
+    return a context manager that commits on clean exit and rolls back
+    when an exception escapes.
+    """
+
+    @property
+    def active_document(self) -> Any: ...
+
+    def get_element_by_id(self, element_id: Any) -> Any: ...
+
+    def transaction(self, name: str | None = None, **kwargs: Any) -> Any: ...
+
+
+def _safe_param(element: Any, name: str) -> Any:
+    """Return a parameter value, or ``None`` when it cannot be read."""
+    try:
+        return element.get_parameter_value(name)
+    except Exception:
+        return None
+
+
+def _element_category(element: Any) -> Any:
+    """Return an element's category name.
+
+    Checks a wrapper-level ``category`` string, then the underlying Revit
+    element's ``Category`` (a string or an object with ``Name``), then a
+    ``Category`` parameter.
+    """
+    category = getattr(element, "category", None)
+    if isinstance(category, str):
+        return category
+    raw = getattr(element, "_revit_element", None)
+    raw_category = getattr(raw, "Category", None) if raw is not None else None
+    if isinstance(raw_category, str):
+        return raw_category
+    if raw_category is not None:
+        name = getattr(raw_category, "Name", None)
+        if name is not None:
+            return name
+    return _safe_param(element, "Category")
+
+
+def _element_name(element: Any) -> str:
+    """Return an element's name, or ``""`` when it cannot be read.
+
+    ``revitpy.api.Element.name`` resolves through a parameter lookup that
+    can raise; fall back to the underlying Revit element's ``Name``.
+    """
+    try:
+        name = element.name
+    except Exception:
+        raw = getattr(element, "_revit_element", None)
+        name = getattr(raw, "Name", None) if raw is not None else None
+    return name if isinstance(name, str) else ""
+
+
+def _element_id(element: Any) -> int:
+    return int(element.id)
+
+
+def _summarize(element: Any) -> dict[str, Any]:
+    return {
+        "element_id": _element_id(element),
+        "name": _element_name(element),
+        "category": _element_category(element),
+    }
+
+
+def _elements_in_category(api: Any, category: str) -> list[Any]:
+    return [
+        e
+        for e in api.active_document.get_all_elements()
+        if _element_category(e) == category
+    ]
+
 
 class RevitTools:
     """Registry of tools that can be invoked through the MCP server.
 
     Args:
-        context: Optional application context forwarded to built-in
-            tool handlers.  When ``None`` the built-in handlers return
-            placeholder results.
+        context: The connected RevitPy API (see :class:`RevitContext`,
+            normally a :class:`revitpy.api.RevitAPI`).  Built-in tools
+            operate on its active document; when there is no context or
+            no active document, every built-in tool fails with
+            ``ToolExecutionError("Not connected to a Revit document")``
+            rather than returning fabricated data.  Modifications run
+            inside a RevitPy transaction.
     """
 
-    def __init__(self, context: Any = None) -> None:
+    def __init__(self, context: RevitContext | Any = None) -> None:
         self._context = context
         self._tools: dict[str, tuple[ToolDefinition, Callable]] = {}
         self._register_builtins()
@@ -174,7 +273,10 @@ class RevitTools:
                     ToolParameter(
                         name="filter",
                         type=ParameterType.STRING,
-                        description="Optional filter expression",
+                        description=(
+                            "Optional case-insensitive substring matched "
+                            "against element names"
+                        ),
                         required=False,
                         default="",
                     ),
@@ -231,7 +333,7 @@ class RevitTools:
         self.register_tool(
             ToolDefinition(
                 name="get_quantities",
-                description="Get quantity takeoff for elements",
+                description="Count elements in a category, grouped by a parameter",
                 category=ToolCategory.ANALYZE,
                 parameters=[
                     ToolParameter(
@@ -242,7 +344,10 @@ class RevitTools:
                     ToolParameter(
                         name="group_by",
                         type=ParameterType.STRING,
-                        description="Property to group quantities by",
+                        description=(
+                            "Parameter to group by (type, family_name, level, "
+                            "or a Revit parameter name)"
+                        ),
                         required=False,
                         default="type",
                     ),
@@ -261,7 +366,10 @@ class RevitTools:
                     ToolParameter(
                         name="checks",
                         type=ParameterType.ARRAY,
-                        description="List of validation checks to run",
+                        description=(
+                            "Checks to run: unnamed_elements, duplicate_marks "
+                            "(default: all)"
+                        ),
                         required=False,
                         default=None,
                     ),
@@ -285,7 +393,7 @@ class RevitTools:
                     ToolParameter(
                         name="format",
                         type=ParameterType.STRING,
-                        description="Export format (json, csv, xlsx)",
+                        description="Export format (json or csv)",
                         required=False,
                         default="json",
                     ),
@@ -299,32 +407,47 @@ class RevitTools:
     # Built-in handlers
     # ------------------------------------------------------------------
 
+    def _require_api(self) -> Any:
+        """Return the context, or fail when no Revit document is open."""
+        api = self._context
+        if api is None or getattr(api, "active_document", None) is None:
+            raise ToolExecutionError(NOT_CONNECTED_MESSAGE)
+        return api
+
+    def _require_element(self, api: Any, element_id: int) -> Any:
+        """Look up an element by ID or fail with a clear error."""
+        element = api.get_element_by_id(element_id)
+        if element is None:
+            raise ToolExecutionError(f"Element {element_id} not found")
+        return element
+
     def _handle_query_elements(
         self,
         category: str,
         filter: str = "",  # noqa: A002
     ) -> dict[str, Any]:
-        if self._context is None:
-            return {
-                "elements": [],
-                "count": 0,
-                "category": category,
-                "filter": filter,
-            }
-        return {"elements": [], "count": 0, "category": category}
+        """Query elements in a category, optionally filtered by name."""
+        api = self._require_api()
+        elements = _elements_in_category(api, category)
+        if filter:
+            needle = filter.lower()
+            elements = [e for e in elements if needle in _element_name(e).lower()]
+        return {
+            "category": category,
+            "filter": filter,
+            "elements": [_summarize(e) for e in elements],
+            "count": len(elements),
+        }
 
-    def _handle_get_element(
-        self,
-        element_id: int,
-    ) -> dict[str, Any]:
-        if self._context is None:
-            return {
-                "element_id": element_id,
-                "name": "Placeholder",
-                "category": "Unknown",
-                "parameters": {},
-            }
-        return {"element_id": element_id}
+    def _handle_get_element(self, element_id: int) -> dict[str, Any]:
+        """Return a single element with its parameters."""
+        api = self._require_api()
+        element = self._require_element(api, element_id)
+        data = _summarize(element)
+        data["parameters"] = {
+            name: pv.value for name, pv in element.get_all_parameters().items()
+        }
+        return data
 
     def _handle_modify_parameter(
         self,
@@ -332,52 +455,123 @@ class RevitTools:
         parameter_name: str,
         value: str,
     ) -> dict[str, Any]:
-        if self._context is None:
-            return {
-                "element_id": element_id,
-                "parameter_name": parameter_name,
-                "old_value": None,
-                "new_value": value,
-                "success": True,
-            }
-        return {"success": True}
+        """Set a parameter value inside a RevitPy transaction."""
+        api = self._require_api()
+        element = self._require_element(api, element_id)
+        old_value = _safe_param(element, parameter_name)
+        # Errors propagate: the transaction rolls back and execute_tool
+        # wraps the failure in ToolExecutionError.
+        with api.transaction(f"MCP: set {parameter_name} on element {element_id}"):
+            element.set_parameter_value(parameter_name, value)
+        logger.info(
+            "Set {} on element {} ({!r} -> {!r})",
+            parameter_name,
+            element_id,
+            old_value,
+            value,
+        )
+        return {
+            "element_id": element_id,
+            "parameter_name": parameter_name,
+            "old_value": old_value,
+            "new_value": value,
+            "success": True,
+        }
 
     def _handle_get_quantities(
         self,
         category: str,
         group_by: str = "type",
     ) -> dict[str, Any]:
-        if self._context is None:
-            return {
-                "category": category,
-                "group_by": group_by,
-                "quantities": [],
-                "total": 0,
-            }
-        return {"quantities": [], "total": 0}
+        """Count elements in a category grouped by a parameter value."""
+        api = self._require_api()
+        elements = _elements_in_category(api, category)
+        param = _GROUP_BY_ALIASES.get(group_by, group_by)
+        counts: dict[str, int] = {}
+        for element in elements:
+            value = _safe_param(element, param)
+            key = "<none>" if value is None else str(value)
+            counts[key] = counts.get(key, 0) + 1
+        return {
+            "category": category,
+            "group_by": group_by,
+            "quantities": [{"group": g, "count": counts[g]} for g in sorted(counts)],
+            "total": len(elements),
+        }
 
     def _handle_validate_model(
         self,
         checks: list[str] | None = None,
     ) -> dict[str, Any]:
-        if self._context is None:
-            return {
-                "checks_run": checks or ["all"],
-                "issues": [],
-                "passed": True,
-            }
-        return {"issues": [], "passed": True}
+        """Run the supported model checks and report issues."""
+        api = self._require_api()
+        selected = list(checks) if checks else list(_SUPPORTED_CHECKS)
+        unknown = [c for c in selected if c not in _SUPPORTED_CHECKS]
+        if unknown:
+            raise ToolExecutionError(
+                f"Unknown checks: {', '.join(unknown)}; "
+                f"supported: {', '.join(_SUPPORTED_CHECKS)}"
+            )
+
+        elements = list(api.active_document.get_all_elements())
+        issues: list[dict[str, Any]] = []
+
+        if "unnamed_elements" in selected:
+            for element in elements:
+                if not _element_name(element).strip():
+                    issues.append(
+                        {
+                            "check": "unnamed_elements",
+                            "element_id": _element_id(element),
+                            "message": "Element has no name",
+                        }
+                    )
+
+        if "duplicate_marks" in selected:
+            marks: dict[str, list[int]] = {}
+            for element in elements:
+                mark = _safe_param(element, "Mark")
+                if mark is None or not str(mark).strip():
+                    continue
+                marks.setdefault(str(mark), []).append(_element_id(element))
+            for mark in sorted(marks):
+                ids = marks[mark]
+                if len(ids) > 1:
+                    issues.append(
+                        {
+                            "check": "duplicate_marks",
+                            "mark": mark,
+                            "element_ids": sorted(ids),
+                            "message": f"Mark '{mark}' is used by {len(ids)} elements",
+                        }
+                    )
+
+        return {"checks_run": selected, "issues": issues, "passed": not issues}
 
     def _handle_export_data(
         self,
         category: str,
         format: str = "json",  # noqa: A002
     ) -> dict[str, Any]:
-        if self._context is None:
-            return {
-                "category": category,
-                "format": format,
-                "data": [],
-                "row_count": 0,
-            }
-        return {"data": [], "row_count": 0}
+        """Export element summaries for a category as JSON rows or CSV."""
+        fmt = format.lower()
+        if fmt not in _EXPORT_FORMATS:
+            raise ToolExecutionError(
+                f"Unsupported export format '{format}'; "
+                f"supported: {', '.join(_EXPORT_FORMATS)}"
+            )
+        api = self._require_api()
+        rows = [_summarize(e) for e in _elements_in_category(api, category)]
+        data: Any = rows
+        if fmt == "csv":
+            buffer = io.StringIO()
+            writer = csv.DictWriter(buffer, fieldnames=_EXPORT_FIELDS)
+            writer.writeheader()
+            writer.writerows(rows)
+            data = buffer.getvalue()
+        return {
+            "category": category,
+            "format": fmt,
+            "data": data,
+            "row_count": len(rows),
+        }

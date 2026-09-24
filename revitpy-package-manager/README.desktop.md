@@ -80,8 +80,11 @@ This refactored package registry has been optimized specifically for desktop dev
 git clone <repository-url>
 cd revitpy-package-manager
 
+# Create .env with the required secrets (JWT_SECRET_KEY, ADMIN_TOKEN)
+cp env.example .env && $EDITOR .env
+
 # Start with simplified Docker Compose
-docker-compose -f docker-compose.desktop.yml up -d
+docker compose -f docker-compose.desktop.yml up -d
 
 # Registry will be available at http://localhost:8000
 ```
@@ -207,8 +210,9 @@ if not result.is_safe:
 ### Production Deployment
 
 ```bash
-# With Nginx (recommended for production)
-docker-compose -f docker-compose.desktop.yml --profile production up -d
+# With Nginx (recommended for production); requires JWT_SECRET_KEY and
+# ADMIN_TOKEN in .env (see env.example)
+docker compose -f docker-compose.desktop.yml --profile production up -d
 
 # Direct deployment
 export JWT_SECRET_KEY="your-secret-key"

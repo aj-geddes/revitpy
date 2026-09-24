@@ -5,8 +5,6 @@ description: Guide to testing RevitPy code without a Revit installation using Mo
 doc_tier: user
 ---
 
-# Testing
-
 RevitPy provides a mock Revit environment so you can test your code without an actual Revit installation. The testing utilities are in `revitpy.testing.mock_revit`.
 
 ## MockRevit

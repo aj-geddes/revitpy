@@ -1,5 +1,6 @@
 """Tests for database configuration and connection management."""
 
+from contextlib import aclosing
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -108,10 +109,13 @@ async def test_get_db_session_closes_on_exception(mock_session):
         mock_session_local.return_value.__aenter__.return_value = mock_session
         mock_session_local.return_value.__aexit__.return_value = None
 
-        # Simulate exception during session use
+        # Simulate exception during session use. Breaking out of ``async for``
+        # does not finalize an async generator synchronously; the consumer
+        # (e.g. FastAPI) closes it explicitly, which ``aclosing`` models.
         try:
-            async for _session in get_db_session():
-                raise ValueError("Test exception")
+            async with aclosing(get_db_session()) as gen:
+                async for _session in gen:
+                    raise ValueError("Test exception")
         except ValueError:
             pass
 
@@ -270,6 +274,9 @@ async def test_database_manager_create_tables(mock_settings):
             "revitpy_package_manager.registry.database.create_async_engine"
         ) as mock_create_engine:
             mock_engine = AsyncMock()
+            # AsyncEngine.begin() is a sync method returning an async context
+            # manager, so it must not be an AsyncMock (which returns a coroutine).
+            mock_engine.begin = MagicMock()
             mock_conn = AsyncMock()
             mock_engine.begin.return_value.__aenter__.return_value = mock_conn
             mock_create_engine.return_value = mock_engine
@@ -298,6 +305,9 @@ async def test_database_manager_drop_tables(mock_settings):
             "revitpy_package_manager.registry.database.create_async_engine"
         ) as mock_create_engine:
             mock_engine = AsyncMock()
+            # AsyncEngine.begin() is a sync method returning an async context
+            # manager, so it must not be an AsyncMock (which returns a coroutine).
+            mock_engine.begin = MagicMock()
             mock_conn = AsyncMock()
             mock_engine.begin.return_value.__aenter__.return_value = mock_conn
             mock_create_engine.return_value = mock_engine
@@ -375,6 +385,9 @@ async def test_database_manager_full_lifecycle(mock_settings):
             "revitpy_package_manager.registry.database.create_async_engine"
         ) as mock_create_engine:
             mock_engine = AsyncMock()
+            # AsyncEngine.begin() is a sync method returning an async context
+            # manager, so it must not be an AsyncMock (which returns a coroutine).
+            mock_engine.begin = MagicMock()
             mock_conn = AsyncMock()
             mock_engine.begin.return_value.__aenter__.return_value = mock_conn
             mock_create_engine.return_value = mock_engine
@@ -383,6 +396,11 @@ async def test_database_manager_full_lifecycle(mock_settings):
                 "revitpy_package_manager.registry.database.sessionmaker"
             ) as mock_sessionmaker:
                 with patch("revitpy_package_manager.registry.database.Base"):
+                    # The session factory is built in __init__, so configure
+                    # sessionmaker's return value before constructing the manager.
+                    mock_factory = MagicMock()
+                    mock_sessionmaker.return_value = mock_factory
+
                     # Initialize
                     manager = DatabaseManager(
                         database_url="postgresql+asyncpg://test/db"
@@ -394,8 +412,6 @@ async def test_database_manager_full_lifecycle(mock_settings):
                     assert mock_conn.run_sync.call_count == 1
 
                     # Get session
-                    mock_factory = MagicMock()
-                    mock_sessionmaker.return_value = mock_factory
                     await manager.get_session()
                     mock_factory.assert_called_once()
 

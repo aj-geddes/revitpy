@@ -4,10 +4,11 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String
-from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+from .types import IPAddress, JSONDict
 
 
 class DownloadStats(Base):
@@ -37,7 +38,7 @@ class DownloadStats(Base):
 
     # Client information
     user_agent: Mapped[str | None] = mapped_column(String(512))
-    ip_address: Mapped[str | None] = mapped_column(INET)
+    ip_address: Mapped[str | None] = mapped_column(IPAddress)
     country_code: Mapped[str | None] = mapped_column(String(2))
 
     # Environment information
@@ -89,13 +90,13 @@ class DailyDownloadSummary(Base):
     unique_ips: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Version breakdown (JSON field with version -> count mapping)
-    version_breakdown: Mapped[dict] = mapped_column(JSONB, default=dict)
+    version_breakdown: Mapped[dict] = mapped_column(JSONDict, default=dict)
 
     # Geographic breakdown
-    country_breakdown: Mapped[dict] = mapped_column(JSONB, default=dict)
+    country_breakdown: Mapped[dict] = mapped_column(JSONDict, default=dict)
 
     # Platform breakdown
-    platform_breakdown: Mapped[dict] = mapped_column(JSONB, default=dict)
+    platform_breakdown: Mapped[dict] = mapped_column(JSONDict, default=dict)
 
     # Relationships
     package = relationship("Package")

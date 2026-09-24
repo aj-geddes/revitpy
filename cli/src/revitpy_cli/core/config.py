@@ -203,7 +203,7 @@ class RevitPyConfig(BaseSettings):
 
         try:
             if config_file.suffix.lower() == ".toml":
-                import tomli
+                import tomllib as tomli
 
                 with open(config_file, "rb") as f:
                     data = tomli.load(f)

@@ -143,8 +143,8 @@ class ExtensionManager:
             # Clear registry
             self.registry.clear()
 
-            # Dispose container
-            self.container.dispose()
+            # Dispose container (the manager registers itself in it)
+            await self.container.dispose_async(exclude=(self,))
 
             self._extensions.clear()
             self._extension_order.clear()

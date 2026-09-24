@@ -230,6 +230,34 @@ class TestMaterialExtractor:
 
         assert classified[0].category == "Special"
 
+    def test_classify_compound_name_is_deterministic(self, extractor):
+        """'Aluminum-Clad Timber Window' classifies by its head noun (timber)."""
+        materials = [MaterialData(name="Aluminum-Clad Timber Window", category="Doors")]
+        classified = extractor.classify(materials, system="MasterFormat")[0]
+
+        assert classified.classification_code == "06 00 00"
+        assert classified.classification_match == "token"
+        assert classified.classification_confidence is not None
+        assert classified.classification_confidence < 0.5
+
+    def test_classify_records_exact_match_confidence(self, extractor):
+        classified = extractor.classify([MaterialData(name="Brick", category="Walls")])[
+            0
+        ]
+
+        assert classified.classification_code == "B1010"
+        assert classified.classification_match == "exact"
+        assert classified.classification_confidence == 1.0
+
+    def test_classify_unknown_records_no_match(self, extractor):
+        classified = extractor.classify([MaterialData(name="Xyzzy", category="Misc")])[
+            0
+        ]
+
+        assert classified.classification_code is None
+        assert classified.classification_match == "none"
+        assert classified.classification_confidence == 0.0
+
     def test_classify_does_not_modify_originals(self, extractor):
         """Test that classification returns new objects."""
         materials = [

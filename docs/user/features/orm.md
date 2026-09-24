@@ -5,8 +5,6 @@ description: Guide to the RevitPy ORM layer with RevitContext, intelligent cachi
 doc_tier: user
 ---
 
-# ORM
-
 RevitPy includes an ORM (Object-Relational Mapping) layer that provides change tracking, intelligent caching, relationship management, and both synchronous and asynchronous query execution. The central class is `RevitContext`.
 
 ## RevitContext
@@ -158,6 +156,7 @@ For large datasets, convert a query to a streaming query:
 ```python
 streaming = context.query(WallElement).as_streaming(batch_size=100)
 
+# Each batch is a list of at most batch_size elements, produced lazily
 async for batch in streaming:
     for element in batch:
         process(element)
@@ -229,6 +228,10 @@ context.add(entity)
 # Mark as deleted
 context.remove(entity)
 
+# Change properties and record them as modifications (works even when
+# automatic tracking is off)
+context.update(entity, comments="Checked", fire_rating=2)
+
 # Check entity state
 state = context.get_entity_state(entity)
 
@@ -236,7 +239,8 @@ state = context.get_entity_state(entity)
 context.accept_changes(entity)  # For one entity
 context.accept_changes()        # For all entities
 
-# Reject changes (revert to baseline)
+# Reject changes: properties that were changed are set back to their value
+# before the first change; untouched properties are left alone
 context.reject_changes(entity)
 context.reject_changes()
 ```
@@ -256,7 +260,14 @@ with RevitContext(provider) as ctx:
     print(f"Saved {changes_saved} changes")
 ```
 
-`save_changes()` returns the number of changes persisted. If there are no pending changes, it returns `0`.
+`save_changes()` returns the number of changes processed. If there are no pending changes, it returns `0`.
+
+Where the changes go depends on the context's unit of work:
+
+- **With a unit of work** (`RevitContext(provider, unit_of_work=uow)`), each change is registered with `uow.register_new` / `register_dirty` / `register_removed`, and then `uow.commit()` runs. If the commit fails, `uow.rollback()` is attempted and `ORMException` is raised. `AsyncRevitContext.save_changes_async()` does the same, awaiting `commit_async()` when the unit of work has one and falling back to `commit()`. If any change fails to register or the commit fails, it rolls back (`rollback_async()` or `rollback()`) and raises `AsyncOperationError`.
+- **Without a unit of work**, changes are only accepted in the change tracker and nothing is written anywhere.
+
+On a live Revit model you usually don't need a unit of work for element edits: `Element.set_parameter_value()` writes straight to Revit inside `api.transaction()`.
 
 ### Context Properties
 

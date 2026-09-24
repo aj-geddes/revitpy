@@ -1,6 +1,7 @@
 """User management endpoints."""
 
 import secrets
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -35,7 +36,7 @@ async def update_my_profile(
     """Update current user's profile."""
 
     # Update user fields
-    for field, value in user_update.dict(exclude_unset=True).items():
+    for field, value in user_update.model_dump(exclude_unset=True).items():
         if hasattr(current_user, field):
             if field == "website_url" and value:
                 setattr(current_user, field, str(value))
@@ -85,6 +86,15 @@ async def create_api_key(
 ):
     """Create a new API key for the current user."""
 
+    # APIKey.is_scope_allowed treats "admin" as a wildcard, so only
+    # superusers may mint keys carrying it.
+    requested_scopes = {scope.strip() for scope in api_key_data.scopes.split(",")}
+    if "admin" in requested_scopes and current_user.is_superuser is not True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can create API keys with the admin scope",
+        )
+
     # Generate a secure token
     token = f"rpk_{''.join(secrets.choice('abcdefghijklmnopqrstuvwxyz0123456789') for _ in range(32))}"
     token_hash = get_password_hash(token)
@@ -106,14 +116,14 @@ async def create_api_key(
     await db.refresh(api_key)
 
     # Return the API key with the full token (only shown once)
-    response = APIKeyWithToken.from_orm(api_key)
-    response.token = token
-    return response
+    # (token is a required field, so it must be supplied at validation time)
+    key_data = APIKeyResponse.model_validate(api_key).model_dump()
+    return APIKeyWithToken(**key_data, token=token)
 
 
 @router.delete("/me/api-keys/{api_key_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_api_key(
-    api_key_id: str,
+    api_key_id: uuid.UUID,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -135,7 +145,7 @@ async def delete_api_key(
 
 @router.put("/me/api-keys/{api_key_id}/deactivate", response_model=APIKeyResponse)
 async def deactivate_api_key(
-    api_key_id: str,
+    api_key_id: uuid.UUID,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -160,7 +170,7 @@ async def deactivate_api_key(
 
 @router.put("/me/api-keys/{api_key_id}/activate", response_model=APIKeyResponse)
 async def activate_api_key(
-    api_key_id: str,
+    api_key_id: uuid.UUID,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db_session),
 ):

@@ -4,8 +4,8 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
-from packaging.specifiers import SpecifierSet
-from packaging.version import Version
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from packaging.version import InvalidVersion, Version
 
 
 class ConflictType(Enum):
@@ -139,11 +139,10 @@ class DependencyResolver:
             return []
 
         compatible_versions = []
-        spec = (
-            SpecifierSet(version_spec)
-            if version_spec != "*"
-            else SpecifierSet(">=0.0.0")
-        )
+        try:
+            spec = self._parse_specifier(version_spec)
+        except InvalidSpecifier:
+            return []
 
         for version_str, package_spec in self.available_packages[
             normalized_name
@@ -151,8 +150,10 @@ class DependencyResolver:
             try:
                 version_obj = Version(version_str)
 
-                # Check version compatibility
-                if version_obj not in spec:
+                # Check version compatibility. Prereleases are matched here
+                # unconditionally and filtered by the explicit policy below, so
+                # the result doesn't depend on packaging's implicit defaults.
+                if not spec.contains(version_obj, prereleases=True):
                     continue
 
                 # Check prerelease policy
@@ -195,8 +196,9 @@ class DependencyResolver:
         conflicts = []
         resolved_packages = {}
 
-        # Track what we're trying to resolve to detect circular dependencies
-        resolution_stack = []
+        # Dependency edges between resolved packages (name -> dependency names),
+        # used for cycle detection and installation ordering.
+        edges: dict[str, list[str]] = {}
 
         # Start with direct requirements
         to_resolve = [(name, spec, None) for name, spec in requirements.items()]
@@ -205,23 +207,10 @@ class DependencyResolver:
             package_name, version_spec, required_by = to_resolve.pop(0)
             normalized_name = PackageSpec.normalize_name(package_name)
 
-            # Check for circular dependencies
-            if normalized_name in resolution_stack:
-                cycle = resolution_stack[resolution_stack.index(normalized_name) :] + [
-                    normalized_name
-                ]
-                conflicts.append(
-                    DependencyConflict(
-                        type=ConflictType.CIRCULAR_DEPENDENCY,
-                        package_name=normalized_name,
-                        conflicting_specs=[version_spec],
-                        message=f"Circular dependency detected: {' -> '.join(cycle)}",
-                        affected_packages=cycle,
-                    )
-                )
-                continue
-
-            resolution_stack.append(normalized_name)
+            if required_by is not None:
+                parent = PackageSpec.normalize_name(required_by.split("[", 1)[0])
+                if normalized_name not in edges.setdefault(parent, []):
+                    edges[parent].append(normalized_name)
 
             # If already resolved, check for version conflicts
             if normalized_name in resolved_packages:
@@ -236,7 +225,6 @@ class DependencyResolver:
                             affected_packages=[required_by] if required_by else [],
                         )
                     )
-                resolution_stack.pop()
                 continue
 
             # Find compatible versions
@@ -254,7 +242,6 @@ class DependencyResolver:
                         affected_packages=[required_by] if required_by else [],
                     )
                 )
-                resolution_stack.pop()
                 continue
 
             # Prefer installed version if compatible
@@ -285,10 +272,28 @@ class DependencyResolver:
                             (dep_name, dep_spec, f"{normalized_name}[{extra}]")
                         )
 
-            resolution_stack.pop()
+        # Only keep edges between packages that were actually resolved
+        graph = {
+            name: [d for d in edges.get(name, []) if d in resolved_packages]
+            for name in resolved_packages
+        }
+
+        # Detect circular dependencies in the resolved graph
+        for cycle in self._find_cycles(graph):
+            conflicts.append(
+                DependencyConflict(
+                    type=ConflictType.CIRCULAR_DEPENDENCY,
+                    package_name=cycle[0],
+                    conflicting_specs=[],
+                    message=f"Circular dependency detected: {' -> '.join(cycle)}",
+                    affected_packages=cycle,
+                )
+            )
 
         # Calculate installation order (topological sort)
-        installation_order = self._calculate_installation_order(resolved_packages)
+        installation_order = self._calculate_installation_order(
+            resolved_packages, graph
+        )
 
         return ResolutionResult(
             resolved_packages=resolved_packages,
@@ -296,51 +301,98 @@ class DependencyResolver:
             installation_order=installation_order,
         )
 
+    @staticmethod
+    def _parse_specifier(version_spec: str | None) -> SpecifierSet:
+        """Parse a version specifier; ``*`` or empty means "any version"."""
+        version_spec = (version_spec or "").strip()
+        if version_spec in ("", "*"):
+            return SpecifierSet("")
+        return SpecifierSet(version_spec)
+
     def _is_version_compatible(self, version1: str, version_spec: str) -> bool:
         """Check if a specific version is compatible with a version specifier."""
         try:
-            spec = (
-                SpecifierSet(version_spec)
-                if version_spec != "*"
-                else SpecifierSet(">=0.0.0")
-            )
-            return Version(version1) in spec
-        except Exception:
+            spec = self._parse_specifier(version_spec)
+            # The version is already selected; prerelease policy was applied
+            # when it was chosen, so only the specifier range matters here.
+            return spec.contains(Version(version1), prereleases=True)
+        except (InvalidSpecifier, InvalidVersion):
             return False
 
+    @staticmethod
+    def _find_cycles(graph: dict[str, list[str]]) -> list[list[str]]:
+        """Find dependency cycles (each reported once) via depth-first search.
+
+        Returns cycles as closed paths, e.g. ``["a", "b", "a"]``.
+        """
+        white, grey, black = 0, 1, 2
+        color = dict.fromkeys(graph, white)
+        path: list[str] = []
+        cycles: list[list[str]] = []
+        seen: set[frozenset[str]] = set()
+
+        def visit(node: str) -> None:
+            color[node] = grey
+            path.append(node)
+            for dep in graph.get(node, []):
+                if color.get(dep, black) == grey:
+                    cycle = path[path.index(dep) :] + [dep]
+                    key = frozenset(cycle)
+                    if key not in seen:
+                        seen.add(key)
+                        cycles.append(cycle)
+                elif color.get(dep) == white:
+                    visit(dep)
+            path.pop()
+            color[node] = black
+
+        for node in graph:
+            if color[node] == white:
+                visit(node)
+        return cycles
+
     def _calculate_installation_order(
-        self, resolved_packages: dict[str, PackageSpec]
+        self,
+        resolved_packages: dict[str, PackageSpec],
+        graph: dict[str, list[str]] | None = None,
     ) -> list[str]:
-        """Calculate the order in which packages should be installed (topological sort)."""
-        # Build dependency graph
-        dependencies = {}
-        for name, spec in resolved_packages.items():
-            dependencies[name] = [
-                PackageSpec.normalize_name(dep_name)
-                for dep_name in spec.dependencies.keys()
-                if PackageSpec.normalize_name(dep_name) in resolved_packages
-            ]
+        """Order packages so every dependency is installed before its dependents.
 
-        # Topological sort using Kahn's algorithm
-        in_degree = dict.fromkeys(resolved_packages, 0)
-        for name in dependencies:
-            for dep in dependencies[name]:
-                if dep in in_degree:
-                    in_degree[dep] += 1
+        Uses Kahn's algorithm where a package's in-degree is the number of its
+        unresolved-to-install dependencies. Packages caught in a cycle cannot be
+        ordered strictly; they are appended at the end in resolution order.
+        """
+        if graph is None:
+            graph = {
+                name: [
+                    PackageSpec.normalize_name(dep)
+                    for dep in spec.dependencies
+                    if PackageSpec.normalize_name(dep) in resolved_packages
+                ]
+                for name, spec in resolved_packages.items()
+            }
 
-        queue = [name for name, degree in in_degree.items() if degree == 0]
-        installation_order = []
+        remaining = {name: len(set(graph.get(name, []))) for name in resolved_packages}
+        dependents: dict[str, list[str]] = {name: [] for name in resolved_packages}
+        for name in resolved_packages:
+            for dep in set(graph.get(name, [])):
+                dependents[dep].append(name)
+
+        queue = [name for name, count in remaining.items() if count == 0]
+        installation_order: list[str] = []
 
         while queue:
             current = queue.pop(0)
             installation_order.append(current)
+            for dependent in dependents[current]:
+                remaining[dependent] -= 1
+                if remaining[dependent] == 0:
+                    queue.append(dependent)
 
-            for dependent in dependencies.get(current, []):
-                if dependent in in_degree:
-                    in_degree[dependent] -= 1
-                    if in_degree[dependent] == 0:
-                        queue.append(dependent)
-
+        # Anything left is part of (or depends on) a cycle
+        installation_order.extend(
+            name for name in resolved_packages if name not in installation_order
+        )
         return installation_order
 
     def create_lock_file(self, resolution_result: ResolutionResult) -> dict:

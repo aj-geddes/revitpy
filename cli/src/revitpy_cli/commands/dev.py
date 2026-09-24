@@ -47,10 +47,10 @@ def server(
     """Start the RevitPy development server with hot-reload.
 
     Examples:
-        revitpy dev server
-        revitpy dev server --port 9000
-        revitpy dev server --no-reload
-        revitpy dev server --watch "*.yaml" --ignore "logs/*"
+        revitpy-dev dev server
+        revitpy-dev dev server --port 9000
+        revitpy-dev dev server --no-reload
+        revitpy-dev dev server --watch "*.yaml" --ignore "logs/*"
     """
     start_time = time.time()
     log_command_start(
@@ -139,9 +139,9 @@ def watch(
     """Watch files for changes without starting a server.
 
     Examples:
-        revitpy dev watch
-        revitpy dev watch --pattern "*.py" --exec "python -m pytest"
-        revitpy dev watch --ignore "__pycache__/*"
+        revitpy-dev dev watch
+        revitpy-dev dev watch --pattern "*.py" --exec "python -m pytest"
+        revitpy-dev dev watch --ignore "__pycache__/*"
     """
     start_time = time.time()
     log_command_start(
@@ -202,8 +202,8 @@ def status(
     """Show development server status and project information.
 
     Examples:
-        revitpy dev status
-        revitpy dev status /path/to/project
+        revitpy-dev dev status
+        revitpy-dev dev status /path/to/project
     """
     log_command_start("dev status", {"project_path": project_path})
 

@@ -11,7 +11,7 @@ import threading
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
@@ -58,7 +58,7 @@ class PropertyChange:
     property_name: str
     old_value: Any
     new_value: Any
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     change_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     @property
@@ -80,7 +80,7 @@ class RelationshipChange:
     change_type: ChangeType
     related_entity_id: ElementId | None = None
     related_entity_type: str | None = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     change_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def __hash__(self) -> int:
@@ -99,8 +99,8 @@ class EntityTracker:
         self.current_values: dict[str, Any] = {}
         self.property_changes: dict[str, PropertyChange] = {}
         self.relationship_changes: list[RelationshipChange] = []
-        self.created_at = datetime.utcnow()
-        self.last_modified = datetime.utcnow()
+        self.created_at = datetime.now(UTC)
+        self.last_modified = datetime.now(UTC)
         self.version = 0
 
     @property
@@ -132,20 +132,27 @@ class EntityTracker:
                     value = getattr(self.entity_ref, prop_name)
                     self.original_values[prop_name] = self._deep_copy_value(value)
                 except Exception as e:
-                    logger.warning(f"Failed to snapshot property {prop_name}: {e}")
+                    logger.debug(f"Failed to snapshot property {prop_name}: {e}")
 
         self.state = ElementState.UNCHANGED
         self.version += 1
-        self.last_modified = datetime.utcnow()
+        self.last_modified = datetime.now(UTC)
 
     def track_property_change(
         self, property_name: str, old_value: Any, new_value: Any
     ) -> None:
-        """Track a property change."""
+        """Track a property change.
+
+        Repeated changes to one property keep the value from before the
+        first change, so rejecting restores the true original.
+        """
+        previous = self.property_changes.get(property_name)
+        if previous is not None:
+            old_value = previous.old_value
+
         if old_value == new_value:
-            # Remove change if values are the same
-            if property_name in self.property_changes:
-                del self.property_changes[property_name]
+            # Changed back to the original value: nothing to track.
+            self.property_changes.pop(property_name, None)
         else:
             change = PropertyChange(
                 entity_id=self.entity_id,
@@ -160,7 +167,7 @@ class EntityTracker:
                 self.state = ElementState.MODIFIED
 
         self.current_values[property_name] = new_value
-        self.last_modified = datetime.utcnow()
+        self.last_modified = datetime.now(UTC)
 
     def track_relationship_change(
         self,
@@ -184,7 +191,7 @@ class EntityTracker:
         if self.state == ElementState.UNCHANGED:
             self.state = ElementState.MODIFIED
 
-        self.last_modified = datetime.utcnow()
+        self.last_modified = datetime.now(UTC)
 
     def accept_changes(self) -> None:
         """Accept all changes and reset tracking."""
@@ -199,15 +206,18 @@ class EntityTracker:
         # Reset state
         self.state = ElementState.UNCHANGED
         self.version += 1
-        self.last_modified = datetime.utcnow()
+        self.last_modified = datetime.now(UTC)
 
     def reject_changes(self) -> None:
-        """Reject all changes and revert to original state."""
-        # Revert properties to original values
-        for prop_name, original_value in self.original_values.items():
+        """Reject all changes and revert changed properties.
+
+        Only properties with a tracked change are written back (to their
+        value before the first change); untouched properties are left alone.
+        """
+        for prop_name, change in self.property_changes.items():
             try:
                 if hasattr(self.entity_ref, prop_name):
-                    setattr(self.entity_ref, prop_name, original_value)
+                    setattr(self.entity_ref, prop_name, change.old_value)
             except Exception as e:
                 logger.warning(f"Failed to revert property {prop_name}: {e}")
 
@@ -218,7 +228,7 @@ class EntityTracker:
 
         # Reset state
         self.state = ElementState.UNCHANGED
-        self.last_modified = datetime.utcnow()
+        self.last_modified = datetime.now(UTC)
 
     def get_change_set(self) -> ChangeSet:
         """Get change set for this entity."""
@@ -340,7 +350,13 @@ class ChangeTracker:
     def track_property_change(
         self, entity: Any, property_name: str, old_value: Any, new_value: Any
     ) -> None:
-        """Track a property change on an entity."""
+        """Track a property change on an entity.
+
+        Raises:
+            ValueError: If ``entity`` is None.
+        """
+        if entity is None:
+            raise ValueError("Cannot track changes on a None entity")
         if not self._auto_track:
             return
 

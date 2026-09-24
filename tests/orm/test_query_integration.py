@@ -424,22 +424,22 @@ class TestPerformanceAndOptimization:
         assert total_processed == len(self.walls)
 
     def test_query_caching_effectiveness(self):
-        """Test that caching improves query performance."""
+        """Plans without callables are cached; plans with lambdas are not."""
         query = QueryBuilder(self.provider, WallElement, self.cache_manager)
-
-        # Clear cache to start fresh
         self.cache_manager.clear()
 
-        # Execute same query multiple times
+        paged = query.skip(1).take(10)
+        assert paged.is_cacheable
         for _ in range(5):
-            result = query.where(lambda w: w.height > 12).to_list()
-            assert len(result) > 0
+            assert len(query.skip(1).take(10).to_list()) == 10
+        assert self.cache_manager.statistics.hits >= 4
 
-        # Check cache statistics
-        stats = self.cache_manager.statistics
-        if stats:
-            # Should have some cache activity
-            assert stats.hits + stats.misses > 0
+        filtered = query.where(lambda w: w.height > 12)
+        assert not filtered.is_cacheable
+        hits = self.cache_manager.statistics.hits
+        for _ in range(3):
+            assert len(query.where(lambda w: w.height > 12).to_list()) > 0
+        assert self.cache_manager.statistics.hits == hits
 
     def test_lazy_vs_eager_evaluation(self):
         """Test lazy vs eager evaluation performance characteristics."""

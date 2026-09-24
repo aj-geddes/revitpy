@@ -48,9 +48,9 @@ def package(
     """Build a RevitPy project package.
 
     Examples:
-        revitpy build package
-        revitpy build package --output dist/
-        revitpy build package --no-validate --include-tests
+        revitpy-dev build package
+        revitpy-dev build package --output dist/
+        revitpy-dev build package --no-validate --include-tests
     """
     start_time = time.time()
     log_command_start(
@@ -150,9 +150,9 @@ def validate(
     """Validate a RevitPy project.
 
     Examples:
-        revitpy build validate
-        revitpy build validate --fix
-        revitpy build validate /path/to/project
+        revitpy-dev build validate
+        revitpy-dev build validate --fix
+        revitpy-dev build validate /path/to/project
     """
     start_time = time.time()
     log_command_start("build validate", {"project_path": project_path, "fix": fix})
@@ -233,9 +233,9 @@ def clean(
     """Clean build artifacts.
 
     Examples:
-        revitpy build clean
-        revitpy build clean --all
-        revitpy build clean /path/to/project
+        revitpy-dev build clean
+        revitpy-dev build clean --all
+        revitpy-dev build clean /path/to/project
     """
     start_time = time.time()
     log_command_start(

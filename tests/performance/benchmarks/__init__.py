@@ -1,1 +1,0 @@
-"""Performance benchmark tests for RevitPy."""

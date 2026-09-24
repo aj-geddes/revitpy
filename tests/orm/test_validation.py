@@ -686,10 +686,23 @@ class TestFactoryFunctions:
 
     def test_factory_validation(self):
         """Test that factory functions validate input."""
-        # Invalid wall dimensions should raise ValidationError
-        with pytest.raises(ValidationError):
+        # Factories wrap pydantic errors in the ORM's ValidationError
+        with pytest.raises(ORMValidationError):
             create_wall(id=1, height=-1, length=10, width=0.5)
 
-        # Invalid room number should raise ValidationError
-        with pytest.raises(ValidationError):
+        with pytest.raises(ORMValidationError):
             create_room(id=1, number="", area=100)
+
+
+class TestFactoryValidationErrors:
+    """Factory functions raise the ORM's ValidationError, not pydantic's."""
+
+    def test_invalid_wall_reports_fields(self):
+        with pytest.raises(ORMValidationError) as excinfo:
+            create_wall(id=1, height=-5.0, length=20.0, width=0.5)
+        assert "height" in excinfo.value.validation_errors
+        assert excinfo.value.cause is not None
+
+    def test_valid_room_still_created(self):
+        room = create_room(id=1, number="101", area=20.0)
+        assert room.number == "101"

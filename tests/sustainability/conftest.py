@@ -201,4 +201,8 @@ def sample_building_data() -> dict:
         "roof_r_value": 30.0,
         "window_u_value": 0.30,
         "glazing_ratio": 0.35,
+        "compliance_year": 2025,
+        "climate_zone": "4A",
+        "epbd_limits": {"office": 120.0},
+        "epbd_limit_source": "Example national NZEB limit (test fixture)",
     }

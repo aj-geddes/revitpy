@@ -26,16 +26,18 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering",
 ]
 dependencies = [
-    "pydantic>=2.0.0",
+    "pydantic>=2.5,<3",
     "typing-extensions>=4.0.0",
-    "asyncio-mqtt>=0.11.0",
     "aiofiles>=23.0.0",
     "loguru>=0.7.0",
-    "httpx>=0.24.0",
+    "httpx>=0.25.0",
+    # <12 is required by specklepy's gql dependency; revitpy.ai supports both
+    # the legacy (<13) and the asyncio (>=13) websockets server APIs.
     "websockets>=11.0.0",
     "pyyaml>=6.0.0",
     "click>=8.0.0",
@@ -46,43 +48,35 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
-    "pytest-asyncio>=0.21.0",
+    "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
-    "mypy>=1.0.0",
-    "ruff>=0.0.260",
+    "mypy>=1.10.0",
+    "ruff>=0.15.4",
     "pre-commit>=3.0.0",
     "psutil>=5.9.0",
 ]
-testing = [
-    "pytest>=7.0.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "hypothesis>=6.0.0",
-    "factory-boy>=3.2.0",
-]
-docs = [
-    "mkdocs>=1.4.0",
-    "mkdocs-material>=9.0.0",
-    "mkdocstrings[python]>=0.20.0",
-    "mkdocs-autorefs>=0.4.0",
-]
-ifc = ["ifcopenshell>=0.7.0"]
-interop = ["specklepy>=2.0.0"]
+ifc = ["ifcopenshell>=0.8.0", "defusedxml>=0.7.1", "ifctester>=0.8.0"]
+interop = ["specklepy>=3.0.0"]
 sustainability = []  # uses existing httpx
 cloud = []  # uses existing httpx, aiofiles
 ai = []  # uses existing websockets, jinja2
-all = ["ifcopenshell>=0.7.0", "specklepy>=2.0.0"]
+all = [
+    "ifcopenshell>=0.8.0",
+    "defusedxml>=0.7.1",
+    "ifctester>=0.8.0",
+    "specklepy>=3.0.0",
+]
 
 [project.scripts]
 revitpy = "revitpy.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/revitpy/revitpy"
-Documentation = "https://revitpy.readthedocs.io/"
-Repository = "https://github.com/revitpy/revitpy"
-Issues = "https://github.com/revitpy/revitpy/issues"
+Homepage = "https://github.com/aj-geddes/revitpy"
+Documentation = "https://aj-geddes.github.io/revitpy/"
+Repository = "https://github.com/aj-geddes/revitpy"
+Issues = "https://github.com/aj-geddes/revitpy/issues"
+Changelog = "https://github.com/aj-geddes/revitpy/blob/main/CHANGELOG.md"
 
 [tool.hatch.version]
 source = "vcs"
@@ -123,10 +117,21 @@ disable_error_code = [
     "import-untyped",
 ]
 
+# numpy (pulled in by ifcopenshell) ships stubs with 3.12-only syntax; don't
+# parse them when checking against the 3.11 baseline.
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*", "shapely", "shapely.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true
+
 [tool.ruff]
 target-version = "py311"
 line-length = 88
 extend-exclude = ["cli/templates/"]
+
+[tool.ruff.format]
+# ruff >= 0.16 also formats code blocks in Markdown; docs are formatted by hand.
+exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = [
@@ -171,15 +176,24 @@ ignore = [
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config"
+addopts = "-ra -q --strict-markers --strict-config -m 'not slow'"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "slow: long-running tests, excluded by default (run with -m slow)",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "performance: performance and benchmark tests",
+    "benchmark: benchmark tests",
+    "security: security-focused tests",
+    "regression: regression tests for fixed bugs",
+    "compatibility: cross-version compatibility tests",
+    "mock_revit: tests using the mock Revit environment",
+    "real_revit: tests that require a real Revit installation",
+    "bridge: tests for the Python/Revit bridge",
+    "e2e: end-to-end workflow tests",
 ]
 asyncio_mode = "auto"
 

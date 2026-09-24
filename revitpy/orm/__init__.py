@@ -6,39 +6,35 @@ offering LINQ-style querying, relationship mapping, change tracking, caching, an
 async support for high-performance Revit development.
 
 Key Features:
-- LINQ-style fluent query interface with lazy evaluation
-- Relationship mapping between Revit elements
-- Intelligent change tracking with batch operations
-- Multi-level caching with smart invalidation
-- Full async/await support
-- Complete type safety with runtime validation
-- <100ms response time for complex queries on 10,000+ elements
+- LINQ-style fluent queries (``where``/``order_by``/``take``...) with lazy evaluation
+- Change tracking with persistence through a pluggable ``IUnitOfWork``
+- Result caching for callable-free query plans
+- Async facade (``RevitContext.as_async()``)
+- Pydantic v2 element models with validation
 
 Usage:
-    from revitpy.orm import RevitContext, Wall, Room
+    from revitpy import RevitAPI
+    from revitpy.api import Wall
+    from revitpy.orm import RevitContext
 
-    async with RevitContext() as ctx:
-        # LINQ-style querying
-        walls = await ctx.walls.where(lambda w: w.level.name == "Level 1") \
-                              .order_by(lambda w: w.name) \
-                              .to_list_async()
+    api = RevitAPI()
+    api.connect(__revit__)  # or a revitpy.testing.MockApplication
 
-        # Relationship navigation
-        wall = await ctx.walls.first_async()
-        room = wall.room  # Navigate relationship
-        adjacent_walls = room.walls  # Reverse navigation
-
-        # Change tracking and batch operations
-        for wall in walls:
-            wall.mark = "Updated"
-
-        await ctx.save_changes_async()  # Batch update all changes
+    with RevitContext(api.active_document) as ctx:
+        tall = (
+            ctx.all(Wall)
+            .where(lambda w: w.name.startswith("Ext"))
+            .order_by(lambda w: w.name)
+            .to_list()
+        )
+        ctx.update(tall[0], comments="Checked")  # tracked change
+        ctx.save_changes()  # registered with the configured IUnitOfWork
 """
 
 from .async_support import AsyncRevitContext, async_batch_operation, async_transaction
 from .cache import CacheEntry, CacheKey, CacheManager
 from .change_tracker import ChangeSet, ChangeTracker
-from .context import RevitContext
+from .context import RevitContext, create_context
 from .decorators import cached, lazy_property, tracked_property
 from .element_set import AsyncElementSet, ElementSet
 from .exceptions import (
@@ -84,6 +80,7 @@ from .validation import (
 # Version info
 __version__ = "1.0.0"
 __all__ = [
+    "create_context",
     # Core classes
     "RevitContext",
     "QueryBuilder",
