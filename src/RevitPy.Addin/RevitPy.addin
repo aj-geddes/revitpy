@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Revit add-in manifest. Install to %APPDATA%\Autodesk\Revit\Addins\<version>\
+  next to a "RevitPy" folder holding the build output (see scripts/install-addin.ps1).
+  The Assembly path is relative to this manifest.
+-->
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>RevitPy</Name>
+    <Assembly>RevitPy\RevitPy.Addin.dll</Assembly>
+    <AddInId>1C5A4AE2-613C-4A19-904C-A4C94861A1FE</AddInId>
+    <FullClassName>RevitPy.Addin.RevitPyApplication</FullClassName>
+    <VendorId>REVITPY</VendorId>
+    <VendorDescription>RevitPy - modern Python framework for Revit</VendorDescription>
+  </AddIn>
+</RevitAddIns>
