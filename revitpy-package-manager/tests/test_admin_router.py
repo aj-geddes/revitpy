@@ -41,7 +41,7 @@ class TestListAllUsers:
             Mock(spec=User, id=3, username="user3"),
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_users
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -56,7 +56,7 @@ class TestListAllUsers:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = []
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -76,7 +76,7 @@ class TestListAllUsers:
             Mock(spec=User, id=1, username="oldest"),
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_users
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -101,7 +101,7 @@ class TestDeactivateUser:
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
         mock_user = Mock(spec=User, id=2, username="testuser", is_active=True)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -117,7 +117,7 @@ class TestDeactivateUser:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -136,7 +136,7 @@ class TestDeactivateUser:
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
         mock_user = Mock(spec=User, id=2, username="testuser", is_active=False)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -161,7 +161,7 @@ class TestActivateUser:
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
         mock_user = Mock(spec=User, id=2, username="testuser", is_active=False)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -177,7 +177,7 @@ class TestActivateUser:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -194,7 +194,7 @@ class TestActivateUser:
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
         mock_user = Mock(spec=User, id=2, username="testuser", is_active=True)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -223,7 +223,7 @@ class TestListAllPackages:
             Mock(spec=Package, id=2, name="package2"),
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_packages
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -242,7 +242,7 @@ class TestListAllPackages:
             Mock(spec=Package, id=2, name="private", is_private=True),
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_packages
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -263,7 +263,7 @@ class TestListAllPackages:
             Mock(spec=Package, id=2, name="unpublished", is_published=False),
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_packages
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -285,7 +285,7 @@ class TestListAllPackages:
             Mock(spec=Package, id=3, name="package3"),
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_packages
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -304,7 +304,7 @@ class TestListAllPackages:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = []
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -328,7 +328,7 @@ class TestUnpublishPackage:
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
         mock_package = Mock(spec=Package, id=1, name="test-package", is_published=True)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_package
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -346,7 +346,7 @@ class TestUnpublishPackage:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -365,7 +365,7 @@ class TestUnpublishPackage:
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
         mock_package = Mock(spec=Package, id=1, name="test-package", is_published=False)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_package
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -385,7 +385,7 @@ class TestUnpublishPackage:
         mock_package = Mock(
             spec=Package, id=1, normalized_name="test-package", is_published=True
         )
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_package
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -417,7 +417,7 @@ class TestListVulnerabilities:
             Mock(spec=VulnerabilityReport, id=2, severity="high"),
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_vulns
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -435,7 +435,7 @@ class TestListVulnerabilities:
 
         mock_vulns = [Mock(spec=VulnerabilityReport, id=1, severity="critical")]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_vulns
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -454,7 +454,7 @@ class TestListVulnerabilities:
 
         mock_vulns = [Mock(spec=VulnerabilityReport, id=1, status="open")]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_vulns
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -474,7 +474,7 @@ class TestListVulnerabilities:
             Mock(spec=VulnerabilityReport, id=1, severity="critical", status="open")
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_vulns
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -490,7 +490,7 @@ class TestListVulnerabilities:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = []
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -520,7 +520,7 @@ class TestListScanResults:
             Mock(spec=ScanResult, id=2, scanner_name="dependency"),
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_scans
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -536,7 +536,7 @@ class TestListScanResults:
 
         mock_scans = [Mock(spec=ScanResult, id=1, scanner_name="malware")]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_scans
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -555,7 +555,7 @@ class TestListScanResults:
 
         mock_scans = [Mock(spec=ScanResult, id=1, status="completed")]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_scans
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -575,7 +575,7 @@ class TestListScanResults:
             Mock(spec=ScanResult, id=1, scanner_name="malware", status="completed")
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_scans
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -594,7 +594,7 @@ class TestListScanResults:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_superuser = Mock(spec=User, id=1, is_superuser=True)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = []
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -621,7 +621,7 @@ class TestAdminIntegration:
         mock_user = Mock(spec=User, id=2, username="testuser", is_active=True)
 
         # Deactivate
-        mock_result_deactivate = AsyncMock()
+        mock_result_deactivate = Mock()  # SQLAlchemy Result methods are sync
         mock_result_deactivate.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result_deactivate)
 
@@ -629,7 +629,7 @@ class TestAdminIntegration:
         assert mock_user.is_active is False
 
         # Reactivate
-        mock_result_activate = AsyncMock()
+        mock_result_activate = Mock()  # SQLAlchemy Result methods are sync
         mock_result_activate.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result_activate)
 
@@ -646,7 +646,7 @@ class TestAdminIntegration:
         mock_vulns = [
             Mock(spec=VulnerabilityReport, id=1, severity="critical", status="open")
         ]
-        mock_result_vulns = AsyncMock()
+        mock_result_vulns = Mock()  # SQLAlchemy Result methods are sync
         mock_result_vulns.scalars.return_value.all.return_value = mock_vulns
         mock_db.execute = AsyncMock(return_value=mock_result_vulns)
 
@@ -659,7 +659,7 @@ class TestAdminIntegration:
         mock_scans = [
             Mock(spec=ScanResult, id=1, scanner_name="dependency", status="completed")
         ]
-        mock_result_scans = AsyncMock()
+        mock_result_scans = Mock()  # SQLAlchemy Result methods are sync
         mock_result_scans.scalars.return_value.all.return_value = mock_scans
         mock_db.execute = AsyncMock(return_value=mock_result_scans)
 

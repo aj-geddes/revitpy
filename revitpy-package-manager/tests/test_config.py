@@ -116,7 +116,7 @@ class TestJWTConfig:
 
             # Should warn about default secret key
             assert len(w) == 1
-            assert "default JWT secret key" in str(w[0].message).lower()
+            assert "default jwt secret key" in str(w[0].message).lower()
 
             assert (
                 config.secret_key == "dev-secret-key-change-in-production-min-32-chars"
@@ -227,7 +227,8 @@ class TestServerConfig:
         assert config.port == 8000
         assert config.reload is False
         assert config.debug is False
-        assert "localhost" in config.cors_origins
+        # cors_origins holds full origins (scheme://host:port), not bare hosts
+        assert any("localhost" in origin for origin in config.cors_origins)
         assert "localhost" in config.trusted_hosts
 
     def test_server_config_from_env(self):
@@ -478,6 +479,9 @@ class TestConfigIntegration:
                 "DB_POOL_SIZE": "20",
                 "JWT_SECRET_KEY": "production-secret-key-at-least-32-characters-long-abc",
                 "STORAGE_TYPE": "s3",
+                # S3 storage requires credentials (see test_settings_s3_validation)
+                "AWS_ACCESS_KEY_ID": "prod-key-id",
+                "AWS_SECRET_ACCESS_KEY": "prod-secret-key",
                 "CACHE_ENABLED": "true",
                 "SERVER_PORT": "8080",
                 "MONITORING_LOG_JSON": "true",
@@ -495,6 +499,7 @@ class TestConfigIntegration:
                 == "production-secret-key-at-least-32-characters-long-abc"
             )
             assert settings.storage.type == StorageType.S3
+            assert settings.storage.aws_access_key_id == "prod-key-id"
             assert settings.cache.enabled is True
             assert settings.server.port == 8080
             assert settings.monitoring.log_json is True

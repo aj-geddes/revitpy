@@ -16,6 +16,7 @@ from revitpy_package_manager.registry.models.user import User
 from revitpy_package_manager.registry.services.storage import (
     LocalStorageBackend,
     StorageService,
+    get_storage_service,
 )
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -31,17 +32,26 @@ def event_loop():
 
 @pytest_asyncio.fixture
 async def test_db_engine():
-    """Create a test database engine."""
-    # Use in-memory SQLite for testing
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    """Create a test database engine with a fresh schema.
 
-    # Create all tables
+    Defaults to a throwaway in-memory SQLite database (the models use
+    portable column types, see registry/models/types.py). Set
+    TEST_DATABASE_URL (e.g. ``postgresql+asyncpg://user:pw@host/revitpy_test``)
+    to run the same tests against a real server instead. That database is
+    dropped and recreated around every test, so never point it at real data.
+    """
+    url = os.getenv("TEST_DATABASE_URL") or "sqlite+aiosqlite:///:memory:"
+    engine = create_async_engine(url, echo=False)
+
     async with engine.begin() as conn:
+        # Clear leftovers from an interrupted run on a persistent database
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
     yield engine
 
-    # Cleanup
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
@@ -83,7 +93,7 @@ def test_app(test_db_session, test_storage_service):
         return test_storage_service
 
     app.dependency_overrides[get_db_session] = override_get_db
-    app.dependency_overrides[StorageService] = override_get_storage
+    app.dependency_overrides[get_storage_service] = override_get_storage
 
     return app
 
@@ -91,7 +101,9 @@ def test_app(test_db_session, test_storage_service):
 @pytest.fixture
 def test_client(test_app):
     """Create a test client for the FastAPI application."""
-    return TestClient(test_app)
+    # Use a host allowed by TrustedHostMiddleware; TestClient's default
+    # "testserver" host is (correctly) rejected with 400 in non-debug mode.
+    return TestClient(test_app, base_url="http://localhost")
 
 
 @pytest_asyncio.fixture
@@ -335,17 +347,3 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "integration: mark test as an integration test")
     config.addinivalue_line("markers", "e2e: mark test as an end-to-end test")
     config.addinivalue_line("markers", "slow: mark test as slow running")
-
-
-# Skip tests if dependencies are not available
-def pytest_collection_modifyitems(config, items):
-    """Modify test collection to add skip markers."""
-    skip_integration = pytest.mark.skip(
-        reason="Integration test dependencies not available"
-    )
-
-    for item in items:
-        if "integration" in item.keywords:
-            # Skip integration tests if test database is not configured
-            if not os.getenv("TEST_DATABASE_URL"):
-                item.add_marker(skip_integration)

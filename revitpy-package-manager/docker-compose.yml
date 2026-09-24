@@ -1,19 +1,20 @@
-version: '3.8'
+# Secrets have no defaults: copy env.example to .env and fill it in before
+# running `docker compose up` (compose aborts with a message if one is missing).
 
 services:
   # PostgreSQL database
   postgres:
     image: postgres:15
     environment:
-      POSTGRES_DB: revitpy_registry
-      POSTGRES_USER: revitpy
-      POSTGRES_PASSWORD: revitpy
+      POSTGRES_DB: ${POSTGRES_DB:-revitpy_registry}
+      POSTGRES_USER: ${POSTGRES_USER:-revitpy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see env.example)}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U revitpy"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,13 +34,15 @@ services:
 
   # MinIO (S3-compatible storage)
   minio:
-    image: minio/minio
+    # Upstream stopped publishing public MinIO images; point MINIO_IMAGE at a
+    # pinned image you trust (see env.example).
+    image: ${MINIO_IMAGE:-minio/minio}
     ports:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env (see env.example)}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env (see env.example)}
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
@@ -57,15 +60,16 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://revitpy:revitpy@postgres/revitpy_registry
-      REDIS_URL: redis://redis:6379/0
+      # Variable names match revitpy_package_manager/config.py (DB_/CACHE_/STORAGE_/JWT_ prefixes)
+      DB_URL: postgresql+asyncpg://${POSTGRES_USER:-revitpy}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see env.example)}@postgres/${POSTGRES_DB:-revitpy_registry}
+      CACHE_REDIS_URL: redis://redis:6379/0
       STORAGE_TYPE: s3
-      S3_ENDPOINT_URL: http://minio:9000
-      S3_ACCESS_KEY_ID: minioadmin
-      S3_SECRET_ACCESS_KEY: minioadmin
-      S3_BUCKET_NAME: revitpy-packages
-      S3_REGION: us-east-1
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
+      STORAGE_S3_ENDPOINT_URL: http://minio:9000
+      STORAGE_AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env (see env.example)}
+      STORAGE_AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env (see env.example)}
+      STORAGE_S3_BUCKET_NAME: revitpy-packages
+      STORAGE_S3_REGION: us-east-1
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY in .env (openssl rand -hex 32)}
       ENVIRONMENT: development
     depends_on:
       postgres:
@@ -84,7 +88,7 @@ services:
 
   # Prometheus monitoring
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.14.0
     ports:
       - "9090:9090"
     volumes:
@@ -98,11 +102,12 @@ services:
 
   # Grafana dashboards
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.2.2
     ports:
       - "3000:3000"
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env (see env.example)}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards

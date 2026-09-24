@@ -1,6 +1,9 @@
 """Tests for package management API endpoints."""
 
+import json
+
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 
 
@@ -116,18 +119,70 @@ def test_update_package_success(test_client: TestClient, auth_headers, test_pack
 
 
 @pytest.mark.integration
-def test_update_package_not_owner(test_client: TestClient, test_package):
-    """Test updating a package when not the owner."""
-    # Create a different user and get their auth headers
-    # This would require additional setup in a real test
+def test_update_package_unauthenticated(test_client: TestClient, test_package):
+    """Test updating a package without authentication."""
     update_data = {"summary": "Unauthorized update"}
 
     response = test_client.put(
         f"/api/v1/packages/{test_package.name}", json=update_data
     )
 
-    # Should require authentication
     assert response.status_code == 401
+
+
+@pytest_asyncio.fixture
+async def other_user_headers(test_client: TestClient, test_db_session):
+    """Auth headers for a second user who owns nothing."""
+    from revitpy_package_manager.registry.api.routers.auth import get_password_hash
+    from revitpy_package_manager.registry.models.user import User
+
+    other = User(
+        username="otheruser",
+        email="other@example.com",
+        password_hash=get_password_hash("otherpassword"),
+        is_active=True,
+    )
+    test_db_session.add(other)
+    await test_db_session.commit()
+
+    response = test_client.post(
+        "/api/v1/auth/login",
+        json={"username": "otheruser", "password": "otherpassword"},
+    )
+    assert response.status_code == 200
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+@pytest.mark.integration
+def test_update_package_not_owner(
+    test_client: TestClient, test_package, other_user_headers
+):
+    """A different authenticated user can't update someone else's package."""
+    response = test_client.put(
+        f"/api/v1/packages/{test_package.name}",
+        json={"summary": "Hijacked"},
+        headers=other_user_headers,
+    )
+
+    assert response.status_code == 404
+    unchanged = test_client.get(f"/api/v1/packages/{test_package.name}")
+    assert unchanged.json()["summary"] == test_package.summary
+
+
+@pytest.mark.integration
+def test_upload_version_not_owner(
+    test_client: TestClient, test_package, test_package_file, other_user_headers
+):
+    """A different authenticated user can't upload versions of the package."""
+    with open(test_package_file, "rb") as f:
+        response = test_client.post(
+            f"/api/v1/packages/{test_package.name}/versions",
+            files={"file": (test_package_file.name, f, "application/gzip")},
+            data={"metadata": json.dumps({"version": "9.9.9"})},
+            headers=other_user_headers,
+        )
+
+    assert response.status_code == 404
 
 
 @pytest.mark.integration
@@ -195,16 +250,9 @@ def test_upload_package_version_success(
     """Test uploading a new package version."""
     with open(test_package_file, "rb") as f:
         files = {"file": (test_package_file.name, f, "application/gzip")}
-        data = {
-            "version": mock_version_data["version"],
-            "summary": mock_version_data["summary"],
-            "description": mock_version_data["description"],
-            "python_version": mock_version_data["python_version"],
-            "supported_revit_versions": mock_version_data["supported_revit_versions"],
-            "author": mock_version_data["author"],
-            "author_email": mock_version_data["author_email"],
-            "license": mock_version_data["license"],
-        }
+        # Version metadata travels as one JSON form field (what the builder
+        # CLI's publish sends), since lists/dependencies can't be flat fields.
+        data = {"metadata": json.dumps(mock_version_data)}
 
         response = test_client.post(
             f"/api/v1/packages/{test_package.name}/versions",
@@ -219,6 +267,14 @@ def test_upload_package_version_success(
     assert data["version"] == mock_version_data["version"]
     assert data["summary"] == mock_version_data["summary"]
     assert data["filename"] == test_package_file.name
+    assert data["supported_revit_versions"] == ["2024", "2025"]
+    assert data["file_size"] == test_package_file.stat().st_size
+    assert [d["dependency_name"] for d in data["dependencies"]] == ["requests"]
+
+    # The new version is listed afterwards
+    listed = test_client.get(f"/api/v1/packages/{test_package.name}/versions")
+    assert listed.status_code == 200
+    assert [v["version"] for v in listed.json()] == [mock_version_data["version"]]
 
 
 @pytest.mark.integration
@@ -233,8 +289,12 @@ def test_upload_duplicate_version(
     with open(test_package_file, "rb") as f:
         files = {"file": (test_package_file.name, f, "application/gzip")}
         data = {
-            "version": test_package_version.version,  # Same version
-            "summary": "Duplicate version",
+            "metadata": json.dumps(
+                {
+                    "version": test_package_version.version,  # Same version
+                    "summary": "Duplicate version",
+                }
+            )
         }
 
         response = test_client.post(
@@ -246,6 +306,30 @@ def test_upload_duplicate_version(
 
     assert response.status_code == 400
     assert "already exists" in response.json()["detail"]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        "not json",
+        json.dumps({"summary": "missing the required version"}),
+        json.dumps({"version": "1.2.3", "supported_revit_versions": "2025"}),
+    ],
+)
+def test_upload_invalid_metadata(
+    test_client: TestClient, auth_headers, test_package, test_package_file, metadata
+):
+    """Malformed or invalid version metadata is a 422, not a 500."""
+    with open(test_package_file, "rb") as f:
+        response = test_client.post(
+            f"/api/v1/packages/{test_package.name}/versions",
+            files={"file": (test_package_file.name, f, "application/gzip")},
+            data={"metadata": metadata},
+            headers=auth_headers,
+        )
+
+    assert response.status_code == 422
 
 
 @pytest.mark.integration
@@ -320,6 +404,47 @@ def test_package_filtering_by_revit_version(test_client: TestClient):
 
     # Should return empty list if no packages support the version
     assert isinstance(data["packages"], list)
+
+
+@pytest.mark.integration
+def test_package_filters_match_data(
+    test_client: TestClient, auth_headers, mock_package_data, test_package_file
+):
+    """Category, keyword and Revit-version filters match stored list columns."""
+    created = test_client.post(
+        "/api/v1/packages/", json=mock_package_data, headers=auth_headers
+    )
+    assert created.status_code == 201
+    name = mock_package_data["name"]
+
+    for version, revit in (("1.0.0", ["2024", "2025"]), ("1.1.0", ["2025"])):
+        with open(test_package_file, "rb") as f:
+            uploaded = test_client.post(
+                f"/api/v1/packages/{name}/versions",
+                files={"file": (f"{name}-{version}.tar.gz", f, "application/gzip")},
+                data={
+                    "metadata": json.dumps(
+                        {"version": version, "supported_revit_versions": revit}
+                    )
+                },
+                headers=auth_headers,
+            )
+        assert uploaded.status_code == 201, uploaded.text
+
+    def names(url: str) -> list[str]:
+        response = test_client.get(url)
+        assert response.status_code == 200
+        return [p["name"] for p in response.json()["packages"]]
+
+    assert names("/api/v1/packages/?category=utilities") == [name]
+    assert names("/api/v1/packages/?category=geometry") == []
+    # Two versions support 2025, but the package must be listed once
+    assert names("/api/v1/packages/?revit_version=2025") == [name]
+    assert names("/api/v1/packages/?revit_version=2024") == [name]
+    assert names("/api/v1/packages/?revit_version=2019") == []
+    # "mock" only occurs as a keyword/name substring; "revitpy" only as keyword
+    assert names("/api/v1/packages/search?q=revitpy") == [name]
+    assert names("/api/v1/packages/search?q=nomatch") == []
 
 
 @pytest.mark.integration

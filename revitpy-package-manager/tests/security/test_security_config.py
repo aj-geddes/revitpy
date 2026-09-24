@@ -116,7 +116,7 @@ class TestSecurityConfig:
 
         # With control characters
         input_with_nulls = "text\x00with\x01nulls\x02"
-        assert SecurityConfig.sanitize_user_input(input_with_nulls) == "textwithwithws"
+        assert SecurityConfig.sanitize_user_input(input_with_nulls) == "textwithnulls"
 
         # Preserve allowed whitespace
         assert (

@@ -407,7 +407,11 @@ def verify(package_path: Path, signature: Path | None, public_key: Path):
 @cli.command()
 @click.argument("package_path", type=click.Path(exists=True, path_type=Path))
 @click.option("--registry-url", default="http://localhost:8000", help="Registry URL")
-@click.option("--token", help="Authentication token (or set REVITPY_TOKEN env var)")
+@click.option(
+    "--token",
+    envvar=["REVITPY_TOKEN", "CLI_REVITPY_TOKEN"],
+    help="Authentication token (or set REVITPY_TOKEN / CLI_REVITPY_TOKEN env var)",
+)
 @click.option(
     "--dry-run", is_flag=True, help="Show what would be uploaded without uploading"
 )
@@ -423,13 +427,15 @@ def publish(
 ):
     """Publish a package to the registry."""
 
-    # Get authentication token
+    # Get authentication token: --token / REVITPY_TOKEN / CLI_REVITPY_TOKEN
+    # (resolved by click), falling back to configured settings (.env file).
     if not token:
         token = get_revitpy_token()
 
     if not token and not dry_run:
         console.print(
-            "❌ Authentication token required. Use --token or set CLI_REVITPY_TOKEN env var",
+            "❌ Authentication token required. Use --token or set REVITPY_TOKEN "
+            "(or CLI_REVITPY_TOKEN) env var",
             style="red",
         )
         sys.exit(1)

@@ -1,7 +1,8 @@
 # Simplified Docker Compose for Desktop Package Registry
 # Optimized for minimal infrastructure requirements
 
-version: '3.8'
+# Secrets have no defaults: copy env.example to .env and set JWT_SECRET_KEY and
+# ADMIN_TOKEN before running `docker compose -f docker-compose.desktop.yml up`.
 
 services:
   # Simplified Registry Service
@@ -27,8 +28,8 @@ services:
       LOG_LEVEL: INFO
 
       # Security
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-this}
-      ADMIN_TOKEN: ${ADMIN_TOKEN:-admin-token-change-this}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY in .env (openssl rand -hex 32)}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?set ADMIN_TOKEN in .env (openssl rand -hex 32)}
 
     volumes:
       - registry_data:/data

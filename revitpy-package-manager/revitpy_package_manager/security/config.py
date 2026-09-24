@@ -1,6 +1,7 @@
 """Security configuration and validation utilities."""
 
 import os
+import re
 import secrets
 import string
 from typing import Any
@@ -11,6 +12,10 @@ class SecurityConfig:
 
     # Secure defaults
     MIN_PASSWORD_LENGTH = 12
+    # bcrypt only accepts up to 72 bytes of input (bcrypt>=5 raises beyond it)
+    MAX_PASSWORD_BYTES = 72
+    # Usernames: letters/digits with inner '.', '_' or '-' (no markup/spaces)
+    USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$")
     MIN_JWT_SECRET_LENGTH = 32
     MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
     MAX_REQUEST_SIZE = 10 * 1024 * 1024  # 10MB
@@ -103,7 +108,15 @@ class SecurityConfig:
         else:
             strength += 1
 
+        if len(password.encode("utf-8")) > cls.MAX_PASSWORD_BYTES:
+            issues.append(f"Must be at most {cls.MAX_PASSWORD_BYTES} bytes long")
+
         return {"valid": len(issues) == 0, "strength": strength, "issues": issues}
+
+    @classmethod
+    def validate_username(cls, username: str) -> bool:
+        """Check a username contains only safe identifier characters."""
+        return isinstance(username, str) and bool(cls.USERNAME_PATTERN.match(username))
 
     @classmethod
     def validate_filename(cls, filename: str) -> bool:

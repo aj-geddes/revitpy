@@ -1,6 +1,8 @@
 """Tests for packages router endpoints."""
 
 import hashlib
+import uuid
+from datetime import datetime
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -29,6 +31,34 @@ from revitpy_package_manager.registry.models.package import (
 )
 from revitpy_package_manager.registry.models.user import User
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _make_package(name: str, **overrides) -> Package:
+    """Build a realistic (unsaved) Package that validates as PackageResponse.
+
+    list/search wrap results in PackageListResponse/PackageSearchResponse,
+    which validate every field, so bare Mocks (int ids, Mock attrs) can't
+    stand in for packages there.
+    """
+    now = datetime.utcnow()
+    fields = {
+        "id": uuid.uuid4(),
+        "name": name,
+        "normalized_name": normalize_package_name(name),
+        "owner_id": uuid.uuid4(),
+        "keywords": [],
+        "categories": [],
+        "is_private": False,
+        "is_published": True,
+        "is_deprecated": False,
+        "download_count": 0,
+        "star_count": 0,
+        "created_at": now,
+        "updated_at": now,
+    }
+    fields.update(overrides)
+    return Package(**fields)
+
 
 # ============================================================================
 # Test normalize_package_name
@@ -71,10 +101,10 @@ class TestListPackages:
     async def test_list_packages_default(self):
         """Test listing packages with default parameters."""
         mock_db = AsyncMock(spec=AsyncSession)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = []
 
-        mock_count_result = AsyncMock()
+        mock_count_result = Mock()  # SQLAlchemy Result methods are sync
         mock_count_result.scalar.return_value = 0
 
         mock_db.execute = AsyncMock(side_effect=[mock_count_result, mock_result])
@@ -95,14 +125,14 @@ class TestListPackages:
 
         # Create mock packages
         mock_packages = [
-            Mock(spec=Package, id=1, name="package1"),
-            Mock(spec=Package, id=2, name="package2"),
+            _make_package("package1"),
+            _make_package("package2"),
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_packages
 
-        mock_count_result = AsyncMock()
+        mock_count_result = Mock()  # SQLAlchemy Result methods are sync
         mock_count_result.scalar.return_value = 50  # Total 50 packages
 
         mock_db.execute = AsyncMock(side_effect=[mock_count_result, mock_result])
@@ -120,10 +150,10 @@ class TestListPackages:
     async def test_list_packages_with_category_filter(self):
         """Test listing packages filtered by category."""
         mock_db = AsyncMock(spec=AsyncSession)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = []
 
-        mock_count_result = AsyncMock()
+        mock_count_result = Mock()  # SQLAlchemy Result methods are sync
         mock_count_result.scalar.return_value = 0
 
         mock_db.execute = AsyncMock(side_effect=[mock_count_result, mock_result])
@@ -137,10 +167,10 @@ class TestListPackages:
     async def test_list_packages_with_revit_version_filter(self):
         """Test listing packages filtered by Revit version."""
         mock_db = AsyncMock(spec=AsyncSession)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = []
 
-        mock_count_result = AsyncMock()
+        mock_count_result = Mock()  # SQLAlchemy Result methods are sync
         mock_count_result.scalar.return_value = 0
 
         mock_db.execute = AsyncMock(side_effect=[mock_count_result, mock_result])
@@ -165,13 +195,13 @@ class TestSearchPackages:
         mock_db = AsyncMock(spec=AsyncSession)
 
         mock_packages = [
-            Mock(spec=Package, id=1, name="test-package"),
+            _make_package("test-package"),
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_packages
 
-        mock_count_result = AsyncMock()
+        mock_count_result = Mock()  # SQLAlchemy Result methods are sync
         mock_count_result.scalar.return_value = 1
 
         mock_db.execute = AsyncMock(side_effect=[mock_count_result, mock_result])
@@ -186,10 +216,10 @@ class TestSearchPackages:
     async def test_search_packages_no_results(self):
         """Test searching packages with no results."""
         mock_db = AsyncMock(spec=AsyncSession)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = []
 
-        mock_count_result = AsyncMock()
+        mock_count_result = Mock()  # SQLAlchemy Result methods are sync
         mock_count_result.scalar.return_value = 0
 
         mock_db.execute = AsyncMock(side_effect=[mock_count_result, mock_result])
@@ -205,12 +235,12 @@ class TestSearchPackages:
         """Test searching packages with pagination."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        mock_packages = [Mock(spec=Package, id=i) for i in range(5)]
+        mock_packages = [_make_package(f"package{i}") for i in range(5)]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_packages
 
-        mock_count_result = AsyncMock()
+        mock_count_result = Mock()  # SQLAlchemy Result methods are sync
         mock_count_result.scalar.return_value = 15
 
         mock_db.execute = AsyncMock(side_effect=[mock_count_result, mock_result])
@@ -237,7 +267,7 @@ class TestCreatePackage:
         mock_user = Mock(spec=User, id=1, username="testuser")
 
         # Mock that package doesn't exist
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -265,7 +295,7 @@ class TestCreatePackage:
 
         # Mock that package exists
         existing_package = Mock(spec=Package, name="test-package")
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = existing_package
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -289,7 +319,7 @@ class TestCreatePackage:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_user = Mock(spec=User, id=1, username="testuser")
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -324,7 +354,7 @@ class TestGetPackage:
         mock_db = AsyncMock(spec=AsyncSession)
 
         mock_package = Mock(spec=Package, id=1, name="test-package")
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_package
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -337,7 +367,7 @@ class TestGetPackage:
         """Test getting a non-existent package."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -353,7 +383,7 @@ class TestGetPackage:
         mock_db = AsyncMock(spec=AsyncSession)
 
         mock_package = Mock(spec=Package, normalized_name="test-package")
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_package
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -380,7 +410,7 @@ class TestUpdatePackage:
         mock_package = Mock(
             spec=Package, id=1, name="test-package", owner_id=1, summary="Old summary"
         )
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_package
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -402,7 +432,7 @@ class TestUpdatePackage:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_user = Mock(spec=User, id=1)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -425,7 +455,7 @@ class TestUpdatePackage:
         mock_user = Mock(spec=User, id=2)  # Different user
 
         # Package owned by user id=1, but requesting user is id=2
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None  # Query filters by owner_id
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -450,7 +480,7 @@ class TestUpdatePackage:
         mock_package = Mock(
             spec=Package, id=1, name="test-package", owner_id=1, homepage_url=None
         )
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_package
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -481,7 +511,7 @@ class TestDeletePackage:
         mock_user = Mock(spec=User, id=1)
 
         mock_package = Mock(spec=Package, id=1, owner_id=1, is_published=True)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_package
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -498,7 +528,7 @@ class TestDeletePackage:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_user = Mock(spec=User, id=1)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -515,7 +545,7 @@ class TestDeletePackage:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_user = Mock(spec=User, id=2)  # Different user
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -546,10 +576,10 @@ class TestListPackageVersions:
             Mock(spec=PackageVersion, id=2, version="1.1.0"),
         ]
 
-        mock_package_result = AsyncMock()
+        mock_package_result = Mock()  # SQLAlchemy Result methods are sync
         mock_package_result.scalar_one_or_none.return_value = mock_package
 
-        mock_versions_result = AsyncMock()
+        mock_versions_result = Mock()  # SQLAlchemy Result methods are sync
         mock_versions_result.scalars.return_value.all.return_value = mock_versions
 
         mock_db.execute = AsyncMock(
@@ -565,7 +595,7 @@ class TestListPackageVersions:
         """Test listing versions for non-existent package."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -584,10 +614,10 @@ class TestListPackageVersions:
             Mock(spec=PackageVersion, version="1.0.0", is_prerelease=False),
         ]
 
-        mock_package_result = AsyncMock()
+        mock_package_result = Mock()  # SQLAlchemy Result methods are sync
         mock_package_result.scalar_one_or_none.return_value = mock_package
 
-        mock_versions_result = AsyncMock()
+        mock_versions_result = Mock()  # SQLAlchemy Result methods are sync
         mock_versions_result.scalars.return_value.all.return_value = mock_versions
 
         mock_db.execute = AsyncMock(
@@ -611,10 +641,10 @@ class TestListPackageVersions:
             Mock(spec=PackageVersion, version="1.1.0-beta", is_prerelease=True),
         ]
 
-        mock_package_result = AsyncMock()
+        mock_package_result = Mock()  # SQLAlchemy Result methods are sync
         mock_package_result.scalar_one_or_none.return_value = mock_package
 
-        mock_versions_result = AsyncMock()
+        mock_versions_result = Mock()  # SQLAlchemy Result methods are sync
         mock_versions_result.scalars.return_value.all.return_value = mock_versions
 
         mock_db.execute = AsyncMock(
@@ -647,11 +677,11 @@ class TestUploadPackageVersion:
         mock_package = Mock(spec=Package, id=1, name="test-package", owner_id=1)
 
         # First query: get package
-        mock_package_result = AsyncMock()
+        mock_package_result = Mock()  # SQLAlchemy Result methods are sync
         mock_package_result.scalar_one_or_none.return_value = mock_package
 
         # Second query: check version doesn't exist
-        mock_version_result = AsyncMock()
+        mock_version_result = Mock()  # SQLAlchemy Result methods are sync
         mock_version_result.scalar_one_or_none.return_value = None
 
         mock_db.execute = AsyncMock(
@@ -697,7 +727,7 @@ class TestUploadPackageVersion:
         mock_user = Mock(spec=User, id=1)
         mock_storage = AsyncMock()
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -730,10 +760,10 @@ class TestUploadPackageVersion:
         mock_package = Mock(spec=Package, id=1, owner_id=1)
         existing_version = Mock(spec=PackageVersion, version="1.0.0")
 
-        mock_package_result = AsyncMock()
+        mock_package_result = Mock()  # SQLAlchemy Result methods are sync
         mock_package_result.scalar_one_or_none.return_value = mock_package
 
-        mock_version_result = AsyncMock()
+        mock_version_result = Mock()  # SQLAlchemy Result methods are sync
         mock_version_result.scalar_one_or_none.return_value = existing_version
 
         mock_db.execute = AsyncMock(
@@ -770,10 +800,10 @@ class TestUploadPackageVersion:
 
         mock_package = Mock(spec=Package, id=1, name="test-package", owner_id=1)
 
-        mock_package_result = AsyncMock()
+        mock_package_result = Mock()  # SQLAlchemy Result methods are sync
         mock_package_result.scalar_one_or_none.return_value = mock_package
 
-        mock_version_result = AsyncMock()
+        mock_version_result = Mock()  # SQLAlchemy Result methods are sync
         mock_version_result.scalar_one_or_none.return_value = None
 
         mock_db.execute = AsyncMock(
@@ -822,10 +852,10 @@ class TestUploadPackageVersion:
 
         mock_package = Mock(spec=Package, id=1, name="test-package", owner_id=1)
 
-        mock_package_result = AsyncMock()
+        mock_package_result = Mock()  # SQLAlchemy Result methods are sync
         mock_package_result.scalar_one_or_none.return_value = mock_package
 
-        mock_version_result = AsyncMock()
+        mock_version_result = Mock()  # SQLAlchemy Result methods are sync
         mock_version_result.scalar_one_or_none.return_value = None
 
         mock_db.execute = AsyncMock(
@@ -872,29 +902,30 @@ class TestGetPackageStats:
         """Test getting package statistics."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        mock_package = Mock(spec=Package, id=1, download_count=100)
+        package_id = uuid.uuid4()
+        mock_package = Mock(spec=Package, id=package_id, download_count=100)
 
         # Mock all database queries
-        mock_package_result = AsyncMock()
+        mock_package_result = Mock()  # SQLAlchemy Result methods are sync
         mock_package_result.scalar_one_or_none.return_value = mock_package
 
         # Mock stats queries
-        mock_day_result = AsyncMock()
+        mock_day_result = Mock()  # SQLAlchemy Result methods are sync
         mock_day_result.scalar.return_value = 10
 
-        mock_week_result = AsyncMock()
+        mock_week_result = Mock()  # SQLAlchemy Result methods are sync
         mock_week_result.scalar.return_value = 50
 
-        mock_month_result = AsyncMock()
+        mock_month_result = Mock()  # SQLAlchemy Result methods are sync
         mock_month_result.scalar.return_value = 100
 
-        mock_version_result = AsyncMock()
+        mock_version_result = Mock()  # SQLAlchemy Result methods are sync
         mock_version_result.all.return_value = []
 
-        mock_country_result = AsyncMock()
+        mock_country_result = Mock()  # SQLAlchemy Result methods are sync
         mock_country_result.all.return_value = []
 
-        mock_platform_result = AsyncMock()
+        mock_platform_result = Mock()  # SQLAlchemy Result methods are sync
         mock_platform_result.all.return_value = []
 
         mock_db.execute = AsyncMock(
@@ -919,7 +950,7 @@ class TestGetPackageStats:
 
             stats = await get_package_stats(package_name="test-package", db=mock_db)
 
-            assert stats.package_id == 1
+            assert stats.package_id == package_id
             assert stats.total_downloads == 100
             assert stats.downloads_last_day == 10
             assert stats.downloads_last_week == 50
@@ -930,7 +961,7 @@ class TestGetPackageStats:
         """Test getting stats for non-existent package."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -944,13 +975,14 @@ class TestGetPackageStats:
         """Test getting stats from cache."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        mock_package = Mock(spec=Package, id=1, download_count=100)
-        mock_package_result = AsyncMock()
+        package_id = uuid.uuid4()
+        mock_package = Mock(spec=Package, id=package_id, download_count=100)
+        mock_package_result = Mock()  # SQLAlchemy Result methods are sync
         mock_package_result.scalar_one_or_none.return_value = mock_package
         mock_db.execute = AsyncMock(return_value=mock_package_result)
 
         cached_stats = {
-            "package_id": 1,
+            "package_id": str(package_id),  # cached as JSON
             "total_downloads": 100,
             "downloads_last_day": 10,
             "downloads_last_week": 50,
@@ -979,33 +1011,34 @@ class TestGetPackageStats:
         """Test getting stats with version, country, and platform breakdowns."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        mock_package = Mock(spec=Package, id=1, download_count=200)
+        package_id = uuid.uuid4()
+        mock_package = Mock(spec=Package, id=package_id, download_count=200)
 
-        mock_package_result = AsyncMock()
+        mock_package_result = Mock()  # SQLAlchemy Result methods are sync
         mock_package_result.scalar_one_or_none.return_value = mock_package
 
-        mock_day_result = AsyncMock()
+        mock_day_result = Mock()  # SQLAlchemy Result methods are sync
         mock_day_result.scalar.return_value = 20
 
-        mock_week_result = AsyncMock()
+        mock_week_result = Mock()  # SQLAlchemy Result methods are sync
         mock_week_result.scalar.return_value = 100
 
-        mock_month_result = AsyncMock()
+        mock_month_result = Mock()  # SQLAlchemy Result methods are sync
         mock_month_result.scalar.return_value = 200
 
         # Mock version breakdown
         mock_version_row = Mock(version="1.0.0", download_count=150)
-        mock_version_result = AsyncMock()
+        mock_version_result = Mock()  # SQLAlchemy Result methods are sync
         mock_version_result.all.return_value = [mock_version_row]
 
         # Mock country breakdown
         mock_country_row = Mock(country_code="US", download_count=100)
-        mock_country_result = AsyncMock()
+        mock_country_result = Mock()  # SQLAlchemy Result methods are sync
         mock_country_result.all.return_value = [mock_country_row]
 
         # Mock platform breakdown
         mock_platform_row = Mock(platform="Windows", download_count=180)
-        mock_platform_result = AsyncMock()
+        mock_platform_result = Mock()  # SQLAlchemy Result methods are sync
         mock_platform_result.all.return_value = [mock_platform_row]
 
         mock_db.execute = AsyncMock(
@@ -1039,8 +1072,9 @@ class TestGetPackageStats:
         """Test that stats are cached after computation."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        mock_package = Mock(spec=Package, id=1, download_count=100)
-        mock_package_result = AsyncMock()
+        package_id = uuid.uuid4()
+        mock_package = Mock(spec=Package, id=package_id, download_count=100)
+        mock_package_result = Mock()  # SQLAlchemy Result methods are sync
         mock_package_result.scalar_one_or_none.return_value = mock_package
 
         # Mock all stats queries
@@ -1098,7 +1132,7 @@ class TestPackageRouterIntegration:
         )
 
         # Mock package doesn't exist
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 

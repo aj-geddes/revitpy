@@ -7,32 +7,71 @@ from unittest.mock import patch
 import jwt
 import pytest
 from fastapi.testclient import TestClient
+from revitpy_package_manager.config import Settings
 from revitpy_package_manager.registry.api.main import create_app
+from revitpy_package_manager.registry.database import get_db_session
+from revitpy_package_manager.registry.models.base import Base
 from revitpy_package_manager.security.config import SecurityConfig
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 
 class TestAuthenticationSecurity:
     """Test authentication security measures."""
 
     @pytest.fixture
-    def client(self):
-        """Create test client with secure environment."""
+    def client(self, tmp_path):
+        """Create a test client backed by a throwaway SQLite database.
+
+        Settings (and so the app's DB engine) are process-wide singletons, so
+        the database is injected via a dependency override rather than env.
+        """
+        db_file = tmp_path / "auth_security.db"
+        sync_engine = create_engine(f"sqlite:///{db_file}")
+        Base.metadata.create_all(sync_engine)
+        sync_engine.dispose()
+
+        engine = create_async_engine(
+            f"sqlite+aiosqlite:///{db_file}", poolclass=NullPool
+        )
+        session_factory = sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+        async def override_get_db():
+            async with session_factory() as session:
+                yield session
+
+        app = create_app()
+        app.dependency_overrides[get_db_session] = override_get_db
+        # "localhost" is an allowed host; TestClient's default "testserver"
+        # is (correctly) rejected by TrustedHostMiddleware with a 400.
+        return TestClient(app, base_url="http://localhost")
+
+    def test_jwt_secret_required(self):
+        """Test that production refuses to run without its own JWT secret."""
+        from revitpy_package_manager.registry.api.routers.auth import (
+            _ensure_secure_jwt_secret,
+        )
+
+        with patch.dict(os.environ, {"ENVIRONMENT": "production"}, clear=True):
+            settings = Settings(_env_file=None)
+            with pytest.raises(ValueError) as exc_info:
+                _ensure_secure_jwt_secret(settings)
+            assert "JWT_SECRET_KEY" in str(exc_info.value)
+
+        # A strong, explicitly configured secret is accepted in production
         with patch.dict(
             os.environ,
             {
+                "ENVIRONMENT": "production",
                 "JWT_SECRET_KEY": SecurityConfig.generate_jwt_secret(),
-                "DATABASE_URL": "sqlite+aiosqlite:///./test.db",
             },
+            clear=True,
         ):
-            app = create_app()
-            return TestClient(app)
-
-    def test_jwt_secret_required(self):
-        """Test that JWT secret is required."""
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError) as exc_info:
-                pass
-            assert "JWT_SECRET_KEY" in str(exc_info.value)
+            _ensure_secure_jwt_secret(Settings(_env_file=None))
 
     def test_password_strength_validation(self, client):
         """Test password strength validation during registration."""
@@ -172,8 +211,10 @@ class TestAuthenticationSecurity:
             "exp": datetime.utcnow() - timedelta(hours=1),  # Expired 1 hour ago
         }
 
-        with patch.dict(
-            os.environ, {"JWT_SECRET_KEY": "test_secret_key_32_chars_minimum"}
+        # The router reads its signing key once at import, so patch it there
+        with patch(
+            "revitpy_package_manager.registry.api.routers.auth.JWT_SECRET_KEY",
+            "test_secret_key_32_chars_minimum",
         ):
             expired_token = jwt.encode(
                 payload, "test_secret_key_32_chars_minimum", algorithm="HS256"

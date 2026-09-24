@@ -1,5 +1,6 @@
 """Tests for users router endpoints."""
 
+import uuid
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -21,6 +22,29 @@ from revitpy_package_manager.registry.api.schemas import (
 )
 from revitpy_package_manager.registry.models.user import APIKey, User
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _session_with_refresh_defaults() -> AsyncMock:
+    """AsyncSession mock whose refresh() fills DB-generated APIKey columns.
+
+    create_api_key serialises the refreshed key into APIKeyWithToken, so the
+    mock must emulate what a real INSERT + refresh populates.
+    """
+    mock_db = AsyncMock(spec=AsyncSession)
+
+    async def refresh(obj):
+        if getattr(obj, "id", None) is None:
+            obj.id = uuid.uuid4()
+        if getattr(obj, "is_active", None) is None:
+            obj.is_active = True
+        if getattr(obj, "usage_count", None) is None:
+            obj.usage_count = 0
+        if getattr(obj, "created_at", None) is None:
+            obj.created_at = datetime.utcnow()
+
+    mock_db.refresh.side_effect = refresh
+    return mock_db
+
 
 # ============================================================================
 # Test get_my_profile
@@ -123,7 +147,7 @@ class TestGetUserProfile:
         mock_db = AsyncMock(spec=AsyncSession)
 
         mock_user = Mock(spec=User, id=1, username="publicuser")
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -136,7 +160,7 @@ class TestGetUserProfile:
         """Test getting non-existent user's profile."""
         mock_db = AsyncMock(spec=AsyncSession)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -166,7 +190,7 @@ class TestListMyAPIKeys:
             Mock(spec=APIKey, id=2, name="Key 2"),
         ]
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = mock_api_keys
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -180,7 +204,7 @@ class TestListMyAPIKeys:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_user = Mock(spec=User, id=1)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalars.return_value.all.return_value = []
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -200,7 +224,7 @@ class TestCreateAPIKey:
     @pytest.mark.asyncio
     async def test_create_api_key_success(self):
         """Test creating a new API key."""
-        mock_db = AsyncMock(spec=AsyncSession)
+        mock_db = _session_with_refresh_defaults()
         mock_user = Mock(spec=User, id=1)
 
         api_key_data = APIKeyCreate(
@@ -224,7 +248,7 @@ class TestCreateAPIKey:
     @pytest.mark.asyncio
     async def test_create_api_key_with_expiration(self):
         """Test creating API key with expiration date."""
-        mock_db = AsyncMock(spec=AsyncSession)
+        mock_db = _session_with_refresh_defaults()
         mock_user = Mock(spec=User, id=1)
 
         expires_at = datetime.utcnow() + timedelta(days=30)
@@ -249,7 +273,7 @@ class TestCreateAPIKey:
     @pytest.mark.asyncio
     async def test_create_api_key_token_format(self):
         """Test that created API key has correct token format."""
-        mock_db = AsyncMock(spec=AsyncSession)
+        mock_db = _session_with_refresh_defaults()
         mock_user = Mock(spec=User, id=1)
 
         api_key_data = APIKeyCreate(
@@ -267,8 +291,52 @@ class TestCreateAPIKey:
                 api_key_data=api_key_data, current_user=mock_user, db=mock_db
             )
 
-            # Token should start with rpk_
-            assert hasattr(api_key, "token") or True  # Mock may not have token attr
+            # Full token is returned once, prefixed rpk_, prefix stored for display
+            assert api_key.token.startswith("rpk_")
+            assert len(api_key.token) == len("rpk_") + 32
+            assert api_key.token_prefix == api_key.token[:8]
+
+
+class TestAPIKeyScopes:
+    """Scope normalisation and the admin-scope guard."""
+
+    def test_scopes_accept_list_or_string(self):
+        assert APIKeyCreate(name="k", scopes=["read", " write", "read"]).scopes == (
+            "read,write"
+        )
+        assert APIKeyCreate(name="k", scopes="read, write").scopes == "read,write"
+
+    def test_scopes_reject_empty(self):
+        with pytest.raises(ValueError):
+            APIKeyCreate(name="k", scopes=[])
+
+    @pytest.mark.asyncio
+    async def test_non_admin_cannot_create_admin_scoped_key(self):
+        mock_db = _session_with_refresh_defaults()
+        mock_user = Mock(spec=User, id=1, is_superuser=False)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await create_api_key(
+                api_key_data=APIKeyCreate(name="k", scopes=["read", "admin"]),
+                current_user=mock_user,
+                db=mock_db,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+        mock_db.add.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_superuser_can_create_admin_scoped_key(self):
+        mock_db = _session_with_refresh_defaults()
+        mock_user = Mock(spec=User, id=1, is_superuser=True)
+
+        api_key = await create_api_key(
+            api_key_data=APIKeyCreate(name="k", scopes=["admin"]),
+            current_user=mock_user,
+            db=mock_db,
+        )
+
+        assert api_key.scopes == "admin"
 
 
 # ============================================================================
@@ -286,7 +354,7 @@ class TestDeleteAPIKey:
         mock_user = Mock(spec=User, id=1)
 
         mock_api_key = Mock(spec=APIKey, id=1, user_id=1)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_api_key
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -301,7 +369,7 @@ class TestDeleteAPIKey:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_user = Mock(spec=User, id=1)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -318,7 +386,7 @@ class TestDeleteAPIKey:
         mock_user = Mock(spec=User, id=1)
 
         # Query filters by user_id, so returns None if wrong user
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -343,7 +411,7 @@ class TestDeactivateAPIKey:
         mock_user = Mock(spec=User, id=1)
 
         mock_api_key = Mock(spec=APIKey, id=1, user_id=1, is_active=True)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_api_key
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -358,7 +426,7 @@ class TestDeactivateAPIKey:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_user = Mock(spec=User, id=1)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -376,7 +444,7 @@ class TestDeactivateAPIKey:
         mock_user = Mock(spec=User, id=1)
 
         mock_api_key = Mock(spec=APIKey, id=1, user_id=1, is_active=False)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_api_key
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -401,7 +469,7 @@ class TestActivateAPIKey:
         mock_user = Mock(spec=User, id=1)
 
         mock_api_key = Mock(spec=APIKey, id=1, user_id=1, is_active=False)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_api_key
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -416,7 +484,7 @@ class TestActivateAPIKey:
         mock_db = AsyncMock(spec=AsyncSession)
         mock_user = Mock(spec=User, id=1)
 
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -432,7 +500,7 @@ class TestActivateAPIKey:
         mock_user = Mock(spec=User, id=1)
 
         mock_api_key = Mock(spec=APIKey, id=1, user_id=1, is_active=True)
-        mock_result = AsyncMock()
+        mock_result = Mock()  # SQLAlchemy Result methods are sync
         mock_result.scalar_one_or_none.return_value = mock_api_key
         mock_db.execute = AsyncMock(return_value=mock_result)
 
@@ -453,7 +521,7 @@ class TestUsersIntegration:
     @pytest.mark.asyncio
     async def test_api_key_lifecycle(self):
         """Test complete API key lifecycle."""
-        mock_db = AsyncMock(spec=AsyncSession)
+        mock_db = _session_with_refresh_defaults()
         mock_user = Mock(spec=User, id=1)
 
         # Create API key
@@ -476,7 +544,7 @@ class TestUsersIntegration:
 
             # Deactivate
             mock_api_key = Mock(spec=APIKey, id=1, user_id=1, is_active=True)
-            mock_result = AsyncMock()
+            mock_result = Mock()  # SQLAlchemy Result methods are sync
             mock_result.scalar_one_or_none.return_value = mock_api_key
             mock_db.execute = AsyncMock(return_value=mock_result)
 

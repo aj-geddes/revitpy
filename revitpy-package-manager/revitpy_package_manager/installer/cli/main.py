@@ -10,8 +10,8 @@ from rich.panel import Panel
 from rich.progress import Progress
 from rich.table import Table
 
-from ....__init__ import __version__
-from ....config import is_debug_mode
+from ... import __version__
+from ...config import is_debug_mode
 from ..venv_manager import VirtualEnvironmentError, VirtualEnvironmentManager
 
 console = Console()
