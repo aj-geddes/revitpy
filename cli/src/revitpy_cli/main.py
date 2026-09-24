@@ -41,7 +41,7 @@ install(show_locals=True)
 console = Console()
 
 app = typer.Typer(
-    name="revitpy",
+    name="revitpy-dev",
     help="Professional CLI Development Tools for RevitPy Framework",
     epilog="Visit https://revitpy.dev/cli for documentation and examples.",
     rich_markup_mode="rich",
@@ -157,6 +157,18 @@ def detect_shell() -> str:
         return shell_path.stem
 
 
+def _completion_source(click_command, shell: str) -> str:
+    """Return the click completion script for ``revitpy-dev`` in ``shell``."""
+    from click.shell_completion import get_completion_class
+
+    completion_class = get_completion_class(shell)
+    if completion_class is None:
+        raise ValueError(f"Unsupported shell: {shell}")
+    return completion_class(
+        click_command, {}, "revitpy-dev", "_REVITPY_DEV_COMPLETE"
+    ).source()
+
+
 def generate_completion_script(shell: str) -> None:
     """Generate completion script for specified shell."""
     try:
@@ -165,11 +177,11 @@ def generate_completion_script(shell: str) -> None:
         click_command = get_command(app)
 
         if shell == "bash":
-            script = click_command.get_completion_script("bash", "revitpy")
+            script = _completion_source(click_command, "bash")
         elif shell == "zsh":
-            script = click_command.get_completion_script("zsh", "revitpy")
+            script = _completion_source(click_command, "zsh")
         elif shell == "fish":
-            script = click_command.get_completion_script("fish", "revitpy")
+            script = _completion_source(click_command, "fish")
         else:
             console.print(f"[red]Error:[/red] Completion for {shell} not implemented")
             raise typer.Exit(1)
@@ -189,15 +201,15 @@ def install_completion(shell: str) -> None:
         click_command = get_command(app)
 
         if shell == "bash":
-            script = click_command.get_completion_script("bash", "revitpy")
-            completion_file = Path.home() / ".bash_completion.d" / "revitpy"
+            script = _completion_source(click_command, "bash")
+            completion_file = Path.home() / ".bash_completion.d" / "revitpy-dev"
         elif shell == "zsh":
-            script = click_command.get_completion_script("zsh", "revitpy")
-            completion_file = Path.home() / ".zsh" / "completions" / "_revitpy"
+            script = _completion_source(click_command, "zsh")
+            completion_file = Path.home() / ".zsh" / "completions" / "_revitpy-dev"
         elif shell == "fish":
-            script = click_command.get_completion_script("fish", "revitpy")
+            script = _completion_source(click_command, "fish")
             completion_file = (
-                Path.home() / ".config" / "fish" / "completions" / "revitpy.fish"
+                Path.home() / ".config" / "fish" / "completions" / "revitpy-dev.fish"
             )
         else:
             console.print(f"[red]Error:[/red] Auto-install for {shell} not supported")

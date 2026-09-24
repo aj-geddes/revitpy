@@ -49,9 +49,9 @@ def package(
     """Publish a package to the RevitPy registry.
 
     Examples:
-        revitpy publish package
-        revitpy publish package dist/my-package-1.0.0.tar.gz
-        revitpy publish package --registry https://my-registry.com --dry-run
+        revitpy-dev publish package
+        revitpy-dev publish package dist/my-package-1.0.0.tar.gz
+        revitpy-dev publish package --registry https://my-registry.com --dry-run
     """
     start_time = time.time()
     log_command_start(
@@ -80,7 +80,7 @@ def package(
             raise CommandError(
                 "publish package",
                 "No package specified and dist/ directory not found",
-                suggestion="Build package first with 'revitpy build package'",
+                suggestion="Build package first with 'revitpy-dev build package'",
             )
 
         packages = list(dist_dir.glob("*.whl")) + list(dist_dir.glob("*.tar.gz"))
@@ -88,7 +88,7 @@ def package(
             raise CommandError(
                 "publish package",
                 "No packages found in dist/ directory",
-                suggestion="Build package first with 'revitpy build package'",
+                suggestion="Build package first with 'revitpy-dev build package'",
             )
         elif len(packages) == 1:
             pkg_path = packages[0]
@@ -156,9 +156,9 @@ def login(
     """Login to a RevitPy package registry.
 
     Examples:
-        revitpy publish login
-        revitpy publish login --registry https://my-registry.com
-        revitpy publish login --username myuser --token my-api-token
+        revitpy-dev publish login
+        revitpy-dev publish login --registry https://my-registry.com
+        revitpy-dev publish login --username myuser --token my-api-token
     """
     start_time = time.time()
     log_command_start(
@@ -230,9 +230,9 @@ def logout(
     """Logout from package registry.
 
     Examples:
-        revitpy publish logout
-        revitpy publish logout --registry https://my-registry.com
-        revitpy publish logout --all
+        revitpy-dev publish logout
+        revitpy-dev publish logout --registry https://my-registry.com
+        revitpy-dev publish logout --all
     """
     log_command_start("publish logout", {"registry": registry, "all": all})
 
@@ -264,9 +264,9 @@ def status(
     """Check publishing status and registry connection.
 
     Examples:
-        revitpy publish status
-        revitpy publish status --registry https://my-registry.com
-        revitpy publish status --package my-package
+        revitpy-dev publish status
+        revitpy-dev publish status --registry https://my-registry.com
+        revitpy-dev publish status --package my-package
     """
     log_command_start("publish status", {"registry": registry, "package": package})
 
@@ -325,9 +325,9 @@ def list_packages(
     """List published packages in registry.
 
     Examples:
-        revitpy publish list-packages
-        revitpy publish list-packages --user myuser
-        revitpy publish list-packages --search geometry --limit 10
+        revitpy-dev publish list-packages
+        revitpy-dev publish list-packages --user myuser
+        revitpy-dev publish list-packages --search geometry --limit 10
     """
     log_command_start(
         "publish list-packages",

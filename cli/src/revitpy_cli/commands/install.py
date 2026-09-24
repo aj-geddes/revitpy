@@ -59,11 +59,11 @@ def package(
     """Install RevitPy packages from registry or local sources.
 
     Examples:
-        revitpy install geometry-utils
-        revitpy install "geometry-utils>=1.0.0" "ui-toolkit==2.1.0"
-        revitpy install --upgrade geometry-utils
-        revitpy install --editable ./local-package
-        revitpy install --requirement requirements.txt
+        revitpy-dev install geometry-utils
+        revitpy-dev install "geometry-utils>=1.0.0" "ui-toolkit==2.1.0"
+        revitpy-dev install --upgrade geometry-utils
+        revitpy-dev install --editable ./local-package
+        revitpy-dev install --requirement requirements.txt
     """
     start_time = time.time()
     log_command_start(
@@ -151,9 +151,9 @@ def uninstall(
     """Uninstall RevitPy packages.
 
     Examples:
-        revitpy install uninstall geometry-utils
-        revitpy install uninstall geometry-utils ui-toolkit
-        revitpy install uninstall --no-confirm old-package
+        revitpy-dev install uninstall geometry-utils
+        revitpy-dev install uninstall geometry-utils ui-toolkit
+        revitpy-dev install uninstall --no-confirm old-package
     """
     start_time = time.time()
     log_command_start(
@@ -233,10 +233,10 @@ def list(
     """List installed RevitPy packages.
 
     Examples:
-        revitpy install list
-        revitpy install list --outdated
-        revitpy install list --format json
-        revitpy install list --show-dependencies
+        revitpy-dev install list
+        revitpy-dev install list --outdated
+        revitpy-dev install list --format json
+        revitpy-dev install list --show-dependencies
     """
     start_time = time.time()
     log_command_start(
@@ -303,8 +303,8 @@ def show(
     """Show detailed information about a package.
 
     Examples:
-        revitpy install show geometry-utils
-        revitpy install show --registry https://my-registry.com geometry-utils
+        revitpy-dev install show geometry-utils
+        revitpy-dev install show --registry https://my-registry.com geometry-utils
     """
     start_time = time.time()
     log_command_start(
@@ -358,9 +358,9 @@ def search(
     """Search for packages in the registry.
 
     Examples:
-        revitpy install search geometry
-        revitpy install search ui --limit 10
-        revitpy install search --registry https://my-registry.com tools
+        revitpy-dev install search geometry
+        revitpy-dev install search ui --limit 10
+        revitpy-dev install search --registry https://my-registry.com tools
     """
     start_time = time.time()
     log_command_start(
@@ -421,9 +421,9 @@ def update(
     """Update installed packages to latest versions.
 
     Examples:
-        revitpy install update
-        revitpy install update geometry-utils ui-toolkit
-        revitpy install update --pre --dry-run
+        revitpy-dev install update
+        revitpy-dev install update geometry-utils ui-toolkit
+        revitpy-dev install update --pre --dry-run
     """
     start_time = time.time()
     log_command_start(
