@@ -143,3 +143,12 @@ dev-server/cache/
 proof-of-concepts/experimental/
 proof-of-concepts/temp/
 .playwright-mcp/
+
+# Local agent task state
+.sugar/
+
+# Jekyll (docs/)
+docs/_site/
+docs/.jekyll-cache/
+docs/Gemfile.lock
+docs/vendor/

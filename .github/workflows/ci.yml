@@ -9,23 +9,22 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
-    name: Lint (Python ${{ matrix.python-version }})
+    name: Lint
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12"]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
           cache: pip
           cache-dependency-path: pyproject.toml
 
@@ -42,16 +41,15 @@ jobs:
     name: Type Check (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.13"]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -67,16 +65,15 @@ jobs:
     name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -85,30 +82,144 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
-      - name: Run ORM tests
-        run: pytest tests/orm/ -q --tb=short
+      - name: Run tests (optional integrations skipped)
+        run: pytest tests/ --cov=revitpy --cov-report=term --cov-report=xml
+
+  test-integrations:
+    name: Test with optional integrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies (ifcopenshell, specklepy, ...)
+        run: pip install -e ".[dev,all]"
+
+      - name: Run tests
+        run: pytest tests/
 
   security:
     name: Security
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
-        run: pip install -e ".[dev]" pip-audit
+        run: pip install -e ".[dev,all]" pip-audit
 
       - name: Run pip-audit
-        run: pip-audit
+        run: pip-audit --skip-editable
 
       - name: Run ruff security checks
         run: ruff check --select S revitpy/ tests/
+
+  addin:
+    name: Revit add-in (Revit ${{ matrix.revit }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        revit: ["2024", "2025", "2026", "2027"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build
+        run: >
+          dotnet build src/RevitPy.Addin/RevitPy.Addin.csproj
+          -c Release -p:RevitVersion=${{ matrix.revit }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: RevitPy.Addin-Revit${{ matrix.revit }}
+          path: |
+            src/RevitPy.Addin/bin/Release/${{ matrix.revit }}/*.dll
+            src/RevitPy.Addin/RevitPy.addin
+
+  docs:
+    name: Docs site (Jekyll)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Install github-pages gems
+        working-directory: docs
+        run: bundle install
+
+      - name: Build (same gem set as GitHub Pages)
+        working-directory: docs
+        run: bundle exec jekyll build --strict_front_matter --baseurl /revitpy --destination ../_site
+
+      - name: Check internal links
+        run: python3 scripts/check_site_links.py _site --baseurl /revitpy
+
+  package-manager:
+    name: Package manager (registry/builder/installer)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: revitpy-package-manager
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: revitpy-package-manager/pyproject.toml
+
+      - name: Install
+        run: pip install -e ".[test]" pip-audit
+
+      - name: Run tests (with coverage gate)
+        run: pytest tests
+
+      - name: Audit dependencies
+        run: pip-audit --skip-editable
+
+  dev-cli:
+    name: Dev CLI (revitpy-dev) build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install ./cli pip-audit
+
+      - name: Smoke test
+        run: |
+          revitpy-dev --help
+          revitpy-dev version
+
+      - name: Audit dependencies
+        run: pip-audit --skip-editable

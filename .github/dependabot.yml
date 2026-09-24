@@ -18,3 +18,33 @@ updates:
       - "ci"
     commit-message:
       prefix: "ci"
+
+  - package-ecosystem: "nuget"
+    directory: "/src/RevitPy.Addin"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+    ignore:
+      # Revit reference assemblies must match the targeted Revit version.
+      - dependency-name: "Nice3point.Revit.Api.*"
+
+  - package-ecosystem: "pip"
+    directory: "/revitpy-package-manager"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: "pip"
+    directory: "/cli"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
