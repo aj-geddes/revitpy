@@ -2,6 +2,7 @@
 Mock Revit environment for testing without actual Revit installation.
 """
 
+import copy
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -21,6 +22,23 @@ class MockParameter:
     type_name: str = "String"
     storage_type: str = "String"
     is_read_only: bool = False
+
+    @property
+    def StorageType(self) -> str:
+        """Revit-style storage type, inferred from the value unless set.
+
+        Lets ``Element.get_parameter_value`` return numbers as numbers.
+        """
+        if self.storage_type != "String":
+            return self.storage_type
+        if isinstance(self.value, bool | int):
+            return "Integer"
+        if isinstance(self.value, float):
+            return "Double"
+        return "String"
+
+    def AsElementId(self) -> "MockElementId":
+        return MockElementId(self.AsInteger())
 
     def AsString(self) -> str:
         return str(self.value) if self.value is not None else ""
@@ -46,6 +64,11 @@ class MockElementId:
 
     def __init__(self, value: int) -> None:
         self.IntegerValue = value
+
+    @property
+    def Value(self) -> int:
+        """Revit 2024+ style 64-bit id value."""
+        return self.IntegerValue
 
     def __str__(self) -> str:
         return str(self.IntegerValue)
@@ -176,13 +199,22 @@ class MockElement:
 
 
 class MockTransaction:
-    """Mock Revit transaction."""
+    """Mock Revit transaction.
 
-    def __init__(self, name: str = "MockTransaction") -> None:
+    When created by :meth:`MockDocument.StartTransaction`, rolling back
+    restores the document's elements to their state at transaction start.
+    """
+
+    def __init__(
+        self,
+        name: str = "MockTransaction",
+        on_rollback: Callable[[], None] | None = None,
+    ) -> None:
         self.name = name
         self.is_started = False
         self.is_committed = False
         self.is_rolled_back = False
+        self._on_rollback = on_rollback
 
     def Start(self) -> bool:
         """Start transaction."""
@@ -198,8 +230,10 @@ class MockTransaction:
 
     def RollBack(self) -> bool:
         """Rollback transaction."""
-        if not self.is_started:
+        if not self.is_started or self.is_committed or self.is_rolled_back:
             return False
+        if self._on_rollback is not None:
+            self._on_rollback()
         self.is_rolled_back = True
         return True
 
@@ -285,11 +319,37 @@ class MockDocument:
         return True
 
     def StartTransaction(self, name: str = "Transaction") -> MockTransaction:
-        """Start a new transaction."""
-        transaction = MockTransaction(name)
+        """Start a new transaction.
+
+        Element state is snapshotted so that ``RollBack()`` restores it,
+        matching Revit's transaction semantics.
+        """
+        snapshot = copy.deepcopy((self._elements, self._is_modified))
+
+        def restore() -> None:
+            elements, is_modified = snapshot
+            # Restore element state in place so existing references see it.
+            for element_id in list(self._elements):
+                if element_id not in elements:
+                    del self._elements[element_id]
+            for element_id, saved in elements.items():
+                current = self._elements.get(element_id)
+                if current is None:
+                    self._elements[element_id] = saved
+                else:
+                    current.__dict__.clear()
+                    current.__dict__.update(saved.__dict__)
+            self._is_modified = is_modified
+
+        transaction = MockTransaction(name, on_rollback=restore)
         transaction.Start()
         self._transactions.append(transaction)
         return transaction
+
+    @property
+    def IsReadOnly(self) -> bool:
+        """Mock documents are always writable."""
+        return False
 
     def IsModified(self) -> bool:
         """Check if document is modified."""

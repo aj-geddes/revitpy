@@ -11,7 +11,13 @@ from typing import Any, Protocol, TypeVar
 from loguru import logger
 
 from .element import Element, ElementSet, IRevitElement
-from .exceptions import ConnectionError, ElementNotFoundError, ModelError, RevitAPIError
+from .exceptions import (
+    ConnectionError,
+    ElementNotFoundError,
+    ModelError,
+    RevitAPIError,
+    TransactionError,
+)
 from .query import IElementProvider, Query, QueryBuilder
 from .transaction import (
     ITransactionProvider,
@@ -55,6 +61,16 @@ class IRevitDocument(Protocol):
 
     def Close(self, save_changes: bool = True) -> bool: ...
 
+    # Optional members, detected at runtime:
+    #   StartTransaction(name) -> handle with Commit() / RollBack()
+    #       Required for Transaction support. The handle must already be
+    #       started. ``revitpy.revit.RevitDocumentAdapter`` implements it with
+    #       ``Autodesk.Revit.DB.Transaction``; ``MockDocument`` implements it
+    #       with snapshot/restore semantics.
+    #   GetElementsByCategory(category) -> list[IRevitElement]
+    #       Used for efficient typed queries.
+    #   IsModified / IsReadOnly (property or method)
+
 
 @dataclass
 class DocumentInfo:
@@ -83,6 +99,16 @@ class RevitDocumentProvider(IElementProvider, ITransactionProvider):
         self._revit_document = revit_document
         self._element_cache: dict[int, Element] = {}
         self._transaction_stack: list[Any] = []
+        # Every wrapper handed out, keyed by identity (Element.__eq__ compares
+        # element ids, so a WeakSet would keep only one wrapper per element).
+        self._live_wrappers: weakref.WeakValueDictionary[int, Element] = (
+            weakref.WeakValueDictionary()
+        )
+
+    @property
+    def supports_transactions(self) -> bool:
+        """Whether the underlying document can open real transactions."""
+        return callable(getattr(self._revit_document, "StartTransaction", None))
 
     @property
     def document(self) -> IRevitDocument:
@@ -100,9 +126,30 @@ class RevitDocumentProvider(IElementProvider, ITransactionProvider):
             raise RevitAPIError("Failed to retrieve elements", e) from e
 
     def get_elements_of_type(self, element_type: type[Element]) -> list[Element]:
-        """Get elements of specific type."""
-        # This would use Revit's filtered element collector
-        # For now, return all elements and filter by type
+        """Get elements of specific type.
+
+        When the type declares ``revit_categories`` and the document supports
+        ``GetElementsByCategory``, only those categories are collected.
+        """
+        by_category = getattr(self._revit_document, "GetElementsByCategory", None)
+        categories = getattr(element_type, "revit_categories", ())
+        if categories and callable(by_category):
+            try:
+                seen: set[int] = set()
+                result: list[Element] = []
+                for category in categories:
+                    for revit_element in by_category(category):
+                        wrapped = self._wrap_element(revit_element)
+                        if wrapped.id.value in seen:
+                            continue
+                        seen.add(wrapped.id.value)
+                        if isinstance(wrapped, element_type):
+                            result.append(wrapped)
+                return result
+            except Exception as e:
+                logger.error(f"Failed to get elements by category: {e}")
+                raise RevitAPIError("Failed to retrieve elements", e) from e
+
         all_elements = self.get_all_elements()
         return [elem for elem in all_elements if isinstance(elem, element_type)]
 
@@ -158,43 +205,90 @@ class RevitDocumentProvider(IElementProvider, ITransactionProvider):
         logger.debug("Element cache refreshed")
 
     def _wrap_element(self, revit_element: IRevitElement) -> Element:
-        """Wrap a Revit element in our Element class."""
-        return Element(revit_element)
+        """Wrap a Revit element in the most specific Element subclass."""
+        element = Element.wrap(revit_element)
+        self._live_wrappers[id(element)] = element
+        return element
 
     # ITransactionProvider implementation
 
     def start_transaction(self, name: str) -> Any:
-        """Start a new transaction."""
-        # This would create a Revit transaction
-        # For now, return a mock transaction
-        transaction = f"Transaction_{name}_{len(self._transaction_stack)}"
+        """Start a transaction on the underlying document.
+
+        Raises:
+            TransactionError: If the document cannot open transactions.
+        """
+        if not self.supports_transactions:
+            raise TransactionError(
+                "Document does not support transactions (it has no "
+                "StartTransaction method); changes cannot be made atomic",
+                name,
+            )
+
+        transaction = self._revit_document.StartTransaction(name)  # type: ignore[attr-defined]
         self._transaction_stack.append(transaction)
-        logger.debug(f"Started transaction: {transaction}")
+        logger.debug(f"Started transaction: {name}")
         return transaction
 
     def commit_transaction(self, transaction: Any) -> bool:
-        """Commit a transaction."""
-        if transaction not in self._transaction_stack:
+        """Commit a transaction started by this provider."""
+        if not any(t is transaction for t in self._transaction_stack):
             logger.error(f"Transaction not found in stack: {transaction}")
             return False
 
-        self._transaction_stack.remove(transaction)
-        logger.debug(f"Committed transaction: {transaction}")
-        return True
+        result = transaction.Commit()
+        self._remove_transaction(transaction)
+        committed = _is_success(result)
+        if committed:
+            # Cached wrappers may hold stale parameter values.
+            self._element_cache.clear()
+        logger.debug(f"Commit transaction result: {result}")
+        return committed
 
     def rollback_transaction(self, transaction: Any) -> bool:
-        """Rollback a transaction."""
-        if transaction not in self._transaction_stack:
+        """Roll back a transaction started by this provider."""
+        if not any(t is transaction for t in self._transaction_stack):
             logger.error(f"Transaction not found in stack: {transaction}")
             return False
 
-        self._transaction_stack.remove(transaction)
-        logger.debug(f"Rolled back transaction: {transaction}")
-        return True
+        result = transaction.RollBack()
+        self._remove_transaction(transaction)
+        # Wrappers handed out earlier must not keep rolled-back values.
+        for element in list(self._live_wrappers.values()):
+            element.refresh()
+        self._element_cache.clear()
+        logger.debug(f"Rollback transaction result: {result}")
+        return _is_success(result)
+
+    def _remove_transaction(self, transaction: Any) -> None:
+        self._transaction_stack = [
+            t for t in self._transaction_stack if t is not transaction
+        ]
 
     def is_in_transaction(self) -> bool:
         """Check if currently in a transaction."""
         return len(self._transaction_stack) > 0
+
+
+def _is_success(result: Any) -> bool:
+    """Interpret a transaction result.
+
+    Accepts booleans (mocks) and Revit ``TransactionStatus`` enum values,
+    where only ``Committed`` / ``RolledBack`` indicate success.
+    """
+    if isinstance(result, bool):
+        return result
+    if result is None:
+        return True
+    return str(result).split(".")[-1] in ("Committed", "RolledBack")
+
+
+def _read_flag(obj: Any, name: str) -> bool:
+    """Read a boolean that may be exposed as a property or a method."""
+    value = getattr(obj, name, False)
+    if callable(value):
+        value = value()
+    return bool(value)
 
 
 class RevitAPI:
@@ -253,6 +347,13 @@ class RevitAPI:
 
         if not self._revit_app:
             raise ConnectionError("No Revit application provided")
+
+        # Accept raw Revit objects (e.g. pyRevit's ``__revit__`` UIApplication)
+        # by wrapping them in the pythonnet adapter.
+        if not hasattr(self._revit_app, "ActiveDocument"):
+            from ..revit import adapt_application
+
+            self._revit_app = adapt_application(self._revit_app)
 
         try:
             # Test connection by accessing a property
@@ -337,9 +438,9 @@ class RevitAPI:
         return DocumentInfo(
             title=doc.Title,
             path=doc.PathName,
-            # These would be populated from actual Revit document properties
-            is_modified=False,
-            is_read_only=False,
+            is_modified=_read_flag(doc, "IsModified"),
+            is_read_only=_read_flag(doc, "IsReadOnly"),
+            version=getattr(doc, "Version", None),
         )
 
     def save_document(self, provider: RevitDocumentProvider | None = None) -> bool:

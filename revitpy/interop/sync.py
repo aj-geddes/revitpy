@@ -13,6 +13,7 @@ from typing import Any
 
 from loguru import logger
 
+from ._compat import resolve_renamed
 from .client import SpeckleClient
 from .diff import SpeckleDiff
 from .exceptions import SpeckleSyncError
@@ -41,6 +42,13 @@ class SpeckleSync:
         self._change_tracker = change_tracker
         self._diff = SpeckleDiff()
 
+    def _default_project(self) -> str | None:
+        """Return the configured default project (if any)."""
+        config = getattr(self._client, "config", None)
+        if config is None:
+            return None
+        return config.default_project or config.default_stream
+
     # ------------------------------------------------------------------
     # Push
     # ------------------------------------------------------------------
@@ -48,24 +56,45 @@ class SpeckleSync:
     async def push(
         self,
         elements: list[Any],
-        stream_id: str,
-        branch: str = "main",
+        project_id: str | None = None,
+        model: str = "main",
         message: str = "",
+        *,
+        stream_id: str | None = None,
+        branch: str | None = None,
     ) -> SyncResult:
-        """Push local elements to a Speckle stream.
+        """Push local elements to a Speckle model as a new version.
 
         Each element is mapped to a Speckle-compatible dict via the
-        mapper, then sent through the client.
+        mapper, then uploaded through the client.
 
         Args:
             elements: List of RevitPy element objects.
-            stream_id: Target Speckle stream identifier.
-            branch: Target branch name.
-            message: Commit message.
+            project_id: Target Speckle project identifier.
+            model: Target model name or id.
+            message: Version message.
+            stream_id: Deprecated alias of ``project_id``.
+            branch: Deprecated alias of ``model``.
 
         Returns:
             A :class:`SyncResult` summarising the operation.
+            ``commit_id`` / ``version_id`` hold the created version id
+            and ``object_id`` the uploaded root object hash.
         """
+        project_id = resolve_renamed(
+            project_id,
+            stream_id,
+            new_name="project_id",
+            old_name="stream_id",
+            default=self._default_project(),
+        )
+        if branch is not None:
+            model = resolve_renamed(
+                None if model == "main" else model,
+                branch,
+                new_name="model",
+                old_name="branch",
+            )
         start = time.monotonic()
         errors: list[str] = []
         mapped_objects: list[dict[str, Any]] = []
@@ -78,15 +107,17 @@ class SpeckleSync:
                 errors.append(f"Failed to map {type(element).__name__}: {exc}")
 
         commit_id: str | None = None
+        object_id: str | None = None
         if mapped_objects:
             try:
                 commit = await self._client.send_objects(
-                    stream_id,
+                    project_id,
                     mapped_objects,
-                    branch=branch,
+                    model=model,
                     message=message,
                 )
                 commit_id = commit.id
+                object_id = commit.referenced_object
             except SpeckleSyncError as exc:
                 errors.append(str(exc))
 
@@ -104,6 +135,7 @@ class SpeckleSync:
             errors=errors,
             commit_id=commit_id,
             duration_ms=duration,
+            object_id=object_id,
         )
 
     # ------------------------------------------------------------------
@@ -112,24 +144,50 @@ class SpeckleSync:
 
     async def pull(
         self,
-        stream_id: str,
-        branch: str = "main",
+        project_id: str | None = None,
+        model: str = "main",
+        version_id: str | None = None,
+        *,
+        stream_id: str | None = None,
+        branch: str | None = None,
         commit_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Pull objects from a Speckle stream and map them back.
+        """Pull objects from a Speckle model version and map them back.
 
         Args:
-            stream_id: Source Speckle stream identifier.
-            branch: Branch name.
-            commit_id: Optional specific commit to pull.
+            project_id: Source Speckle project identifier.
+            model: Model name or id (latest version is used when
+                ``version_id`` is ``None``).
+            version_id: Optional specific version to pull.
+            stream_id: Deprecated alias of ``project_id``.
+            branch: Deprecated alias of ``model``.
+            commit_id: Deprecated alias of ``version_id``.
 
         Returns:
             List of RevitPy-compatible element dicts.
         """
-        raw_objects = await self._client.receive_objects(
+        project_id = resolve_renamed(
+            project_id,
             stream_id,
-            commit_id=commit_id,
-            branch=branch,
+            new_name="project_id",
+            old_name="stream_id",
+            default=self._default_project(),
+        )
+        if branch is not None:
+            model = resolve_renamed(
+                None if model == "main" else model,
+                branch,
+                new_name="model",
+                old_name="branch",
+            )
+        if commit_id is not None:
+            version_id = resolve_renamed(
+                version_id, commit_id, new_name="version_id", old_name="commit_id"
+            )
+        raw_objects = await self._client.receive_objects(
+            project_id,
+            version_id=version_id,
+            model=model,
         )
 
         mapped: list[dict[str, Any]] = []
@@ -154,9 +212,12 @@ class SpeckleSync:
     async def sync(
         self,
         elements: list[Any],
-        stream_id: str,
+        project_id: str | None = None,
         mode: SyncMode = SyncMode.INCREMENTAL,
         direction: SyncDirection = SyncDirection.BIDIRECTIONAL,
+        *,
+        model: str = "main",
+        stream_id: str | None = None,
     ) -> SyncResult:
         """Run a synchronisation operation.
 
@@ -166,18 +227,28 @@ class SpeckleSync:
 
         Args:
             elements: Local RevitPy elements.
-            stream_id: Speckle stream identifier.
+            project_id: Speckle project identifier.
             mode: Sync strategy (full / incremental / selective).
             direction: Direction of the sync.
+            model: Model name or id.
+            stream_id: Deprecated alias of ``project_id``.
 
         Returns:
             A :class:`SyncResult` summarising the operation.
         """
+        project_id = resolve_renamed(
+            project_id,
+            stream_id,
+            new_name="project_id",
+            old_name="stream_id",
+            default=self._default_project(),
+        )
         start = time.monotonic()
         errors: list[str] = []
         objects_sent = 0
         objects_received = 0
         commit_id: str | None = None
+        object_id: str | None = None
 
         sync_elements = elements
         if mode == SyncMode.INCREMENTAL and self._change_tracker:
@@ -187,16 +258,17 @@ class SpeckleSync:
             SyncDirection.PUSH,
             SyncDirection.BIDIRECTIONAL,
         ):
-            push_result = await self.push(sync_elements, stream_id)
+            push_result = await self.push(sync_elements, project_id, model=model)
             objects_sent = push_result.objects_sent
             errors.extend(push_result.errors)
             commit_id = push_result.commit_id
+            object_id = push_result.object_id
 
         if direction in (
             SyncDirection.PULL,
             SyncDirection.BIDIRECTIONAL,
         ):
-            pulled = await self.pull(stream_id)
+            pulled = await self.pull(project_id, model=model)
             objects_received = len(pulled)
 
         duration = (time.monotonic() - start) * 1000
@@ -207,4 +279,5 @@ class SpeckleSync:
             errors=errors,
             commit_id=commit_id,
             duration_ms=duration,
+            object_id=object_id,
         )

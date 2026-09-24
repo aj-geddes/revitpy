@@ -4,7 +4,7 @@ Transaction management with context managers and batch operations.
 
 from __future__ import annotations
 
-import asyncio
+import time
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
@@ -108,7 +108,7 @@ class Transaction:
         if self._start_time is None:
             return None
 
-        end_time = self._end_time or asyncio.get_event_loop().time()
+        end_time = self._end_time or time.monotonic()
         return end_time - self._start_time
 
     def add_operation(self, operation: Callable) -> None:
@@ -134,7 +134,7 @@ class Transaction:
             )
 
         try:
-            self._start_time = asyncio.get_event_loop().time()
+            self._start_time = time.monotonic()
             self._transaction = self._provider.start_transaction(self.name)
             self._status = TransactionStatus.STARTED
 
@@ -174,7 +174,7 @@ class Transaction:
                 )
 
             self._status = TransactionStatus.COMMITTED
-            self._end_time = asyncio.get_event_loop().time()
+            self._end_time = time.monotonic()
 
             # Execute commit handlers
             for handler in self._commit_handlers:
@@ -209,7 +209,7 @@ class Transaction:
                     logger.error(f"Provider failed to rollback transaction {self.name}")
 
             self._status = TransactionStatus.ROLLED_BACK
-            self._end_time = asyncio.get_event_loop().time()
+            self._end_time = time.monotonic()
 
             # Execute rollback handlers
             for handler in self._rollback_handlers:
@@ -271,6 +271,13 @@ class Transaction:
 class TransactionGroup:
     """
     Group of transactions that are managed together.
+
+    ``start_all`` opens the transactions in order, so on a live model the
+    first is a Revit ``Transaction`` and the rest are nested
+    ``SubTransaction``s. They are therefore committed and rolled back in
+    reverse order (innermost first). If any commit fails, the remaining
+    (outer) transactions are rolled back, which also discards the changes of
+    inner transactions that had already committed.
     """
 
     def __init__(self, provider: ITransactionProvider, name: str | None = None) -> None:
@@ -326,19 +333,19 @@ class TransactionGroup:
         if self._status != TransactionStatus.STARTED:
             raise TransactionError("Transaction group not started")
 
-        committed_transactions = []
-
         try:
-            for transaction in self._transactions:
+            for transaction in reversed(self._transactions):
                 transaction.commit()
-                committed_transactions.append(transaction)
 
             self._status = TransactionStatus.COMMITTED
             logger.debug(f"Committed transaction group: {self.name}")
 
         except Exception as e:
-            # Rollback committed transactions
-            for transaction in committed_transactions:
+            # Roll back what is still open, innermost first; rolling back the
+            # outer transaction also undoes already-committed inner ones.
+            for transaction in reversed(self._transactions):
+                if not transaction.is_active:
+                    continue
                 try:
                     transaction.rollback()
                 except Exception as rollback_error:
@@ -356,7 +363,9 @@ class TransactionGroup:
         if self._status not in (TransactionStatus.STARTED, TransactionStatus.FAILED):
             return
 
-        for transaction in self._transactions:
+        for transaction in reversed(self._transactions):
+            if not transaction.is_active:
+                continue
             try:
                 transaction.rollback()
             except Exception as e:

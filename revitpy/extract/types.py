@@ -78,6 +78,8 @@ class MaterialQuantity:
     mass: float = 0.0
     classification_code: str = ""
     classification_system: str = ""
+    classification_match: str = ""
+    classification_confidence: float | None = None
 
 
 @dataclass
@@ -92,6 +94,9 @@ class CostItem:
     source: CostSource = CostSource.MANUAL
     category: str = ""
     system: str = ""
+    matched_key: str = ""
+    match_type: str = "exact"
+    match_confidence: float = 1.0
 
 
 @dataclass

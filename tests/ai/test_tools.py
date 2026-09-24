@@ -2,6 +2,8 @@
 Unit tests for RevitTools registration, execution, and MCP format.
 """
 
+import csv
+import io
 from typing import Any
 
 import pytest
@@ -74,50 +76,6 @@ class TestRevitTools:
     # ----------------------------------------------------------
     # Execution
     # ----------------------------------------------------------
-
-    def test_execute_builtin_query_elements(self, revit_tools):
-        """Built-in query_elements returns placeholder data."""
-        result = revit_tools.execute_tool("query_elements", {"category": "Walls"})
-        assert result.status == ToolResultStatus.SUCCESS
-        assert result.data["category"] == "Walls"
-        assert result.execution_time_ms >= 0
-
-    def test_execute_builtin_get_element(self, revit_tools):
-        """Built-in get_element returns placeholder data."""
-        result = revit_tools.execute_tool("get_element", {"element_id": 42})
-        assert result.status == ToolResultStatus.SUCCESS
-        assert result.data["element_id"] == 42
-
-    def test_execute_builtin_modify_parameter(self, revit_tools):
-        """Built-in modify_parameter returns success."""
-        result = revit_tools.execute_tool(
-            "modify_parameter",
-            {
-                "element_id": 1,
-                "parameter_name": "Height",
-                "value": "10",
-            },
-        )
-        assert result.status == ToolResultStatus.SUCCESS
-        assert result.data["success"] is True
-
-    def test_execute_builtin_get_quantities(self, revit_tools):
-        """Built-in get_quantities returns placeholder data."""
-        result = revit_tools.execute_tool("get_quantities", {"category": "Walls"})
-        assert result.status == ToolResultStatus.SUCCESS
-        assert result.data["category"] == "Walls"
-
-    def test_execute_builtin_validate_model(self, revit_tools):
-        """Built-in validate_model returns a passing report."""
-        result = revit_tools.execute_tool("validate_model", {})
-        assert result.status == ToolResultStatus.SUCCESS
-        assert result.data["passed"] is True
-
-    def test_execute_builtin_export_data(self, revit_tools):
-        """Built-in export_data returns placeholder data."""
-        result = revit_tools.execute_tool("export_data", {"category": "Doors"})
-        assert result.status == ToolResultStatus.SUCCESS
-        assert result.data["category"] == "Doors"
 
     def test_execute_custom_tool(self, revit_tools, sample_tool_definition):
         """Executing a custom tool invokes its handler."""
@@ -198,3 +156,196 @@ class TestRevitTools:
         mcp_list = revit_tools.to_mcp_tool_list()
         names = {t["name"] for t in mcp_list}
         assert "test_tool" in names
+
+
+class TestBuiltinToolsNotConnected:
+    """Built-in tools fail clearly when no Revit document is connected."""
+
+    @pytest.mark.parametrize(
+        ("tool_name", "args"),
+        [
+            ("query_elements", {"category": "Walls"}),
+            ("get_element", {"element_id": 1}),
+            (
+                "modify_parameter",
+                {"element_id": 1, "parameter_name": "Mark", "value": "X"},
+            ),
+            ("get_quantities", {"category": "Walls"}),
+            ("validate_model", {}),
+            ("export_data", {"category": "Walls"}),
+        ],
+    )
+    def test_not_connected_raises(self, revit_tools, tool_name, args):
+        """Every built-in raises ToolExecutionError without a context."""
+        with pytest.raises(
+            ToolExecutionError, match="Not connected to a Revit document"
+        ):
+            revit_tools.execute_tool(tool_name, args)
+
+    def test_no_active_document_raises(self, fake_api):
+        """A context without an active document is treated as not connected."""
+        fake_api.active_document = None
+        tools = RevitTools(fake_api)
+        with pytest.raises(
+            ToolExecutionError, match="Not connected to a Revit document"
+        ):
+            tools.execute_tool("query_elements", {"category": "Walls"})
+
+    def test_modify_parameter_never_reports_fake_success(self, revit_tools):
+        """modify_parameter without a document does not claim success."""
+        with pytest.raises(ToolExecutionError):
+            revit_tools.execute_tool(
+                "modify_parameter",
+                {"element_id": 1, "parameter_name": "Mark", "value": "X"},
+            )
+
+
+class TestBuiltinToolsConnected:
+    """Built-in tools operate on the connected document."""
+
+    def test_query_elements_by_category(self, connected_tools):
+        """query_elements returns the elements in the category."""
+        result = connected_tools.execute_tool("query_elements", {"category": "Walls"})
+        assert result.status == ToolResultStatus.SUCCESS
+        assert result.data["count"] == 3
+        assert [e["element_id"] for e in result.data["elements"]] == [1, 2, 3]
+        for elem in result.data["elements"]:
+            assert elem["name"]
+            assert elem["category"] == "Walls"
+
+    def test_query_elements_with_filter(self, connected_tools):
+        """The filter is a case-insensitive name substring match."""
+        result = connected_tools.execute_tool(
+            "query_elements", {"category": "Walls", "filter": "wall b"}
+        )
+        assert result.data["count"] == 1
+        assert result.data["elements"][0]["element_id"] == 2
+
+    def test_get_element(self, connected_tools):
+        """get_element returns the element's name and parameters."""
+        result = connected_tools.execute_tool("get_element", {"element_id": 1})
+        assert result.status == ToolResultStatus.SUCCESS
+        assert result.data["name"] == "Wall A"
+        assert result.data["parameters"]["Mark"] == "W1"
+
+    def test_get_element_not_found(self, connected_tools):
+        """An unknown element id is a clear failure."""
+        with pytest.raises(ToolExecutionError, match="Element 999 not found"):
+            connected_tools.execute_tool("get_element", {"element_id": 999})
+
+    def test_modify_parameter_inside_transaction(self, connected_tools, fake_api):
+        """modify_parameter sets the value inside a committed transaction."""
+        result = connected_tools.execute_tool(
+            "modify_parameter",
+            {"element_id": 3, "parameter_name": "Mark", "value": "W9"},
+        )
+        assert result.status == ToolResultStatus.SUCCESS
+        assert result.data["success"] is True
+        assert result.data["old_value"] is None
+        assert result.data["new_value"] == "W9"
+        assert fake_api.elements[2].params["Mark"] == "W9"
+        assert fake_api.log == [
+            ("start", "MCP: set Mark on element 3"),
+            ("set", 3, "Mark", "W9"),
+            ("commit",),
+        ]
+
+    def test_modify_parameter_reports_old_value(self, connected_tools):
+        """The previous parameter value is reported."""
+        result = connected_tools.execute_tool(
+            "modify_parameter",
+            {"element_id": 1, "parameter_name": "Mark", "value": "W2"},
+        )
+        assert result.data["old_value"] == "W1"
+
+    def test_modify_parameter_failure_rolls_back(self, connected_tools, fake_api):
+        """A failing set rolls the transaction back and raises."""
+        fake_api.elements[0].fail_on_set = True
+        with pytest.raises(ToolExecutionError, match="read-only"):
+            connected_tools.execute_tool(
+                "modify_parameter",
+                {"element_id": 1, "parameter_name": "Mark", "value": "X"},
+            )
+        assert fake_api.log[-1] == ("rollback",)
+
+    def test_modify_parameter_unknown_element(self, connected_tools, fake_api):
+        """An unknown element fails before any transaction is opened."""
+        with pytest.raises(ToolExecutionError, match="Element 999 not found"):
+            connected_tools.execute_tool(
+                "modify_parameter",
+                {"element_id": 999, "parameter_name": "Mark", "value": "X"},
+            )
+        assert fake_api.log == []
+
+    def test_get_quantities(self, connected_tools):
+        """get_quantities counts elements per type."""
+        result = connected_tools.execute_tool("get_quantities", {"category": "Walls"})
+        assert result.status == ToolResultStatus.SUCCESS
+        assert result.data["total"] == 3
+        assert result.data["quantities"] == [
+            {"group": "Brick 300", "count": 1},
+            {"group": "Generic 200", "count": 2},
+        ]
+
+    def test_validate_model_default_checks(self, connected_tools):
+        """validate_model finds unnamed elements and duplicate marks."""
+        result = connected_tools.execute_tool("validate_model", {})
+        data = result.data
+        assert data["passed"] is False
+        assert data["checks_run"] == ["unnamed_elements", "duplicate_marks"]
+        unnamed = [i for i in data["issues"] if i["check"] == "unnamed_elements"]
+        assert [i["element_id"] for i in unnamed] == [4]
+        dupes = [i for i in data["issues"] if i["check"] == "duplicate_marks"]
+        assert len(dupes) == 1
+        assert dupes[0]["mark"] == "W1"
+        assert dupes[0]["element_ids"] == [1, 2]
+
+    def test_validate_model_unknown_check(self, connected_tools):
+        """Unsupported checks are rejected."""
+        with pytest.raises(ToolExecutionError, match="Unknown checks"):
+            connected_tools.execute_tool("validate_model", {"checks": ["bogus"]})
+
+    def test_export_data_json(self, connected_tools):
+        """JSON export returns one row per element."""
+        result = connected_tools.execute_tool("export_data", {"category": "Walls"})
+        assert result.data["format"] == "json"
+        assert result.data["row_count"] == 3
+        assert all(isinstance(row, dict) for row in result.data["data"])
+
+    def test_export_data_csv(self, connected_tools):
+        """CSV export produces parseable CSV text."""
+        result = connected_tools.execute_tool(
+            "export_data", {"category": "Walls", "format": "csv"}
+        )
+        rows = list(csv.DictReader(io.StringIO(result.data["data"])))
+        assert [r["element_id"] for r in rows] == ["1", "2", "3"]
+
+    def test_export_data_unsupported_format(self, connected_tools):
+        """Unsupported formats are rejected rather than faked."""
+        with pytest.raises(ToolExecutionError, match="Unsupported export format"):
+            connected_tools.execute_tool(
+                "export_data", {"category": "Walls", "format": "xlsx"}
+            )
+
+    def test_unreadable_name_falls_back_to_raw_revit_name(self, fake_api):
+        """If Element.name raises, the raw Revit element's Name is used."""
+
+        class BrokenName:
+            id = 9
+            category = "Walls"
+            _revit_element = type("Raw", (), {"Name": "Raw Wall"})()
+
+            @property
+            def name(self):
+                raise RuntimeError("parameter lookup failed")
+
+            def get_parameter_value(self, name):
+                raise KeyError(name)
+
+        fake_api.elements.append(BrokenName())
+        result = RevitTools(fake_api).execute_tool(
+            "query_elements", {"category": "Walls", "filter": "raw"}
+        )
+        assert result.data["elements"] == [
+            {"element_id": 9, "name": "Raw Wall", "category": "Walls"}
+        ]

@@ -9,13 +9,14 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import (
     Any,
+    ClassVar,
     Generic,
     Protocol,
     TypeVar,
 )
 
 from loguru import logger
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, model_validator
 
 from .exceptions import (
     ElementNotFoundError,
@@ -42,6 +43,32 @@ class IRevitElement(Protocol):
     def SetParameterValue(self, parameter_name: str, value: Any) -> None: ...
 
 
+def element_id_value(revit_id: Any) -> int:
+    """Return the integer value of a Revit ``ElementId``-like object.
+
+    Revit 2024+ exposes ``ElementId.Value`` (Int64); ``IntegerValue`` is
+    deprecated there and removed in later versions. Plain ints pass through.
+    """
+    if isinstance(revit_id, int):
+        return revit_id
+    value = getattr(revit_id, "Value", None)
+    if value is None:
+        value = revit_id.IntegerValue
+    return int(value)
+
+
+def category_name(revit_element: Any) -> str | None:
+    """Return a category name for a Revit element, or ``None``.
+
+    Accepts a plain string ``Category`` (mocks, adapters) or a Revit
+    ``Category`` object, in which case its ``Name`` is used.
+    """
+    category = getattr(revit_element, "Category", None)
+    if category is None or isinstance(category, str):
+        return category
+    return getattr(category, "Name", None)
+
+
 @dataclass(frozen=True)
 class ElementId:
     """Immutable element ID wrapper."""
@@ -64,28 +91,38 @@ class ParameterValue(BaseModel):
     is_read_only: bool = False
     storage_type: str = "String"
 
-    @validator("value")
-    def validate_value(cls, v: Any, values: dict[str, Any]) -> Any:
-        """Validate parameter value based on storage type."""
-        storage_type = values.get("storage_type", "String")
+    @model_validator(mode="after")
+    def _coerce_value(self) -> ParameterValue:
+        """Coerce ``value`` to match ``storage_type``.
 
-        if storage_type == "Double" and not isinstance(v, int | float):
+        Runs after all fields are populated so ``storage_type`` is always
+        available regardless of field declaration order.
+        """
+        v = self.value
+        if v is None:
+            return self
+
+        if self.storage_type == "Double" and not isinstance(v, int | float):
             try:
-                return float(v)
-            except (ValueError, TypeError):
-                raise ValidationError(f"Cannot convert {v} to double")
+                self.value = float(v)
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Cannot convert {v!r} to double") from e
 
-        if storage_type == "Integer" and not isinstance(v, int):
+        elif self.storage_type == "Integer" and not isinstance(v, int):
             try:
-                return int(v)
-            except (ValueError, TypeError):
-                raise ValidationError(f"Cannot convert {v} to integer")
+                self.value = int(v)
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Cannot convert {v!r} to integer") from e
 
-        return v
+        return self
 
 
 class ElementMetaclass(type):
     """Metaclass for Element that handles property registration."""
+
+    # Maps a category name (e.g. "OST_Walls" or "Walls") to the most
+    # specific Element subclass registered for it.
+    category_registry: ClassVar[dict[str, type]] = {}
 
     def __new__(mcs, name: str, bases: tuple, namespace: dict) -> type:
         # Register property accessors
@@ -95,6 +132,9 @@ class ElementMetaclass(type):
         if hasattr(cls, "_property_mappings"):
             for prop_name, revit_param in cls._property_mappings.items():
                 setattr(cls, prop_name, ElementProperty(revit_param))
+
+        for category in namespace.get("revit_categories", ()):
+            mcs.category_registry[category] = cls
 
         return cls
 
@@ -113,7 +153,9 @@ class ElementProperty:
         try:
             return obj.get_parameter_value(self.parameter_name)
         except Exception as e:
-            logger.warning(
+            # Callers handle the raised error; many elements simply lack a
+            # given parameter, so this is not worth a warning.
+            logger.debug(
                 f"Failed to get parameter {self.parameter_name} from element {obj.id}: {e}"
             )
             raise RevitAPIError(
@@ -138,7 +180,14 @@ class Element(metaclass=ElementMetaclass):
     """
     Pythonic wrapper for Revit elements with automatic type conversion,
     lazy loading, and change tracking.
+
+    Subclasses may declare ``revit_categories`` (built-in category names such
+    as ``"OST_Walls"`` and/or display names such as ``"Walls"``). Elements are
+    then wrapped in the matching subclass, which makes typed queries such as
+    ``api.query(Wall)`` work.
     """
+
+    revit_categories: ClassVar[tuple[str, ...]] = ()
 
     # Property mappings for common parameters
     _property_mappings: dict[str, str] = {
@@ -159,10 +208,27 @@ class Element(metaclass=ElementMetaclass):
         # Create weak reference to avoid circular references
         self._weak_ref = weakref.ref(self)
 
+    @classmethod
+    def wrap(cls, revit_element: IRevitElement) -> Element:
+        """Wrap a Revit element in the most specific registered subclass.
+
+        Falls back to ``cls`` when the element's category is unknown.
+        """
+        category = category_name(revit_element)
+        subclass = ElementMetaclass.category_registry.get(category or "")
+        if subclass is not None and issubclass(subclass, cls):
+            return subclass(revit_element)
+        return cls(revit_element)
+
     @property
     def id(self) -> ElementId:
         """Get the element ID."""
-        return ElementId(self._revit_element.Id.IntegerValue)
+        return ElementId(element_id_value(self._revit_element.Id))
+
+    @property
+    def category(self) -> str | None:
+        """Get the element's category name, if available."""
+        return category_name(self._revit_element)
 
     @property
     def name(self) -> str:
@@ -244,18 +310,37 @@ class Element(metaclass=ElementMetaclass):
             # Convert Python value to Revit type
             revit_value = self._convert_to_revit(value)
 
+            # Capture the pre-change value so discard_changes() can restore it.
+            # Repeated writes keep the original value from the first write.
+            old_value: Any = None
+            if track_changes:
+                previous = self._change_tracker.get(parameter_name)
+                if previous is not None:
+                    old_value = previous["old"]
+                elif parameter_name in self._parameter_cache:
+                    old_value = self._parameter_cache[parameter_name].value
+                else:
+                    try:
+                        old_value = self.get_parameter_value(
+                            parameter_name, use_cache=False
+                        )
+                    except ElementNotFoundError:
+                        old_value = None  # parameter is being created
+
             # Set the value
             self._revit_element.SetParameterValue(parameter_name, revit_value)
 
             # Track changes
             if track_changes:
-                old_value = self._parameter_cache.get(parameter_name, {}).get("value")
                 if old_value != value:
                     self._change_tracker[parameter_name] = {
                         "old": old_value,
                         "new": value,
                     }
                     self._is_dirty = True
+                else:
+                    self._change_tracker.pop(parameter_name, None)
+                    self._is_dirty = bool(self._change_tracker)
 
             # Update cache
             param_value = ParameterValue(
@@ -270,6 +355,8 @@ class Element(metaclass=ElementMetaclass):
                 f"Set parameter {parameter_name} = {value} on element {self.id}"
             )
 
+        except PermissionError:
+            raise
         except Exception as e:
             logger.error(
                 f"Failed to set parameter {parameter_name} on element {self.id}: {e}"
@@ -296,8 +383,6 @@ class Element(metaclass=ElementMetaclass):
         if refresh_cache:
             self._parameter_cache.clear()
 
-        # Implementation would iterate through all Revit parameters
-        # This is a simplified version
         parameters = {}
 
         for param_name in self._get_all_parameter_names():
@@ -310,27 +395,36 @@ class Element(metaclass=ElementMetaclass):
         return parameters
 
     def save_changes(self) -> None:
-        """Save all tracked changes to Revit."""
+        """Accept tracked changes.
+
+        Parameter writes are applied to the Revit element immediately, so they
+        become permanent when the enclosing transaction commits (and are
+        reverted by Revit if it rolls back). This method only clears the
+        local change log.
+        """
         if not self._is_dirty:
             return
 
-        # In a real implementation, this would batch the changes
-        # and apply them in a transaction
-        logger.info(f"Saving {len(self._change_tracker)} changes to element {self.id}")
+        logger.debug(
+            f"Accepting {len(self._change_tracker)} changes on element {self.id}"
+        )
 
         # Clear change tracking
         self._change_tracker.clear()
         self._is_dirty = False
 
     def discard_changes(self) -> None:
-        """Discard all tracked changes."""
+        """Revert tracked changes by writing the previous values back.
+
+        Must be called while a transaction is open, like any other write.
+        """
         if not self._is_dirty:
             return
 
-        # Revert changes by reloading from Revit
-        for param_name in self._change_tracker:
-            if param_name in self._parameter_cache:
-                del self._parameter_cache[param_name]
+        for param_name, change in self._change_tracker.items():
+            self._parameter_cache.pop(param_name, None)
+            if change.get("old") is not None:
+                self._revit_element.SetParameterValue(param_name, change["old"])
 
         self._change_tracker.clear()
         self._is_dirty = False
@@ -350,6 +444,24 @@ class Element(metaclass=ElementMetaclass):
         if value is None:
             return None
 
+        # Adapters (e.g. revitpy.revit) already return plain Python values.
+        if isinstance(value, str | int | float | bool):
+            return value
+
+        # A Revit Parameter exposes every As* accessor; pick by storage type.
+        storage_type = getattr(value, "StorageType", None)
+        if storage_type is not None:
+            kind = str(storage_type).split(".")[-1]
+            if kind == "String":
+                return value.AsString()
+            if kind == "Double":
+                return value.AsDouble()
+            if kind == "Integer":
+                return value.AsInteger()
+            if kind == "ElementId":
+                return element_id_value(value.AsElementId())
+            return value.AsValueString()
+
         # Handle common Revit types
         if hasattr(value, "AsString"):
             return value.AsString()
@@ -363,20 +475,42 @@ class Element(metaclass=ElementMetaclass):
         return str(value)
 
     def _convert_to_revit(self, value: Any) -> Any:
-        """Convert Python value to Revit type."""
-        # This would contain logic to convert Python types
-        # to appropriate Revit parameter values
+        """Convert a Python value for ``IRevitElement.SetParameterValue``.
+
+        RevitPy wrapper types are unwrapped to plain values; storage-type
+        specific conversion (e.g. to ``DB.ElementId``) is the responsibility
+        of the element adapter, which knows the target parameter.
+        """
+        if isinstance(value, ElementId):
+            return value.value
+        if isinstance(value, Element):
+            return value.id.value
         return value
 
     def _get_storage_type(self, value: Any) -> str:
         """Determine storage type from Revit value."""
         if hasattr(value, "StorageType"):
-            return str(value.StorageType)
+            return str(value.StorageType).split(".")[-1]
+        if isinstance(value, bool):
+            return "Integer"
+        if isinstance(value, float):
+            return "Double"
+        if isinstance(value, int):
+            return "Integer"
         return "String"
 
     def _get_all_parameter_names(self) -> list[str]:
-        """Get all parameter names for this element."""
-        # This would query the actual Revit element for its parameters
+        """Get all parameter names for this element.
+
+        Uses ``GetAllParameters()`` on the underlying element when available,
+        otherwise falls back to the mapped common parameters.
+        """
+        get_all = getattr(self._revit_element, "GetAllParameters", None)
+        if callable(get_all):
+            try:
+                return list(get_all())
+            except Exception as e:
+                logger.debug(f"GetAllParameters failed on element {self.id}: {e}")
         return list(self._property_mappings.values())
 
     def __str__(self) -> str:
@@ -392,6 +526,42 @@ class Element(metaclass=ElementMetaclass):
 
     def __hash__(self) -> int:
         return hash(self.id.value)
+
+
+class Wall(Element):
+    """Wall element."""
+
+    revit_categories = ("OST_Walls", "Walls")
+
+
+class Floor(Element):
+    """Floor element."""
+
+    revit_categories = ("OST_Floors", "Floors")
+
+
+class Door(Element):
+    """Door element."""
+
+    revit_categories = ("OST_Doors", "Doors")
+
+
+class Window(Element):
+    """Window element."""
+
+    revit_categories = ("OST_Windows", "Windows")
+
+
+class Room(Element):
+    """Room element."""
+
+    revit_categories = ("OST_Rooms", "Rooms")
+
+
+class Level(Element):
+    """Level element."""
+
+    revit_categories = ("OST_Levels", "Levels")
 
 
 class ElementSet(Generic[T]):

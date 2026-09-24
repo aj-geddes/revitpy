@@ -77,6 +77,8 @@ class PromptLibrary:
         self._templates: dict[str, str] = dict(_BUILTIN_TEMPLATES)
         self._env = jinja2.Environment(
             undefined=jinja2.StrictUndefined,
+            # Prompts are plain text sent to an LLM, never rendered as HTML;
+            # HTML-escaping would corrupt quotes/angle brackets in the prompt.
             autoescape=False,  # noqa: S701 - plain-text prompts, not HTML
             keep_trailing_newline=True,
         )

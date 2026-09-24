@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
 
 from revitpy.cloud.auth import ApsAuthenticator
@@ -58,6 +59,10 @@ def mock_aps_client(mock_authenticator) -> ApsClient:
     client = MagicMock(spec=ApsClient)
     client._authenticator = mock_authenticator
     client._region = CloudRegion.US
+    client.region = CloudRegion.US
+    client.da_base_path = "/da/us-east/v3"
+    client.timeout = httpx.Timeout(30.0, connect=10.0)
+    client.download_timeout = httpx.Timeout(300.0, connect=10.0)
     client.get = AsyncMock(return_value={})
     client.post = AsyncMock(return_value={"id": "mock-job-123"})
     client.delete = AsyncMock(return_value={})

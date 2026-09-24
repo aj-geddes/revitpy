@@ -19,6 +19,8 @@ from .client import ApsClient
 from .exceptions import JobExecutionError, JobSubmissionError
 from .types import JobConfig, JobResult, JobStatus
 
+# US default, kept for backward compatibility. ``JobManager`` derives the
+# work-items path from the client's region via ``ApsClient.da_base_path``.
 DA_BASE = "/da/us-east/v3/workitems"
 
 
@@ -27,6 +29,11 @@ class JobManager:
 
     def __init__(self, client: ApsClient) -> None:
         self._client = client
+
+    @property
+    def workitems_path(self) -> str:
+        """Region-aware Design Automation work-items path."""
+        return f"{self._client.da_base_path}/workitems"
 
     async def submit(self, config: JobConfig) -> str:
         """Submit a new Design Automation work item.
@@ -68,7 +75,7 @@ class JobManager:
 
         try:
             response = await self._client.post(
-                DA_BASE,
+                self.workitems_path,
                 json=payload,
             )
         except Exception as exc:
@@ -97,7 +104,7 @@ class JobManager:
         Returns:
             Current ``JobStatus``.
         """
-        response = await self._client.get(f"{DA_BASE}/{job_id}")
+        response = await self._client.get(f"{self.workitems_path}/{job_id}")
         raw = response.get("status", "pending")
         return _parse_status(raw)
 
@@ -131,7 +138,7 @@ class JobManager:
                     status="timed_out",
                 )
 
-            response = await self._client.get(f"{DA_BASE}/{job_id}")
+            response = await self._client.get(f"{self.workitems_path}/{job_id}")
             status = _parse_status(response.get("status", "pending"))
 
             if status in (
@@ -174,6 +181,10 @@ class JobManager:
     ) -> list[Path]:
         """Download output files for a completed work item.
 
+        Files are streamed to disk in chunks (never buffered fully in
+        memory) using the client's ``download_timeout``. Each file is
+        written to a ``.part`` temp file and renamed on success.
+
         Args:
             job_id: The work-item identifier.
             output_dir: Local directory to save files to.
@@ -181,18 +192,28 @@ class JobManager:
         Returns:
             List of local ``Path`` objects for the downloaded files.
         """
-        response = await self._client.get(f"{DA_BASE}/{job_id}")
+        response = await self._client.get(f"{self.workitems_path}/{job_id}")
         output_urls: list[str] = response.get("outputFiles", [])
         output_dir.mkdir(parents=True, exist_ok=True)
 
         downloaded: list[Path] = []
-        async with httpx.AsyncClient() as http:
-            for url in output_urls:
-                filename = url.rsplit("/", 1)[-1] or f"output_{len(downloaded)}"
-                dest = output_dir / filename
-                resp = await http.get(url)
-                resp.raise_for_status()
-                dest.write_bytes(resp.content)
+        async with httpx.AsyncClient(
+            timeout=self._client.download_timeout,
+            follow_redirects=True,
+        ) as http:
+            for index, url in enumerate(output_urls):
+                dest = output_dir / _filename_from_url(url, index)
+                tmp = dest.with_name(dest.name + ".part")
+                try:
+                    async with http.stream("GET", url) as resp:
+                        resp.raise_for_status()
+                        with tmp.open("wb") as fh:
+                            async for chunk in resp.aiter_bytes():
+                                fh.write(chunk)
+                except BaseException:
+                    tmp.unlink(missing_ok=True)
+                    raise
+                tmp.replace(dest)
                 downloaded.append(dest)
                 logger.debug("Downloaded {} -> {}", url, dest)
 
@@ -208,7 +229,7 @@ class JobManager:
             ``True`` if the cancellation succeeded.
         """
         try:
-            await self._client.delete(f"{DA_BASE}/{job_id}")
+            await self._client.delete(f"{self.workitems_path}/{job_id}")
             logger.info("Cancelled job {}", job_id)
             return True
         except Exception:
@@ -224,12 +245,15 @@ class JobManager:
         Returns:
             Log text as a string.
         """
-        response = await self._client.get(f"{DA_BASE}/{job_id}")
+        response = await self._client.get(f"{self.workitems_path}/{job_id}")
         report_url = response.get("reportUrl", "")
         if not report_url:
             return ""
 
-        async with httpx.AsyncClient() as http:
+        async with httpx.AsyncClient(
+            timeout=self._client.download_timeout,
+            follow_redirects=True,
+        ) as http:
             resp = await http.get(report_url)
             resp.raise_for_status()
             return resp.text
@@ -240,6 +264,19 @@ class JobManager:
 # ------------------------------------------------------------------
 
 _STATUS_MAP: dict[str, JobStatus] = {s.value: s for s in JobStatus}
+
+
+def _filename_from_url(url: str, index: int) -> str:
+    """Derive a safe local filename from a (possibly signed) output URL.
+
+    Query strings are dropped and only the final path segment's basename
+    is used, preventing path traversal outside ``output_dir``.
+    """
+    segment = httpx.URL(url).path.rsplit("/", 1)[-1]
+    name = Path(segment).name
+    if name in ("", ".", ".."):
+        return f"output_{index}"
+    return name
 
 
 def _parse_status(raw: str) -> JobStatus:

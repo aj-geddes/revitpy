@@ -15,44 +15,37 @@ Key Components:
 - PerformanceOptimizer: Core optimization engine with caching and pooling
 - BenchmarkSuite: Comprehensive benchmarking and regression detection
 - MemoryManager: Advanced memory management and leak detection
-- LatencyTracker: Real-time latency monitoring and optimization
-- CacheManager: Multi-level intelligent caching system
+- AdaptiveCache / ObjectPool: Caching and pooling used by the optimizer
 - MetricsCollector: Performance metrics collection and analysis
 """
 
-from .benchmarks import BenchmarkRunner, BenchmarkSuite
-from .cache import CacheConfiguration, IntelligentCacheManager
-from .latency import LatencyBenchmark, LatencyTracker
+from .benchmarks import BenchmarkConfiguration, BenchmarkRunner, BenchmarkSuite
 from .memory import MemoryLeakDetector, MemoryManager
-from .metrics import MetricsCollector, PerformanceMetrics
-from .monitoring import AlertingSystem, PerformanceMonitor
-from .optimizer import OptimizationConfig, PerformanceOptimizer
-from .profiler import ProfileReport, RevitPyProfiler
+from .monitoring import AlertingSystem, MetricsCollector, PerformanceMonitor
+from .optimizer import (
+    AdaptiveCache,
+    ObjectPool,
+    OptimizationConfig,
+    PerformanceOptimizer,
+)
 
 __all__ = [
     # Core optimization
     "PerformanceOptimizer",
     "OptimizationConfig",
+    "AdaptiveCache",
+    "ObjectPool",
     # Benchmarking
     "BenchmarkSuite",
     "BenchmarkRunner",
+    "BenchmarkConfiguration",
     # Memory management
     "MemoryManager",
     "MemoryLeakDetector",
-    # Latency tracking
-    "LatencyTracker",
-    "LatencyBenchmark",
-    # Caching
-    "IntelligentCacheManager",
-    "CacheConfiguration",
     # Metrics and monitoring
     "MetricsCollector",
-    "PerformanceMetrics",
     "PerformanceMonitor",
     "AlertingSystem",
-    # Profiling
-    "RevitPyProfiler",
-    "ProfileReport",
 ]
 
 # Performance targets as specified in requirements

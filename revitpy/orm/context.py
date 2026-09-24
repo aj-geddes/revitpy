@@ -277,6 +277,35 @@ class RevitContext:
         self._change_tracker.mark_as_added(entity)
         logger.debug(f"Marked entity as added: {self._get_entity_id(entity)}")
 
+    def update(self, entity: T, **changes: Any) -> None:
+        """Set properties on ``entity`` and track them as modifications.
+
+        Each value is assigned to the entity when it has that attribute
+        (running any model validation), and recorded as a change so
+        :meth:`save_changes` registers the entity as dirty. Changes are
+        tracked even when automatic change tracking is off.
+
+        Example:
+            ctx.update(wall, comments="Checked", fire_rating=2)
+        """
+        self._ensure_not_disposed()
+
+        tracker = self._change_tracker
+        auto_track = tracker.auto_track
+        tracker.auto_track = True
+        try:
+            for name, new_value in changes.items():
+                old_value = getattr(entity, name, None)
+                if hasattr(entity, name):
+                    setattr(entity, name, new_value)
+                tracker.track_property_change(entity, name, old_value, new_value)
+        finally:
+            tracker.auto_track = auto_track
+
+        logger.debug(
+            f"Updated {sorted(changes)} on entity {self._get_entity_id(entity)}"
+        )
+
     def remove(self, entity: T) -> None:
         """Mark entity as deleted."""
         self._ensure_not_disposed()
@@ -403,8 +432,10 @@ class RevitContext:
         """Create a transaction context manager."""
         self._ensure_not_disposed()
 
-        # Simple transaction implementation
-        # In a full implementation, this would integrate with Revit's transaction system
+        # ORM-level unit of work: changes are persisted through the configured
+        # IUnitOfWork on success and discarded on failure. Wrap this in a
+        # Revit transaction (RevitAPI.transaction) when the unit of work
+        # writes to a Revit document.
         original_auto_track = self._change_tracker.auto_track
 
         try:
@@ -418,6 +449,11 @@ class RevitContext:
         except Exception as e:
             logger.error(f"Transaction failed: {e}")
             self.reject_changes()
+            if self._unit_of_work is not None:
+                try:
+                    self._unit_of_work.rollback()
+                except Exception as rollback_error:
+                    logger.error(f"Unit of work rollback failed: {rollback_error}")
             logger.debug("Transaction rolled back")
             raise
 

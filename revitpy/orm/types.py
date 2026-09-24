@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum, IntEnum
 from typing import (
     Any,
@@ -160,7 +160,7 @@ class CacheKey:
     query_hash: str | None = None
     entity_id: Any | None = None
     relationship_path: str | None = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __str__(self) -> str:
         parts = [self.entity_type]
@@ -179,8 +179,8 @@ class CacheEntry:
 
     key: CacheKey
     data: Any
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    accessed_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    accessed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     access_count: int = 0
     ttl_seconds: int | None = None
     dependencies: set[str] = field(default_factory=set)
@@ -191,12 +191,12 @@ class CacheEntry:
         if self.ttl_seconds is None:
             return False
 
-        elapsed = (datetime.utcnow() - self.created_at).total_seconds()
+        elapsed = (datetime.now(UTC) - self.created_at).total_seconds()
         return elapsed > self.ttl_seconds
 
     def mark_accessed(self) -> None:
         """Mark entry as accessed."""
-        self.accessed_at = datetime.utcnow()
+        self.accessed_at = datetime.now(UTC)
         self.access_count += 1
 
 
@@ -208,7 +208,7 @@ class BatchOperation:
     entity: Any
     properties: dict[str, Any] = field(default_factory=dict)
     operation_id: UUID = field(default_factory=uuid4)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     dependencies: list[UUID] = field(default_factory=list)
 
     def __hash__(self) -> int:
@@ -224,7 +224,7 @@ class ChangeSet:
     original_values: dict[str, Any] = field(default_factory=dict)
     current_values: dict[str, Any] = field(default_factory=dict)
     state: ElementState = ElementState.UNCHANGED
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def changed_properties(self) -> set[str]:

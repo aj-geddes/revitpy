@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Callable, Hashable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import (
     Any,
@@ -53,7 +53,7 @@ class CacheStatistics:
         self._evictions = 0
         self._invalidations = 0
         self._memory_usage = 0
-        self._start_time = datetime.utcnow()
+        self._start_time = datetime.now(UTC)
         self._lock = threading.RLock()
 
     @property
@@ -96,7 +96,7 @@ class CacheStatistics:
     @property
     def uptime(self) -> timedelta:
         """Get cache uptime."""
-        return datetime.utcnow() - self._start_time
+        return datetime.now(UTC) - self._start_time
 
     def record_hit(self) -> None:
         """Record a cache hit."""
@@ -131,7 +131,7 @@ class CacheStatistics:
             self._evictions = 0
             self._invalidations = 0
             self._memory_usage = 0
-            self._start_time = datetime.utcnow()
+            self._start_time = datetime.now(UTC)
 
     def __str__(self) -> str:
         return (
@@ -354,7 +354,7 @@ class MemoryCache(CacheBackend):
 
     def _cleanup_expired(self) -> None:
         """Remove expired entries."""
-        datetime.utcnow()
+        datetime.now(UTC)
         expired_keys = []
 
         for key_str, entry in self._cache.items():

@@ -170,7 +170,8 @@ class TestApsClient:
                 with pytest.raises(ApsApiError) as exc_info:
                     await client.get("/flaky")
 
-        assert "retries" in str(exc_info.value)
+        assert "attempts" in str(exc_info.value)
+        assert exc_info.value.status_code == 500
 
     @pytest.mark.asyncio
     async def test_request_retries_on_429(self, mock_authenticator):

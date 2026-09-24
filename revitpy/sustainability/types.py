@@ -75,11 +75,22 @@ class MaterialData:
     element_id: str | None = None
     level: str | None = None
     system: str | None = None
+    classification_code: str | None = None
+    classification_match: str | None = None
+    classification_confidence: float | None = None
 
 
 @dataclass
 class EpdRecord:
-    """Environmental Product Declaration record for a material."""
+    """Environmental Product Declaration record for a material.
+
+    Built-in generic records are screening-level averages, not
+    product-specific EPDs. Provenance fields (``source``,
+    ``source_year``, ``notes``) say where a factor came from; match
+    fields (``match_type``, ``match_confidence``, ``matched_key``) are
+    populated on records returned by :meth:`EpdDatabase.lookup` and say
+    how the queried material name was mapped onto this record.
+    """
 
     material_name: str
     category: str
@@ -89,6 +100,13 @@ class EpdRecord:
     lifecycle_stages: list[LifecycleStage] = field(default_factory=list)
     valid_until: str | None = None
     manufacturer: str | None = None
+    source_year: int | None = None
+    assumed_density_kg_m3: float | None = None
+    notes: str = ""
+    is_generic_fallback: bool = False
+    match_type: str | None = None
+    match_confidence: float | None = None
+    matched_key: str | None = None
 
 
 @dataclass
@@ -126,6 +144,8 @@ class ComplianceResult:
     unit: str
     recommendations: list[str] = field(default_factory=list)
     details: dict[str, Any] = field(default_factory=dict)
+    source: str = ""
+    notes: list[str] = field(default_factory=list)
 
 
 @dataclass

@@ -153,6 +153,15 @@ class FilterCriteria:
         return comparator(str_a, str_b)
 
 
+def _comparable(value: Any) -> tuple[int, Any]:
+    """Sort key that orders missing < numbers < text and never mixes types."""
+    if value is None or value == "":
+        return (0, 0)
+    if isinstance(value, bool | int | float):
+        return (1, value)
+    return (2, str(value).casefold())
+
+
 @dataclass
 class SortCriteria:
     """Represents a sort criteria for querying."""
@@ -312,21 +321,14 @@ class QueryBuilder(Generic[T]):
 
         # Apply sorting
         if self._sorts:
-
-            def sort_key(element: Element) -> tuple:
-                keys = []
-                for sort_criteria in self._sorts:
-                    key = sort_criteria.get_sort_key(element)
-                    if sort_criteria.direction == SortDirection.DESCENDING:
-                        # For descending, we need to reverse the comparison
-                        if isinstance(key, str):
-                            key = key[::-1] if key else ""
-                        elif isinstance(key, int | float):
-                            key = -key
-                    keys.append(key)
-                return tuple(keys)
-
-            filtered_elements = sorted(filtered_elements, key=sort_key)
+            # Stable sorts applied from the least to the most significant
+            # criterion give a correct multi-key sort with per-key direction.
+            for sort_criteria in reversed(self._sorts):
+                filtered_elements = sorted(
+                    filtered_elements,
+                    key=lambda e, c=sort_criteria: _comparable(c.get_sort_key(e)),
+                    reverse=sort_criteria.direction == SortDirection.DESCENDING,
+                )
 
         # Apply distinct
         if self._distinct_property:

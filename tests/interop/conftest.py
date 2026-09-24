@@ -51,20 +51,20 @@ def mock_speckle_client(mock_speckle_config):
     client = SpeckleClient(config=mock_speckle_config)
 
     client.connect = AsyncMock()
-    client.get_streams = AsyncMock(
+    client.get_projects = AsyncMock(
         return_value=[
             {"id": "stream-001", "name": "Test Stream"},
         ]
     )
-    client.get_stream = AsyncMock(
+    client.get_project = AsyncMock(
         return_value={"id": "stream-001", "name": "Test Stream"},
     )
-    client.get_branches = AsyncMock(
+    client.get_models = AsyncMock(
         return_value=[
             {"id": "branch-001", "name": "main"},
         ]
     )
-    client.get_commits = AsyncMock(
+    client.get_versions = AsyncMock(
         return_value=[
             SpeckleCommit(
                 id="commit-001",
@@ -82,6 +82,9 @@ def mock_speckle_client(mock_speckle_config):
             author="revitpy",
             created_at="2025-01-02T00:00:00Z",
             total_objects=2,
+            referenced_object="0123456789abcdef0123456789abcdef",
+            model_id="model-001",
+            project_id="stream-001",
         ),
     )
     client.receive_objects = AsyncMock(

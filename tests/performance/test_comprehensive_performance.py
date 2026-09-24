@@ -36,6 +36,9 @@ from revitpy.performance import (
 
 logger = logging.getLogger(__name__)
 
+# Stress/benchmark suite (minutes to run): excluded by default, run with -m slow.
+pytestmark = [pytest.mark.slow, pytest.mark.performance]
+
 
 class PerformanceTestConfig:
     """Configuration for performance tests."""

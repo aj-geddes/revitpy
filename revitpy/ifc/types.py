@@ -8,7 +8,7 @@ for IFC export/import, IDS validation, BCF collaboration, and model diffing.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 from uuid import uuid4
@@ -37,9 +37,13 @@ class IfcExportConfig:
     version: IfcVersion = IfcVersion.IFC4
     include_quantities: bool = True
     include_materials: bool = True
+    project_name: str = "RevitPy Export"
     site_name: str = "Default Site"
     building_name: str = "Default Building"
+    default_storey_name: str = "Default Storey"
+    include_geometry: bool = True
     author: str = ""
+    organization: str = "RevitPy"
 
 
 @dataclass
@@ -64,7 +68,30 @@ class IfcMapping:
 
 @dataclass
 class IdsRequirement:
-    """A single IDS (Information Delivery Specification) requirement."""
+    """A single element-level requirement checked by :class:`IdsValidator`.
+
+    Requirements can be built programmatically, loaded from the legacy
+    RevitPy JSON rule format, or derived from the ``entity``,
+    ``attribute`` and ``property`` facets of a buildingSMART IDS 1.0 XML
+    file.
+
+    Attributes:
+        name: Human readable requirement name.
+        description: Optional description.
+        entity_type: RevitPy type/category (e.g. ``"WallElement"``) or an
+            IFC entity name (e.g. ``"IFCWALL"``) the requirement applies
+            to. ``None`` applies to every element.
+        property_name: Property/attribute to check. ``None`` means the
+            requirement only checks applicability.
+        property_value: Exact expected value (compared as strings).
+        required: Whether the property must be present.
+        property_set: Optional property set name (IDS ``propertySet``).
+        allowed_values: Alternative accepted values (IDS
+            ``xs:enumeration`` restriction).
+        prohibited: If True, the property must be absent (IDS
+            ``cardinality="prohibited"``).
+        facet: ``"property"`` or ``"attribute"``; informational.
+    """
 
     name: str
     description: str = ""
@@ -72,6 +99,10 @@ class IdsRequirement:
     property_name: str | None = None
     property_value: str | None = None
     required: bool = True
+    property_set: str | None = None
+    allowed_values: list[str] = field(default_factory=list)
+    prohibited: bool = False
+    facet: str = "property"
 
 
 @dataclass
@@ -93,10 +124,11 @@ class BcfIssue:
     title: str = ""
     description: str = ""
     author: str = ""
-    creation_date: datetime = field(default_factory=datetime.now)
+    creation_date: datetime = field(default_factory=lambda: datetime.now(UTC))
     status: str = "Open"
     assigned_to: str = ""
     element_ids: list[str] = field(default_factory=list)
+    snapshot: bytes | None = None
 
 
 @dataclass
@@ -105,7 +137,7 @@ class BcfComment:
 
     text: str = ""
     author: str = ""
-    date: datetime = field(default_factory=datetime.now)
+    date: datetime = field(default_factory=lambda: datetime.now(UTC))
     viewpoint_guid: str | None = None
 
 

@@ -210,9 +210,12 @@ class EventManager:
             if hasattr(method, "_is_event_handler"):
                 # Extract handler info from decoration
                 event_types = getattr(method, "_event_types", [])
-                handler_obj = getattr(method, "_event_handler", None)
+                template = getattr(method, "_event_handler", None)
 
-                if handler_obj:
+                if template:
+                    # The decorator saw the plain function; build a handler
+                    # around the *bound* method so ``self`` is passed.
+                    handler_obj = _bind_handler(template, method)
                     self.register_handler(handler_obj, event_types)
                     registered_handlers.append(handler_obj)
 
@@ -468,21 +471,22 @@ class EventManager:
 
     def connect_to_revit(self, revit_application: Any) -> None:
         """
-        Connect to Revit application for native event bridging.
+        Forward native Revit events into this manager.
+
+        Subscribes to ``DocumentOpened``, ``DocumentSaved``, ``DocumentClosing``
+        and ``DocumentChanged`` on the Revit ``Application`` (a ``UIApplication``
+        is unwrapped). ``DocumentChanged`` is dispatched as
+        ``ELEMENT_CREATED`` / ``ELEMENT_MODIFIED`` / ``ELEMENT_DELETED`` per
+        element. Must be called on Revit's main thread.
 
         Args:
-            revit_application: Revit Application object
+            revit_application: Revit ``Application`` or ``UIApplication``
         """
-        try:
-            from .revit_bridge import RevitEventBridge
+        from .revit_bridge import RevitEventBridge
 
-            self._revit_event_bridge = RevitEventBridge(self, revit_application)
-            self._revit_event_bridge.connect()
-            logger.info("Connected to Revit event system")
-        except ImportError:
-            logger.warning("Revit event bridge not available")
-        except Exception as e:
-            logger.error(f"Failed to connect to Revit events: {e}")
+        self._revit_event_bridge = RevitEventBridge(self, revit_application)
+        self._revit_event_bridge.connect()
+        logger.info("Connected to Revit event system")
 
     def disconnect_from_revit(self) -> None:
         """Disconnect from Revit application."""
@@ -589,3 +593,22 @@ def add_event_listener(
 ) -> None:
     """Add an event listener globally."""
     get_event_manager().add_listener(event_type, callback, priority)
+
+
+def _bind_handler(template: BaseEventHandler, bound_method: Any) -> BaseEventHandler:
+    """Create a handler like ``template`` that calls ``bound_method``."""
+    handler_cls: type[CallableEventHandler] | type[AsyncCallableEventHandler]
+    if isinstance(template, AsyncCallableEventHandler):
+        handler_cls = AsyncCallableEventHandler
+    else:
+        handler_cls = CallableEventHandler
+    handler = handler_cls(
+        callback=bound_method,
+        name=f"{type(bound_method.__self__).__name__}.{template.name}",
+        priority=template.priority,
+        event_filter=template.event_filter,
+        max_errors=template.metadata.max_errors,
+    )
+    if not template.metadata.enabled:
+        handler.disable()
+    return handler

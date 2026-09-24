@@ -12,6 +12,8 @@ from typing import Any
 
 from loguru import logger
 
+from revitpy.sustainability.matching import best_match_value
+
 from .exceptions import ExtractionError
 from .types import MaterialQuantity
 
@@ -191,7 +193,10 @@ class MaterialTakeoff:
         """Classify materials against a standard system.
 
         Maps material names to classification codes using a built-in
-        lookup table. Unrecognized materials retain empty codes.
+        lookup table and deterministic scored matching (exact > whole
+        token > substring; see :mod:`revitpy.sustainability.matching`).
+        ``classification_match`` / ``classification_confidence`` record
+        how each name matched. Unrecognized materials retain empty codes.
 
         Args:
             materials: List of MaterialQuantity instances.
@@ -204,15 +209,10 @@ class MaterialTakeoff:
         classified: list[MaterialQuantity] = []
 
         for mat in materials:
-            lookup_key = mat.material_name.lower().strip()
-            code = code_map.get(lookup_key, "")
-
-            # Try partial matching if exact match not found
-            if not code:
-                for material_key, material_code in code_map.items():
-                    if material_key in lookup_key or lookup_key in material_key:
-                        code = material_code
-                        break
+            code, match = best_match_value(
+                mat.material_name, code_map, context=f"{system} classification"
+            )
+            code = code or ""
 
             classified.append(
                 MaterialQuantity(
@@ -223,6 +223,8 @@ class MaterialTakeoff:
                     mass=mat.mass,
                     classification_code=code,
                     classification_system=system if code else "",
+                    classification_match=match.match_type.value,
+                    classification_confidence=match.confidence if code else None,
                 )
             )
 

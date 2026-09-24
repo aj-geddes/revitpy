@@ -89,11 +89,9 @@ class TestQuantityExtractor:
         items = extractor.extract([])
         assert items == []
 
-    def test_extract_element_without_quantities(self):
+    def test_extract_element_without_quantities(self, mock_element_cls):
         """Test extracting from element with no quantity attributes."""
-        from tests.extract.conftest import MockElement
-
-        bare_element = MockElement(id=99, name="Bare", category="Other")
+        bare_element = mock_element_cls(id=99, name="Bare", category="Other")
         extractor = QuantityExtractor()
         items = extractor.extract([bare_element], quantity_types=[QuantityType.AREA])
 

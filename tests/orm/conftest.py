@@ -148,29 +148,9 @@ def pytest_configure(config):
     )
 
 
-# Pre-existing test failures tracked for resolution.
-_KNOWN_FAILURES = {
-    "test_change_tracker.py::TestChangeTracker::test_error_handling",
-    "test_query_builder.py::TestQueryBuilder::test_first_or_default",
-    "test_query_builder.py::TestQueryBuilder::test_single",
-    "test_query_builder.py::TestQueryBuilder::test_any",
-    "test_query_builder.py::TestQueryBuilder::test_all",
-    "test_query_integration.py::TestQueryBuilderIntegration::test_query_with_projection",
-    "test_query_integration.py::TestPerformanceAndOptimization::test_async_streaming_query",
-}
-
-
 def pytest_collection_modifyitems(items):
-    """Mark known-failing tests and performance benchmarks as xfail."""
+    """Mark performance benchmarks as non-strict xfail (timing-dependent)."""
     for item in items:
-        # Mark known failures
-        for suffix in _KNOWN_FAILURES:
-            if item.nodeid.endswith(suffix):
-                item.add_marker(
-                    pytest.mark.xfail(reason="pre-existing bug", strict=False)
-                )
-                break
-
         # Mark performance benchmarks (timing-dependent, flaky in CI)
         if "performance_benchmarks" in item.nodeid:
             item.add_marker(pytest.mark.xfail(reason="timing-dependent", strict=False))

@@ -8,7 +8,7 @@ ensuring type safety, data integrity, and constraint validation throughout the O
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import (
     Any,
@@ -88,10 +88,11 @@ class BaseElement(BaseModel):
 
     # Metadata
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Creation timestamp"
+        default_factory=lambda: datetime.now(UTC), description="Creation timestamp"
     )
     modified_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Last modification timestamp"
+        default_factory=lambda: datetime.now(UTC),
+        description="Last modification timestamp",
     )
     version: int = Field(default=1, ge=1, description="Version number")
     is_valid: bool = Field(default=True, description="Validity flag")
@@ -122,7 +123,7 @@ class BaseElement(BaseModel):
         """Root validator for element-wide validation."""
         # Update modification timestamp when model changes
         if hasattr(self, "__dict__"):
-            object.__setattr__(self, "modified_at", datetime.utcnow())
+            object.__setattr__(self, "modified_at", datetime.now(UTC))
 
         return self
 
@@ -138,7 +139,7 @@ class BaseElement(BaseModel):
         """Mark element as modified."""
         if self.state == ElementState.UNCHANGED.value:  # type: ignore[comparison-overlap]
             self.state = ElementState.MODIFIED.value
-        self.modified_at = datetime.utcnow()
+        self.modified_at = datetime.now(UTC)
         self.version += 1
 
     def mark_clean(self) -> None:
@@ -641,13 +642,34 @@ class TypeSafetyMixin:
 
 # Factory functions for creating type-safe elements
 
+E = TypeVar("E", bound=BaseModel)
+
+
+def _validated(model: type[E], data: dict[str, Any]) -> E:
+    """Validate ``data`` as ``model``, raising the ORM's ValidationError.
+
+    ``validation_errors`` maps each failing field (dotted path) to messages.
+    """
+    try:
+        return model.model_validate(data)
+    except ValidationError as e:
+        errors: dict[str, list[str]] = {}
+        for error in e.errors():
+            field = ".".join(str(part) for part in error["loc"]) or "__root__"
+            errors.setdefault(field, []).append(error["msg"])
+        raise ORMValidationError(
+            f"Invalid {model.__name__}: {', '.join(errors)}",
+            validation_errors=errors,
+            cause=e,
+        ) from e
+
 
 def create_wall(
     id: ElementId, height: float, length: float, width: float, **kwargs
 ) -> WallElement:
     """Create a validated Wall element."""
     data = {"id": id, "height": height, "length": length, "width": width, **kwargs}
-    return WallElement.model_validate(data)
+    return _validated(WallElement, data)
 
 
 def create_room(id: ElementId, number: str, area: float, **kwargs) -> RoomElement:
@@ -660,13 +682,13 @@ def create_room(id: ElementId, number: str, area: float, **kwargs) -> RoomElemen
         "volume": kwargs.get("volume", 0.0),
         **kwargs,
     }
-    return RoomElement.model_validate(data)
+    return _validated(RoomElement, data)
 
 
 def create_door(id: ElementId, width: float, height: float, **kwargs) -> DoorElement:
     """Create a validated Door element."""
     data = {"id": id, "width": width, "height": height, **kwargs}
-    return DoorElement.model_validate(data)
+    return _validated(DoorElement, data)
 
 
 def create_window(
@@ -674,7 +696,7 @@ def create_window(
 ) -> WindowElement:
     """Create a validated Window element."""
     data = {"id": id, "width": width, "height": height, **kwargs}
-    return WindowElement.model_validate(data)
+    return _validated(WindowElement, data)
 
 
 # Global validator instance

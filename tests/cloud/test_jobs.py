@@ -7,6 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from revitpy.cloud.exceptions import JobExecutionError, JobSubmissionError
@@ -232,17 +233,15 @@ class TestJobManager:
             }
         )
 
-        mock_response = MagicMock()
-        mock_response.content = b'{"result": "ok"}'
-        mock_response.raise_for_status = MagicMock()
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, content=b'{"result": "ok"}')
 
-        with patch("revitpy.cloud.jobs.httpx.AsyncClient") as mock_cls:
-            mock_http = AsyncMock()
-            mock_http.get = AsyncMock(return_value=mock_response)
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=False)
-            mock_cls.return_value = mock_http
+        real_async_client = httpx.AsyncClient
 
+        def make_client(**kwargs):
+            return real_async_client(transport=httpx.MockTransport(handler), **kwargs)
+
+        with patch("revitpy.cloud.jobs.httpx.AsyncClient", side_effect=make_client):
             manager = JobManager(mock_aps_client)
             paths = await manager.download_results("job-1", tmp_output_dir)
 

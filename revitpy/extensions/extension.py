@@ -226,9 +226,10 @@ class Extension(ABC):
 
         Extension cannot be reactivated after disposal.
         """
-        # Default implementation
+        # Default implementation. The extension is registered in its own
+        # container, so exclude it to avoid recursing into this method.
         if self.container:
-            self.container.dispose()
+            await self.container.dispose_async(exclude=(self,))
 
         self._loaded_commands.clear()
         self._loaded_services.clear()

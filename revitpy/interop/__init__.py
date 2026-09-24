@@ -7,16 +7,20 @@ subscriptions.
 
 Key Features:
 - Bidirectional type mapping (RevitPy <-> Speckle)
-- Push / pull / bidirectional synchronisation
+- Push / pull / bidirectional synchronisation via the specklepy SDK
+  (Projects / Models / Versions)
 - Property-level diffing and conflict resolution
-- Real-time commit subscriptions via WebSocket
-- Optional specklepy enhancement (works without it)
+- Real-time version subscriptions via WebSocket
+
+Speckle network operations require the optional ``specklepy`` package
+(``pip install revitpy[interop]``).  Type mapping, diffing and merging
+work without it, and this package always imports.
 
 Usage:
     from revitpy.interop import push_to_speckle, pull_from_speckle
 
-    result = await push_to_speckle(elements, stream_id="abc123")
-    elements = await pull_from_speckle(stream_id="abc123")
+    result = await push_to_speckle(elements, project_id="abc123", model="main")
+    elements = await pull_from_speckle(project_id="abc123", model="main")
 """
 
 from ._compat import _HAS_SPECKLEPY
@@ -40,6 +44,7 @@ from .types import (
     MergeResult,
     SpeckleCommit,
     SpeckleConfig,
+    SpeckleVersion,
     SyncDirection,
     SyncMode,
     SyncResult,
@@ -62,6 +67,7 @@ __all__ = [
     # Dataclasses
     "SpeckleConfig",
     "SpeckleCommit",
+    "SpeckleVersion",
     "TypeMapping",
     "SyncResult",
     "DiffEntry",
@@ -92,21 +98,26 @@ def speckle_available() -> bool:
 
 async def push_to_speckle(
     elements: list,
-    stream_id: str,
-    branch: str = "main",
+    project_id: str | None = None,
+    model: str = "main",
     message: str = "",
     config: SpeckleConfig | None = None,
+    *,
+    stream_id: str | None = None,
+    branch: str | None = None,
 ) -> SyncResult:
-    """Push elements to a Speckle stream.
+    """Push elements to a Speckle model as a new version.
 
     Convenience wrapper around :class:`SpeckleSync.push`.
 
     Args:
         elements: List of RevitPy element objects.
-        stream_id: Target Speckle stream identifier.
-        branch: Target branch name.
-        message: Commit message.
+        project_id: Target Speckle project identifier.
+        model: Target model name or id.
+        message: Version message.
         config: Optional Speckle server configuration.
+        stream_id: Deprecated alias of ``project_id``.
+        branch: Deprecated alias of ``model``.
 
     Returns:
         A :class:`SyncResult` summarising the operation.
@@ -114,26 +125,40 @@ async def push_to_speckle(
     client = SpeckleClient(config=config)
     syncer = SpeckleSync(client=client)
     try:
-        return await syncer.push(elements, stream_id, branch=branch, message=message)
+        return await syncer.push(
+            elements,
+            project_id,
+            model=model,
+            message=message,
+            stream_id=stream_id,
+            branch=branch,
+        )
     finally:
         await client.close()
 
 
 async def pull_from_speckle(
-    stream_id: str,
-    branch: str = "main",
-    commit_id: str | None = None,
+    project_id: str | None = None,
+    model: str = "main",
+    version_id: str | None = None,
     config: SpeckleConfig | None = None,
+    *,
+    stream_id: str | None = None,
+    branch: str | None = None,
+    commit_id: str | None = None,
 ) -> list[dict]:
-    """Pull objects from a Speckle stream.
+    """Pull objects from a Speckle model version.
 
     Convenience wrapper around :class:`SpeckleSync.pull`.
 
     Args:
-        stream_id: Source Speckle stream identifier.
-        branch: Branch name.
-        commit_id: Optional specific commit to pull.
+        project_id: Source Speckle project identifier.
+        model: Model name or id.
+        version_id: Optional specific version to pull (latest if omitted).
         config: Optional Speckle server configuration.
+        stream_id: Deprecated alias of ``project_id``.
+        branch: Deprecated alias of ``model``.
+        commit_id: Deprecated alias of ``version_id``.
 
     Returns:
         List of RevitPy-compatible element dicts.
@@ -141,17 +166,27 @@ async def pull_from_speckle(
     client = SpeckleClient(config=config)
     syncer = SpeckleSync(client=client)
     try:
-        return await syncer.pull(stream_id, branch=branch, commit_id=commit_id)
+        return await syncer.pull(
+            project_id,
+            model=model,
+            version_id=version_id,
+            stream_id=stream_id,
+            branch=branch,
+            commit_id=commit_id,
+        )
     finally:
         await client.close()
 
 
 async def sync(
     elements: list,
-    stream_id: str,
+    project_id: str | None = None,
     mode: SyncMode = SyncMode.INCREMENTAL,
     direction: SyncDirection = SyncDirection.BIDIRECTIONAL,
     config: SpeckleConfig | None = None,
+    *,
+    model: str = "main",
+    stream_id: str | None = None,
 ) -> SyncResult:
     """Run a full sync operation.
 
@@ -159,10 +194,12 @@ async def sync(
 
     Args:
         elements: Local RevitPy elements.
-        stream_id: Speckle stream identifier.
+        project_id: Speckle project identifier.
         mode: Sync strategy.
         direction: Direction of the sync.
         config: Optional Speckle server configuration.
+        model: Model name or id.
+        stream_id: Deprecated alias of ``project_id``.
 
     Returns:
         A :class:`SyncResult` summarising the operation.
@@ -170,6 +207,13 @@ async def sync(
     client = SpeckleClient(config=config)
     syncer = SpeckleSync(client=client)
     try:
-        return await syncer.sync(elements, stream_id, mode=mode, direction=direction)
+        return await syncer.sync(
+            elements,
+            project_id,
+            mode=mode,
+            direction=direction,
+            model=model,
+            stream_id=stream_id,
+        )
     finally:
         await client.close()
