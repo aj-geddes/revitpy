@@ -93,66 +93,58 @@ description: "RevitPy is a modern Python framework for Autodesk Revit developmen
 
 ## Code Example
 
-Query Revit elements and modify them inside a transaction:
+Inside Revit (from the RevitPy add-in's **Run Script** button, or a pyRevit CPython script), connect to the live session. Then query typed elements and modify them inside a real Revit transaction:
 
 ```python
-from revitpy import RevitAPI
+from revitpy import FilterOperator, RevitAPI
+from revitpy.api import Wall
 
-# Connect to Revit
 api = RevitAPI()
-api.connect()
+api.connect(__revit__)  # Revit's UIApplication
 
-# Query walls using the fluent query builder
-walls = (api.query("Wall")
-         .where("Height", "greater_than", 10.0)
-         .order_by("Name")
-         .take(50)
-         .execute())
+# Query walls with the fluent query builder (lengths are in feet)
+walls = (
+    api.query(Wall)
+    .where("Unconnected Height", FilterOperator.GREATER_THAN, 10.0)
+    .order_by("Name")
+    .take(50)
+    .execute()
+)
 
-# Modify elements inside a transaction
-with api.transaction("Update Wall Comments") as txn:
+# Modify elements inside a transaction (rolls back on exception)
+with api.transaction("Update Wall Comments"):
     for wall in walls:
         wall.set_parameter_value("Comments", "Reviewed")
-```
-
-### Async Operations
-
-```python
-from revitpy import AsyncRevit
-
-async def process_elements():
-    revit = AsyncRevit()
-    await revit.initialize()
-
-    # Query elements asynchronously
-    elements = await revit.query_elements_async(
-        element_type="Window"
-    )
-
-    # Batch process with progress tracking
-    async with revit.progress_scope(len(elements), "Updating windows"):
-        await revit.update_elements_async(elements)
 ```
 
 ### Mock Testing
 
 ```python
-from revitpy import MockRevit
+from revitpy import RevitAPI
+from revitpy.api import Wall
+from revitpy.testing import MockRevit
 
 # Create a mock Revit environment -- no Revit installation needed
 mock = MockRevit()
 doc = mock.create_document("TestProject.rvt")
-
-# Create test elements with parameters
 wall = mock.create_element(
     name="Wall-01",
-    category="Walls",
-    element_type="Wall",
-    parameters={"Height": 12.0, "Comments": ""}
+    category="OST_Walls",
+    parameters={"Comments": ""},
 )
-
-assert wall.HasParameter("Height")
 assert doc.GetElementCount() == 1
+
+# The same RevitAPI code runs against the mock
+api = RevitAPI()
+api.connect(mock.application)
+assert api.query(Wall).count() == 1
+```
+
+### Command Line
+
+```bash
+revitpy doctor      # check Python, dependencies and optional integrations
+revitpy mcp-serve   # MCP server for AI agents (use the add-in for a live model)
 ```
 
 ## Documentation Tiers
@@ -176,7 +168,10 @@ assert doc.GetElementCount() == 1
 
 | Component | Module | Purpose |
 |-----------|--------|---------|
-| **Core API** | `revitpy.api` | RevitAPI wrapper, Element, Transaction, QueryBuilder, exceptions |
+| **Core API** | `revitpy.api` | RevitAPI wrapper, Element and typed Wall/Floor/Door/Window/Room/Level, Transaction, QueryBuilder, exceptions |
+| **Live Revit** | `revitpy.revit` | pythonnet adapters for `Autodesk.Revit.DB`, `call_on_revit_thread`, MCP server inside Revit |
+| **Revit add-in** | `src/RevitPy.Addin` | C# host for CPython in Revit 2024–2027 (ribbon: Run Script, Rerun, MCP Server, About) |
+| **CLI** | `revitpy.cli` | `revitpy version`, `doctor`, `mcp-serve` |
 | **ORM** | `revitpy.orm` | RevitContext, change tracking, caching, relationships, validation models |
 | **Events** | `revitpy.events` | EventManager, event types, decorator-based handlers |
 | **Extensions** | `revitpy.extensions` | Extension lifecycle, ExtensionManager, decorator registration |

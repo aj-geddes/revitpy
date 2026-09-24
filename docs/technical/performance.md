@@ -5,11 +5,9 @@ description: RevitPy performance infrastructure covering optimization strategies
 doc_tier: technical
 ---
 
-# Performance
-
 This document covers RevitPy's performance infrastructure: targets, optimisation strategies, the adaptive caching layer, memory management, the benchmark framework, and thread safety patterns.
 
-The primary source files are `revitpy/performance/optimizer.py` and `revitpy/performance/benchmarks.py`.
+The primary source files are `revitpy/performance/optimizer.py` and `revitpy/performance/benchmarks.py`. `revitpy.performance` exports `PerformanceOptimizer`, `OptimizationConfig`, `AdaptiveCache`, `ObjectPool`, `BenchmarkSuite`, `BenchmarkRunner`, `BenchmarkConfiguration`, `MemoryManager`, `MemoryLeakDetector`, `MetricsCollector`, `PerformanceMonitor` and `AlertingSystem`. `psutil` is optional (it is in the `dev` extra): without it the package still imports, and process-memory metrics report 0.
 
 ## Performance Targets
 
@@ -78,7 +76,7 @@ RevitPy has two independent caching layers that serve different purposes.
 
 ### ORM Cache (revitpy/orm/cache.py)
 
-Used by `RevitContext`, `QueryBuilder`, and `RelationshipManager`. See the [Data Model](data-model.md#cache-system) document for full details.
+Used by `RevitContext`, `QueryBuilder`, and `RelationshipManager`. See the [Data Model]({{ '/technical/data-model/' | relative_url }}#cache-system) document for full details.
 
 Key characteristics:
 - **Backend**: `MemoryCache` using `OrderedDict` for LRU ordering.
@@ -248,14 +246,6 @@ The suite includes several automated analyses:
 **Memory Leak Detection**: Monitors memory growth across iterations. If more than `MEMORY_LEAK_GROWTH_RATIO` (70%) of measurements show growth, a potential leak is flagged. Forced GC runs every `GC_TRIGGER_INTERVAL` (50) operations.
 
 **Scalability Analysis** (when numpy is available): Performs linear regression on element count vs. latency. If R-squared exceeds `LINEAR_SCALING_R_SQUARED_THRESHOLD` (0.8) and slope is below `MAX_LATENCY_SLOPE_PER_ELEMENT` (0.1 ms/element), scaling is assessed as "linear." Without numpy, a simpler ratio-based check flags scaling issues when the average factor exceeds `MAX_SCALING_FACTOR_THRESHOLD` (2.0).
-
-### Profiling Integration
-
-`PerformanceOptimizer.profile_operation()` wraps any callable with:
-
-1. `cProfile.Profile` for call-level timing.
-2. `tracemalloc` snapshots before/after for memory delta analysis.
-3. Returns detailed profile data including top 20 functions by cumulative time and top 10 memory allocations by line.
 
 ### Latency Tracking
 

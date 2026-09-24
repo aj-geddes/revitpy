@@ -16,33 +16,35 @@ The primary interface for interacting with Autodesk Revit.
 
 ```python
 class RevitAPI:
-    def __init__(self, application: IRevitApplication | None = None) -> None
+    def __init__(self, revit_application: IRevitApplication | None = None) -> None
 ```
+
+A `RevitAPI` must be connected before use: `elements`, `query()`, `transaction()`, `transaction_group()`, `get_element_by_id()` and `delete_elements()` raise `ConnectionError("No active document")` when there is no connection or no active document.
 
 **Properties:**
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `is_connected` | `bool` | Whether the API is connected to Revit |
-| `active_document` | `RevitDocumentProvider \| None` | The currently active document provider |
-| `elements` | `ElementSet` | Access to elements in the active document |
+| `active_document` | `RevitDocumentProvider \| None` | The active document provider; `None` when not connected |
+| `elements` | `QueryBuilder[Element]` | Query builder over all elements of the active document |
 
 **Methods:**
 
 ```python
-def connect(self) -> None
+def connect(self, revit_application: IRevitApplication | None = None) -> None
 ```
-Connect to the Revit application.
+Connect to a Revit application. Objects that do not already implement `IRevitApplication` (for example the `UIApplication` / `Application` exposed as `__revit__` by the RevitPy host add-in or pyRevit) are wrapped automatically with `revitpy.revit.adapt_application`. `revitpy.testing.MockApplication` is accepted as-is. Raises `ConnectionError` if no application is given or it cannot be reached.
 
 ```python
 def disconnect(self) -> None
 ```
-Disconnect from the Revit application.
+Disconnect from the Revit application and clear cached documents.
 
 ```python
 def open_document(self, file_path: str) -> RevitDocumentProvider
 ```
-Open a Revit document from a file path.
+Open a Revit document from a file path and make it the active document.
 
 ```python
 def create_document(self, template_path: str | None = None) -> RevitDocumentProvider
@@ -52,47 +54,82 @@ Create a new Revit document, optionally from a template.
 ```python
 def get_document_info(self, provider: RevitDocumentProvider | None = None) -> DocumentInfo
 ```
-Get information about a document. Uses active document if provider is not specified.
+Get a `DocumentInfo(title, path, is_modified, is_read_only, version)` for a document. Uses the active document if `provider` is not specified.
 
 ```python
-def save_document(self, provider: RevitDocumentProvider | None = None) -> None
+def save_document(self, provider: RevitDocumentProvider | None = None) -> bool
 ```
-Save a document. Uses active document if provider is not specified.
+Save a document. Uses the active document if `provider` is not specified.
 
 ```python
-def close_document(self, provider: RevitDocumentProvider | None = None, save_changes: bool = True) -> None
+def close_document(self, provider: RevitDocumentProvider | None = None, save_changes: bool = True) -> bool
 ```
-Close a document. Uses active document if provider is not specified.
+Close a document. Uses the active document if `provider` is not specified.
 
 ```python
-def query(self, element_type: str) -> "QueryBuilder"
+def query(self, element_type: type[T] | None = None) -> QueryBuilder[T]
 ```
-Create a query builder for the given element type.
+Create a query builder. With an `Element` subclass such as `Wall`, only elements of that type are returned (collected by category when the document supports `GetElementsByCategory`).
 
 ```python
-def transaction(self, name: str, **kwargs) -> Transaction
+def transaction(self, name: str | None = None, **kwargs) -> Transaction
 ```
-Create a new transaction. Can be used as a context manager.
+Create a transaction (keyword arguments become `TransactionOptions` fields). Use it as a context manager.
 
 ```python
-def transaction_group(self, name: str) -> TransactionGroup
+def transaction_group(self, name: str | None = None) -> TransactionGroup
 ```
-Create a new transaction group.
+Create a transaction group.
 
 ```python
-def get_element_by_id(self, element_id: int | ElementId) -> Element | None
+def get_element_by_id(self, element_id: Any) -> Element | None
 ```
-Get an element by its ID.
+Get an element by its ID (an `int` or a Revit/RevitPy element id). Returns `None` if it does not exist.
 
 ```python
-def delete_elements(self, elements: list[Element | int | ElementId]) -> None
+def delete_elements(self, elements: Element | list[Element] | ElementSet) -> None
 ```
-Delete elements from the document.
+Delete elements from the document. Must run inside a transaction on a live model.
 
 ```python
 def refresh_cache(self) -> None
 ```
 Refresh the internal element cache.
+
+`RevitAPI` is also a context manager; leaving the `with` block calls `disconnect()`.
+
+```python
+from revitpy import RevitAPI
+from revitpy.api import Wall
+
+api = RevitAPI()
+api.connect(__revit__)  # inside Revit (host add-in or pyRevit CPython)
+
+walls = api.query(Wall).execute()
+with api.transaction("Mark walls"):
+    for wall in walls:
+        wall.set_parameter_value("Comments", "checked")
+```
+
+---
+
+### RevitDocumentProvider
+
+Bridges RevitPy to a document object implementing `IRevitDocument` (a `revitpy.revit.RevitDocumentAdapter` or a `MockDocument`). Returned by `RevitAPI.active_document`, `open_document()` and `create_document()`; it implements both `IElementProvider` and `ITransactionProvider`.
+
+**Module:** `revitpy.api.wrapper`
+
+| Member | Description |
+|--------|-------------|
+| `document` | The underlying document object |
+| `supports_transactions` | `True` if the document has a `StartTransaction` method |
+| `get_all_elements() -> list[Element]` | All elements, wrapped with `Element.wrap` |
+| `get_elements_of_type(element_type) -> list[Element]` | Elements of a type; uses `GetElementsByCategory` for types declaring `revit_categories` |
+| `get_element_by_id(element_id) -> Element \| None` | Cached lookup; raises `ElementNotFoundError` on API failure |
+| `delete_elements(element_ids) -> None` | Delete by ID |
+| `start_transaction(name)` / `commit_transaction(t)` / `rollback_transaction(t)` / `is_in_transaction()` | Transaction provider methods |
+
+`start_transaction()` raises `TransactionError` when the document has no `StartTransaction` method; changes are never applied non-atomically. With a live document, a transaction opened while another is open becomes a Revit `SubTransaction`.
 
 ---
 
@@ -104,49 +141,78 @@ Represents a Revit element with parameter access and change tracking.
 
 ```python
 class Element:
-    def __init__(self, revit_element, provider: RevitDocumentProvider | None = None) -> None
+    revit_categories: ClassVar[tuple[str, ...]] = ()
+
+    def __init__(self, revit_element: IRevitElement) -> None
+
+    @classmethod
+    def wrap(cls, revit_element: IRevitElement) -> Element
 ```
+
+`Element.wrap()` returns an instance of the most specific registered subclass for the element's category (see typed elements below), falling back to `cls`.
 
 **Properties:**
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `id` | `ElementId` | The element's unique identifier |
-| `name` | `str` | The element's name |
-| `is_dirty` | `bool` | Whether the element has unsaved changes |
-| `changes` | `dict[str, Any]` | Dictionary of pending changes |
+| `category` | `str \| None` | Category name (e.g. `"OST_Walls"` for live elements) |
+| `name` | `str` | The element's name (settable) |
+| `is_dirty` | `bool` | Whether tracked changes exist |
+| `changes` | `dict[str, Any]` | Tracked changes as `{param: {"old": ..., "new": ...}}` |
+
+Property accessors are also defined for common parameters: `family_name` (`Family`), `type_name` (`Type`), `level` (`Level`), `comments` (`Comments`), `mark` (`Mark`).
 
 **Methods:**
 
 ```python
 def get_parameter_value(self, parameter_name: str, use_cache: bool = True) -> Any
 ```
-Get the value of a parameter by name.
+Get the value of a parameter by name. Raises `ElementNotFoundError` if the parameter does not exist.
 
 ```python
 def set_parameter_value(self, parameter_name: str, value: Any, track_changes: bool = True) -> None
 ```
-Set the value of a parameter.
+Set a parameter. The write is applied to the Revit element **immediately**, so on a live model it must run inside an open transaction; it becomes permanent when that transaction commits and is reverted if it rolls back. Raises `PermissionError` for read-only parameters and `ValidationError` for rejected values.
 
 ```python
-def get_all_parameters(self, refresh_cache: bool = False) -> dict[str, Any]
+def get_all_parameters(self, refresh_cache: bool = False) -> dict[str, ParameterValue]
 ```
 Get all parameters as a dictionary.
 
 ```python
 def save_changes(self) -> None
 ```
-Save all pending changes to the element.
+Accept tracked changes. Values were already written by `set_parameter_value`; this only clears the local change log.
 
 ```python
 def discard_changes(self) -> None
 ```
-Discard all pending changes.
+Revert tracked changes by writing the previous values back (must be called inside a transaction, like any write).
 
 ```python
 def refresh(self) -> None
 ```
-Refresh element data from Revit.
+Clear cached parameter values and the change log.
+
+Lengths, areas and volumes read from a live model are in Revit internal units (feet, square feet, cubic feet).
+
+---
+
+### Typed Elements
+
+**Module:** `revitpy.api.element` (exported from `revitpy.api`)
+
+| Class | `revit_categories` |
+|-------|--------------------|
+| `Wall` | `("OST_Walls", "Walls")` |
+| `Floor` | `("OST_Floors", "Floors")` |
+| `Door` | `("OST_Doors", "Doors")` |
+| `Window` | `("OST_Windows", "Windows")` |
+| `Room` | `("OST_Rooms", "Rooms")` |
+| `Level` | `("OST_Levels", "Levels")` |
+
+Declaring `revit_categories` on your own `Element` subclass registers it for those categories, so `Element.wrap()` and `api.query(MyType)` use it.
 
 ---
 
@@ -177,7 +243,7 @@ Project elements using a selector function.
 ```python
 def first(self, predicate: Callable[[T], bool] | None = None) -> T
 ```
-Return the first element, optionally matching a predicate. Raises if empty.
+Return the first element, optionally matching a predicate. Raises `ElementNotFoundError` if empty.
 
 ```python
 def first_or_default(self, predicate: Callable[[T], bool] | None = None, default: T | None = None) -> T | None
@@ -221,10 +287,12 @@ Group elements by a key selector.
 **Module:** `revitpy.api.element`
 
 ```python
-@dataclass
+@dataclass(frozen=True)
 class ElementId:
     value: int
 ```
+
+Supports `str()` and `int()`.
 
 ---
 
@@ -232,20 +300,31 @@ class ElementId:
 
 **Module:** `revitpy.api.element`
 
-A Pydantic model representing a parameter value with metadata.
+```python
+class ParameterValue(BaseModel):
+    name: str
+    value: Any
+    type_name: str
+    is_read_only: bool = False
+    storage_type: str = "String"
+```
+
+`value` is coerced to `float` / `int` when `storage_type` is `"Double"` / `"Integer"`.
 
 ---
 
 ### Transaction
 
-Manages Revit transactions with context manager support.
+Wraps a Revit transaction with context manager support. On a live model, `start()` opens a real `Autodesk.Revit.DB.Transaction` (or a `SubTransaction` when one is already open) through the document's `StartTransaction`; an exception inside the `with` block rolls it back.
 
 **Module:** `revitpy.api.transaction`
 
 ```python
 class Transaction:
-    def __init__(self, provider, name: str = "Transaction", options: TransactionOptions | None = None) -> None
+    def __init__(self, provider: ITransactionProvider, options: TransactionOptions | None = None) -> None
 ```
+
+Usually created with `RevitAPI.transaction(name, **options)`. Supports `with` and `async with`.
 
 **Properties:**
 
@@ -254,19 +333,19 @@ class Transaction:
 | `name` | `str` | Transaction name |
 | `status` | `TransactionStatus` | Current status |
 | `is_active` | `bool` | Whether the transaction is currently active |
-| `duration` | `float \| None` | Duration in seconds (after commit/rollback) |
+| `duration` | `float \| None` | Duration in seconds |
 
 **Methods:**
 
 ```python
 def start(self) -> None
 ```
-Start the transaction.
+Start the transaction. Raises `TransactionError` if it was already started or the provider cannot open one.
 
 ```python
 def commit(self) -> None
 ```
-Commit the transaction.
+Run queued operations, then commit. Rolls back and raises `TransactionError` if an operation or the commit fails.
 
 ```python
 def rollback(self) -> None
@@ -276,7 +355,7 @@ Roll back the transaction.
 ```python
 def add_operation(self, operation: Callable) -> None
 ```
-Add an operation to the transaction.
+Queue an operation to run at commit time (transaction must be active).
 
 ```python
 def add_rollback_handler(self, handler: Callable) -> None
@@ -286,19 +365,30 @@ Add a handler called on rollback.
 ```python
 def add_commit_handler(self, handler: Callable) -> None
 ```
-Add a handler called on commit.
+Add a handler called after a successful commit.
+
+**Helper functions** (same module):
+
+```python
+def transaction(provider, name: str | None = None, auto_commit: bool = True, retry_count: int = 0, retry_delay: float = 1.0) -> Transaction
+def transaction_scope(provider, name: str | None = None, **kwargs)        # context manager
+async def async_transaction_scope(provider, name: str | None = None, **kwargs)  # async context manager
+def retry_transaction(provider, operation: Callable[[], Any], max_retries: int = 3, delay: float = 1.0, name: str | None = None) -> Any
+```
+
+`retry_transaction()` runs `operation` in a new transaction and retries on failure.
 
 ---
 
 ### TransactionGroup
 
-Groups multiple transactions for batch execution.
+Groups multiple RevitPy transactions that are started, committed or rolled back together. This is not a Revit `TransactionGroup`: its transactions are started in order, so on a live model the second and later ones become `SubTransaction`s of the first.
 
 **Module:** `revitpy.api.transaction`
 
 ```python
 class TransactionGroup:
-    def __init__(self, provider, name: str = "TransactionGroup") -> None
+    def __init__(self, provider: ITransactionProvider, name: str | None = None) -> None
 ```
 
 **Methods:**
@@ -306,7 +396,7 @@ class TransactionGroup:
 ```python
 def add_transaction(self, options: TransactionOptions | None = None) -> Transaction
 ```
-Add a transaction to the group.
+Add a transaction to the group (defaults to `auto_commit=False`). Only allowed before the group starts.
 
 ```python
 def start_all(self) -> None
@@ -347,45 +437,49 @@ class TransactionStatus(Enum):
 ```python
 @dataclass
 class TransactionOptions:
-    name: str = "Transaction"
-    description: str = ""
-    auto_commit: bool = False
+    name: str | None = None          # defaults to "Transaction_<8 hex chars>"
+    description: str | None = None
+    auto_commit: bool = True
     timeout_seconds: float | None = None
     retry_count: int = 0
     retry_delay: float = 1.0
     suppress_warnings: bool = False
 ```
 
+`Transaction` itself only uses `name` and `auto_commit`. `timeout_seconds`, `retry_count`, `retry_delay` and `suppress_warnings` are stored but not enforced; use `retry_transaction()` for retries.
+
 ---
 
 ### QueryBuilder[T] (Core API)
 
-Fluent query builder for filtering, sorting, and paginating Revit elements.
+Fluent query builder for filtering, sorting, and paginating Revit elements. Property names are parameter names (or pseudo-parameters such as `Name`, `Category`, `Type`, `Family`, `Level` on live elements).
 
 **Module:** `revitpy.api.query`
 
 ```python
 class QueryBuilder(Generic[T]):
-    def __init__(self, element_type: str, provider=None) -> None
+    def __init__(self, provider: IElementProvider, element_type: type[T] | None = None) -> None
 ```
+
+Created with `api.elements`, `api.query(...)`, or the `Query` factory (`Query.from_provider(provider)`, `Query.from_elements(elements)`, `Query.of_type(provider, element_type)`).
 
 **Filter Methods:**
 
 ```python
-def where(self, property_name: str, operator: str | FilterOperator, value: Any, case_sensitive: bool = True) -> "QueryBuilder[T]"
+def where(self, property_name: str, operator: FilterOperator, value: Any = None, case_sensitive: bool = True) -> "QueryBuilder[T]"
 ```
 Add a filter condition.
 
 ```python
-def equals(self, property_name: str, value: Any) -> "QueryBuilder[T]"
-def not_equals(self, property_name: str, value: Any) -> "QueryBuilder[T]"
+def equals(self, property_name: str, value: Any, case_sensitive: bool = True) -> "QueryBuilder[T]"
+def not_equals(self, property_name: str, value: Any, case_sensitive: bool = True) -> "QueryBuilder[T]"
 def contains(self, property_name: str, value: str, case_sensitive: bool = True) -> "QueryBuilder[T]"
-def starts_with(self, property_name: str, value: str) -> "QueryBuilder[T]"
-def ends_with(self, property_name: str, value: str) -> "QueryBuilder[T]"
+def starts_with(self, property_name: str, value: str, case_sensitive: bool = True) -> "QueryBuilder[T]"
+def ends_with(self, property_name: str, value: str, case_sensitive: bool = True) -> "QueryBuilder[T]"
 def in_values(self, property_name: str, values: list[Any]) -> "QueryBuilder[T]"
 def is_null(self, property_name: str) -> "QueryBuilder[T]"
 def is_not_null(self, property_name: str) -> "QueryBuilder[T]"
-def regex(self, property_name: str, pattern: str) -> "QueryBuilder[T]"
+def regex(self, property_name: str, pattern: str, case_sensitive: bool = True) -> "QueryBuilder[T]"
 ```
 Convenience filter methods for common operations.
 
@@ -402,13 +496,13 @@ def order_by_descending(self, property_name: str) -> "QueryBuilder[T]"
 ```python
 def skip(self, count: int) -> "QueryBuilder[T]"
 def take(self, count: int) -> "QueryBuilder[T]"
-def distinct(self, property_name: str) -> "QueryBuilder[T]"
+def distinct(self, property_name: str | None = None) -> "QueryBuilder[T]"
 ```
 
 **Terminal Methods:**
 
 ```python
-def execute(self) -> list[T]
+def execute(self) -> ElementSet[T]
 def count(self) -> int
 def any(self) -> bool
 def first(self) -> T
@@ -421,24 +515,24 @@ def to_list(self) -> list[T]
 
 ### FilterOperator
 
-**Module:** `revitpy.api.query`
+**Module:** `revitpy.api.query` (also exported from `revitpy`)
 
 ```python
 class FilterOperator(Enum):
     EQUALS = "equals"
     NOT_EQUALS = "not_equals"
     GREATER_THAN = "greater_than"
-    GREATER_THAN_OR_EQUAL = "greater_than_or_equal"
     LESS_THAN = "less_than"
-    LESS_THAN_OR_EQUAL = "less_than_or_equal"
+    GREATER_EQUAL = "greater_equal"
+    LESS_EQUAL = "less_equal"
     CONTAINS = "contains"
-    NOT_CONTAINS = "not_contains"
     STARTS_WITH = "starts_with"
     ENDS_WITH = "ends_with"
     IN = "in"
     NOT_IN = "not_in"
     IS_NULL = "is_null"
     IS_NOT_NULL = "is_not_null"
+    REGEX = "regex"
 ```
 
 ---
@@ -449,8 +543,8 @@ class FilterOperator(Enum):
 
 ```python
 class SortDirection(Enum):
-    ASCENDING = "ascending"
-    DESCENDING = "descending"
+    ASCENDING = "asc"
+    DESCENDING = "desc"
 ```
 
 ---
@@ -484,94 +578,278 @@ class ConnectionError(RevitAPIError):
 
 ---
 
+## Live Revit (`revitpy.revit`)
+
+Connects RevitPy to a running Revit session through pythonnet. `RevitAPI.connect(__revit__)` uses these adapters automatically; you rarely need them directly.
+
+All adapters must be used on Revit's main API thread (a ribbon script, an external command, a Revit event handler, or an `ExternalEvent` callback). Lengths, areas and volumes are Revit internal units (feet). `Autodesk.Revit.DB` is loaded lazily, so the module imports on any platform.
+
+### revitpy.revit.adapters
+
+**Module:** `revitpy.revit.adapters` (all names re-exported from `revitpy.revit`)
+
+```python
+class RevitApiUnavailableError(ConnectionError): ...
+
+def load_revit_api() -> Any
+```
+Load and cache the `Autodesk.Revit.DB` namespace (`clr.AddReference("RevitAPI")`). Raises `RevitApiUnavailableError` outside Revit.
+
+```python
+def adapt_application(app: Any, db: Any | None = None) -> RevitApplicationAdapter
+```
+Wrap a Revit `UIApplication` or `Application`. Returns `app` unchanged if it is already an adapter; raises `ConnectionError` if the object does not look like a Revit application. `db` injects a stand-in for `Autodesk.Revit.DB` (used by tests).
+
+#### RevitApplicationAdapter
+
+```python
+class RevitApplicationAdapter:
+    def __init__(self, app: Any, db: Any | None = None) -> None
+```
+
+| Member | Description |
+|--------|-------------|
+| `ui_application` / `application` | The wrapped `UIApplication` (or `None`) and `Application` |
+| `ActiveDocument` | `RevitDocumentAdapter` for the active UI document, or `None` (always `None` when wrapping a bare `Application`) |
+| `OpenDocumentFile(file_path)` | Open a document |
+| `CreateDocument(template_path=None)` | New project document (default project template when omitted) |
+| `GetOpenDocuments()` | Adapters for all open documents |
+
+#### RevitDocumentAdapter
+
+```python
+class RevitDocumentAdapter:
+    def __init__(self, document: Any, db: Any | None = None) -> None
+```
+
+| Member | Description |
+|--------|-------------|
+| `Title`, `PathName`, `IsModified`, `IsReadOnly` | Document properties |
+| `Version` | Revit version number (e.g. `"2025"`), or `None` |
+| `GetElements(filter_criteria=None)` | All non-type elements, optionally filtered by a predicate |
+| `GetElement(element_id)` | Element by `int`, RevitPy `ElementId` or `DB.ElementId`; `None` if absent |
+| `GetElementsByCategory(category)` | Non-type elements of a built-in category (`"OST_Walls"`) or display name (`"Walls"`, locale dependent); `[]` for unknown categories |
+| `Delete(element_ids)` | Delete elements (inside a transaction) |
+| `Save()` / `Close(save_changes=True)` | Save / close the document |
+| `StartTransaction(name)` | Start a `DB.Transaction`, or a `DB.SubTransaction` if the document is already modifiable. Returns a started handle with `Commit()` / `RollBack()`. Raises `TransactionError` if Revit refuses to start it |
+
+#### RevitElementAdapter
+
+```python
+class RevitElementAdapter:
+    def __init__(self, element: Any, db: Any | None = None) -> None
+```
+
+| Member | Description |
+|--------|-------------|
+| `Id` | Raw `DB.ElementId` |
+| `Name` | Element name (`""` if Revit refuses) |
+| `Category` | Built-in category name (`"OST_Walls"`), else the display name, else `None` |
+| `GetParameterValue(name)` | Parameter as a plain Python value by storage type: `String` → `str`, `Double` → `float` (internal units), `Integer` → `int`, `ElementId` → `int`. Also supports pseudo-parameters `Name`, `Category`, `Type`, `Family`, `Level`. Raises `KeyError` if missing |
+| `SetParameterValue(name, value)` | Convert `value` to the parameter's storage type and set it (inside a transaction). Setting `Name` without a `Name` parameter sets `element.Name`. Raises `KeyError` (missing), `PermissionError` (read-only), `ValueError` (Revit rejected the value) |
+| `GetAllParameters()` | `{name: value}` for all parameters |
+
+### revitpy.revit.host
+
+Helpers for Python running inside the RevitPy host add-in (`src/RevitPy.Addin`). The add-in initializes CPython on Revit's main thread, so `threading.main_thread()` is Revit's API thread; ribbon scripts run there and may call the Revit API directly. Other threads must go through `call_on_revit_thread`, which uses an `ExternalEvent` dispatcher that the add-in exposes as `builtins.__revitpy_dispatcher__`.
+
+**Module:** `revitpy.revit.host`
+
+```python
+class RevitHostUnavailableError(RuntimeError): ...
+class RevitThreadError(RuntimeError): ...
+
+def get_dispatcher() -> Any | None
+def in_revit_host() -> bool
+def set_ui_application(ui_application: Any) -> None
+```
+`get_dispatcher()` returns the add-in's dispatcher or `None`; `in_revit_host()` is `True` inside the add-in. `set_ui_application()` records the `UIApplication` used when `call_on_revit_thread` is called on the main thread.
+
+```python
+def call_on_revit_thread(func: Callable[[Any], T], *, timeout: float | None = 60.0, poll_interval: float = 0.005) -> T
+```
+Run `func(uiapp)` on Revit's main thread and return its result. On the main thread it runs immediately. Raises `RevitHostUnavailableError` outside the host (or on the main thread before `set_ui_application`), `TimeoutError` if Revit did not run the request in time (for example while a modal dialog is open), and `RevitThreadError` (carrying the traceback) if `func` raised.
+
+```python
+import threading
+from revitpy.revit.host import call_on_revit_thread
+
+def worker():
+    title = call_on_revit_thread(lambda uiapp: uiapp.ActiveUIDocument.Document.Title)
+    print(title)
+
+threading.Thread(target=worker).start()
+```
+
+```python
+class MainThreadRevitTools(RevitTools): ...
+```
+`RevitTools` whose `execute_tool()` always runs on Revit's main thread (original exception types are re-raised).
+
+```python
+def revit_confirmation(tool: ToolDefinition, arguments: dict[str, Any]) -> bool
+```
+A `SafetyGuard` confirmation callback that shows a Yes/No Revit `TaskDialog` (default No, 300 s timeout). Any failure denies the call.
+
+```python
+def start_mcp_server(ui_application: Any, *, host: str | None = None, port: int | None = None, token: str | None = None, startup_timeout: float = 10.0) -> str
+def stop_mcp_server(timeout: float = 10.0) -> str
+def toggle_mcp_server(ui_application: Any) -> str
+def mcp_server_status() -> str
+def is_mcp_server_running() -> bool
+```
+Run an `McpServer` for this Revit session on a background thread. `start_mcp_server` must be called on the main thread; it connects a `RevitAPI` to `ui_application`, wraps it in `MainThreadRevitTools`, requires a bearer token and uses a `SafetyGuard` with `revit_confirmation`, so model-changing tools need approval in Revit. Defaults come from `REVITPY_MCP_HOST` (`127.0.0.1`), `REVITPY_MCP_PORT` (`8765`) and `REVITPY_MCP_TOKEN` (a random token when unset). The functions return a status message containing the `ws://` URL and token. The add-in's **MCP Server** ribbon button calls `toggle_mcp_server(__revit__)`.
+
+---
+
+## Command-line interface (`revitpy.cli`)
+
+Installed as the `revitpy` console script.
+
+| Command | Description |
+|---------|-------------|
+| `revitpy --version` / `revitpy version` | Print the installed RevitPy version |
+| `revitpy doctor [--json]` | Check the Python version, platform, core and optional dependencies (pythonnet, ifcopenshell, specklepy, defusedxml) and whether the Revit API can be loaded. Exits with status 1 if a core dependency is missing |
+| `revitpy mcp-serve [--host 127.0.0.1] [--port 8765] [--token TOKEN]` | Run the MCP server without a live Revit connection (`--token` falls back to `REVITPY_MCP_TOKEN`). Tools that need a document report that RevitPy is not connected; use the add-in's MCP Server button (or `start_mcp_server`) to work on a live model |
+
+`revitpy.cli.collect_checks()` returns the `doctor` checks as a list of `{"name", "status", "detail"}` dicts (`status` is `"ok"`, `"warn"` or `"missing"`).
+
+---
+
 ## ORM Layer (`revitpy.orm`)
 
 ### RevitContext
 
 The primary ORM context for querying and managing Revit elements with change tracking, caching, and relationship support.
 
-**Module:** `revitpy.orm.context`
+**Module:** `revitpy.orm.context` (also `from revitpy.orm import RevitContext, create_context`)
 
 ```python
 class RevitContext:
     def __init__(
         self,
-        provider=None,
+        provider: IElementProvider,
         *,
         config: ContextConfiguration | None = None,
         cache_manager: CacheManager | None = None,
         change_tracker: ChangeTracker | None = None,
         relationship_manager: RelationshipManager | None = None,
-        unit_of_work=None,
+        unit_of_work: IUnitOfWork | None = None,
     ) -> None
 ```
 
-Can be used as a context manager (`with RevitContext() as ctx:`).
+`provider` is any `IElementProvider`, typically `api.active_document` of a connected `RevitAPI`. Can be used as a context manager (`with RevitContext(provider) as ctx:`); the context is disposed on exit.
+
+**Properties:** `is_disposed`, `has_changes`, `change_count`, `cache_statistics`.
 
 **Query Methods:**
 
 ```python
-def query(self, element_type: type[T]) -> "QueryBuilder[T]"
+def query(self, element_type: type[T] | None = None) -> QueryBuilder[T]
+def all(self, element_type: type[T]) -> ElementSet[T]
+def where(self, element_type: type[T], predicate: Callable[[T], bool]) -> ElementSet[T]
+def first(self, element_type: type[T], predicate: Callable[[T], bool] | None = None) -> T
+def first_or_default(self, element_type: type[T], predicate: Callable[[T], bool] | None = None, default: T | None = None) -> T | None
+def single(self, element_type: type[T], predicate: Callable[[T], bool] | None = None) -> T
+def count(self, element_type: type[T], predicate: Callable[[T], bool] | None = None) -> int
+def any(self, element_type: type[T], predicate: Callable[[T], bool] | None = None) -> bool
+def get_by_id(self, element_type: type[T], element_id: ElementId) -> T | None
 ```
-Create a query builder for the given element type.
-
-```python
-def all(self, element_type: type[T]) -> list[T]
-```
-Get all elements of a type.
-
-```python
-def where(self, element_type: type[T], predicate: Callable[[T], bool]) -> list[T]
-```
-Get elements matching a predicate.
-
-```python
-def first(self) -> T
-def first_or_default(self) -> T | None
-def single(self) -> T
-def count(self) -> int
-def any(self) -> bool
-```
-
-```python
-def get_by_id(self, element_type: type[T], element_id: int) -> T | None
-```
-Get a specific element by type and ID.
 
 **Change Tracking Methods:**
 
 ```python
-def attach(self, entity) -> None
-def detach(self, entity) -> None
-def add(self, entity) -> None
-def remove(self, entity) -> None
-def get_entity_state(self, entity) -> str
-def accept_changes(self) -> None
-def reject_changes(self) -> None
-def save_changes(self) -> None
+def attach(self, entity: T, entity_id: ElementId | None = None) -> None
+def detach(self, entity: T) -> None
+def add(self, entity: T) -> None
+def remove(self, entity: T) -> None
+def update(self, entity: T, **changes: Any) -> None  # set + track as modified
+def get_entity_state(self, entity: T) -> ElementState
+def accept_changes(self, entity: T | None = None) -> None
+def reject_changes(self, entity: T | None = None) -> None
+def save_changes(self) -> int
 ```
+
+`save_changes()` registers every tracked change with the configured `IUnitOfWork` (`register_new` / `register_dirty` / `register_removed`), calls `commit()`, then accepts the changes and returns their count. On failure it calls the unit of work's `rollback()` and raises `ORMException`. **Without a unit of work, changes are only accepted in the tracker; nothing is written to Revit.** (Writes made through `Element.set_parameter_value` already go to Revit directly inside a `RevitAPI.transaction`.)
 
 **Relationship Methods:**
 
 ```python
-def load_relationship(self, entity, relationship_name: str) -> Any
-def configure_relationship(self, relationship_config) -> None
+def load_relationship(self, entity: T, relationship_name: str, strategy: LoadStrategy = LoadStrategy.LAZY) -> Any
+def configure_relationship(self, source_type: type[T], relationship_name: str, target_type: type, **kwargs) -> None
 ```
 
 **Cache Methods:**
 
 ```python
 def clear_cache(self) -> None
-def invalidate_cache(self, key: str) -> None
+def invalidate_cache(self, entity_type: type | None = None, entity_id: ElementId | None = None) -> None
 ```
 
 **Other Methods:**
 
 ```python
-def transaction(self, name: str = "Transaction") -> Transaction
-def as_async(self) -> "AsyncRevitContext"
+@contextmanager
+def transaction(self, auto_commit: bool = True) -> Iterator[RevitContext]
+def as_async(self) -> AsyncRevitContext
 def dispose(self) -> None
 ```
+
+`transaction()` is an ORM-level unit of work, not a Revit transaction: on success it calls `save_changes()` (when `auto_commit`), on error it rejects changes and rolls back the unit of work. Wrap it in `RevitAPI.transaction()` when the unit of work writes to a Revit document.
+
+---
+
+### AsyncRevitContext
+
+**Module:** `revitpy.orm.async_support` (exported from `revitpy.orm`)
+
+```python
+class AsyncRevitContext:
+    def __init__(
+        self,
+        provider: IElementProvider,
+        *,
+        cache_manager: CacheManager | None = None,
+        change_tracker: ChangeTracker | None = None,
+        relationship_manager: RelationshipManager | None = None,
+        unit_of_work: IUnitOfWork | None = None,
+        auto_track_changes: bool = True,
+        default_cache_policy: CachePolicy = CachePolicy.MEMORY,
+        transaction_timeout: float | None = None,
+        ...
+    ) -> None
+```
+
+```python
+async def get_all_async(self, element_type: type[T] | None = None) -> list[T]
+async def get_by_id_async(self, element_id: Any) -> T | None
+async def save_changes_async(self) -> int
+async def transaction(self, auto_commit: bool = True, timeout_seconds: float | None = None)  # async context manager
+async def load_relationship_async(...)
+async def dispose_async(self) -> None
+```
+
+`save_changes_async()` registers each change with the `IUnitOfWork` and then awaits `commit_async()` (falling back to `commit()`). If any change fails to register, or the commit fails, it rolls back (`rollback_async()` / `rollback()`) and raises `AsyncOperationError`; nothing is reported as saved. Without a unit of work, changes are only accepted in the tracker.
+
+---
+
+### IUnitOfWork
+
+**Module:** `revitpy.orm.types`
+
+```python
+class IUnitOfWork(Protocol):
+    def register_new(self, entity: Any) -> None: ...
+    def register_dirty(self, entity: Any) -> None: ...
+    def register_removed(self, entity: Any) -> None: ...
+    def register_clean(self, entity: Any) -> None: ...
+    def commit(self) -> None: ...
+    def rollback(self) -> None: ...
+    async def commit_async(self) -> None: ...
+    async def rollback_async(self) -> None: ...
+```
+
+The persistence boundary for `RevitContext.save_changes()` and `AsyncRevitContext.save_changes_async()`.
 
 ---
 
@@ -582,38 +860,65 @@ def dispose(self) -> None
 ```python
 @dataclass
 class ContextConfiguration:
-    # Configuration fields for RevitContext behavior
+    auto_track_changes: bool = True
+    cache_policy: CachePolicy = CachePolicy.MEMORY
+    cache_max_size: int = 10000
+    cache_max_memory_mb: int = 500
+    lazy_loading_enabled: bool = True
+    batch_size: int = 100
+    thread_safe: bool = True
+    validation_enabled: bool = True
+    performance_monitoring: bool = True
 ```
 
 ---
 
 ### create_context
 
-**Module:** `revitpy.orm.context`
+**Module:** `revitpy.orm.context` (exported from `revitpy.orm`)
 
 ```python
-def create_context(provider=None, **kwargs) -> RevitContext
+def create_context(provider: IElementProvider, **kwargs) -> RevitContext
+def create_async_context(provider: IElementProvider, **kwargs) -> AsyncRevitContext
 ```
-Factory function to create a configured RevitContext.
+
+```python
+from revitpy import RevitAPI
+from revitpy.api import Wall
+from revitpy.orm import create_context
+
+api = RevitAPI()
+api.connect(__revit__)
+ctx = create_context(api.active_document)
+walls = ctx.all(Wall)
+```
 
 ---
 
 ### QueryBuilder[T] (ORM)
 
-ORM query builder with lazy evaluation and async support. Distinct from the Core API QueryBuilder.
+ORM query builder with lazy evaluation and async support. Distinct from the Core API QueryBuilder. Builders are immutable: every fluent method returns a clone and never mutates the parent.
 
 **Module:** `revitpy.orm.query_builder`
 
 ```python
 class QueryBuilder(Generic[T]):
-    def __init__(self, element_type: type[T], context=None) -> None
+    def __init__(
+        self,
+        provider: IElementProvider,
+        element_type: type[T] | None = None,
+        cache_manager: CacheManager | None = None,
+        query_mode: QueryMode = QueryMode.LAZY,
+    ) -> None
 ```
+
+Usually obtained from `RevitContext.query(element_type)`.
 
 **Fluent Methods:**
 
 ```python
 def where(self, predicate: Callable[[T], bool]) -> "QueryBuilder[T]"
-def select(self, selector: Callable[[T], Any]) -> "QueryBuilder[Any]"
+def select(self, selector: Callable[[T], R]) -> "QueryBuilder[R]"
 def order_by(self, key_selector: Callable[[T], Any]) -> "QueryBuilder[T]"
 def order_by_descending(self, key_selector: Callable[[T], Any]) -> "QueryBuilder[T]"
 def skip(self, count: int) -> "QueryBuilder[T]"
@@ -621,32 +926,36 @@ def take(self, count: int) -> "QueryBuilder[T]"
 def distinct(self, key_selector: Callable[[T], Any] | None = None) -> "QueryBuilder[T]"
 ```
 
+`select()` keeps the source element type (it still determines which elements are fetched before the projection runs).
+
 **Synchronous Terminal Methods:**
 
 ```python
-def first(self) -> T
-def first_or_default(self, default: T | None = None) -> T | None
-def single(self) -> T
-def single_or_default(self, default: T | None = None) -> T | None
+def first(self, predicate: Callable[[T], bool] | None = None) -> T
+def first_or_default(self, predicate: Callable[[T], bool] | None = None, default: T | None = None) -> T | None
+def single(self, predicate: Callable[[T], bool] | None = None) -> T
+def single_or_default(self, predicate: Callable[[T], bool] | None = None, default: T | None = None) -> T | None
 def any(self, predicate: Callable[[T], bool] | None = None) -> bool
 def all(self, predicate: Callable[[T], bool]) -> bool
-def count(self) -> int
+def count(self, predicate: Callable[[T], bool] | None = None) -> int
 def to_list(self) -> list[T]
-def to_dict(self, key_selector: Callable[[T], Any], value_selector: Callable[[T], Any] | None = None) -> dict
+def to_dict(self, key_selector: Callable[[T], Any]) -> dict[Any, T]
 def group_by(self, key_selector: Callable[[T], Any]) -> dict[Any, list[T]]
 ```
 
 **Asynchronous Terminal Methods:**
 
 ```python
-async def first_async(self) -> T
-async def first_or_default_async(self, default: T | None = None) -> T | None
-async def single_async(self) -> T
+async def first_async(self, predicate: Callable[[T], bool] | None = None) -> T
+async def first_or_default_async(self, predicate: Callable[[T], bool] | None = None, default: T | None = None) -> T | None
+async def single_async(self, predicate: Callable[[T], bool] | None = None) -> T
 async def any_async(self, predicate: Callable[[T], bool] | None = None) -> bool
-async def count_async(self) -> int
+async def count_async(self, predicate: Callable[[T], bool] | None = None) -> int
 async def to_list_async(self) -> list[T]
-async def to_dict_async(self, key_selector: Callable[[T], Any], value_selector: Callable[[T], Any] | None = None) -> dict
+async def to_dict_async(self, key_selector: Callable[[T], Any]) -> dict[Any, T]
 ```
+
+The builder is also iterable (`for x in qb`) and async-iterable (`async for x in qb`).
 
 **Streaming:**
 
@@ -654,17 +963,39 @@ async def to_dict_async(self, key_selector: Callable[[T], Any], value_selector: 
 def as_streaming(self, batch_size: int = 100) -> "StreamingQuery[T]"
 ```
 
+**Caching:**
+
+```python
+@property
+def is_cacheable(self) -> bool
+
+def plan_is_cacheable(plan: QueryPlan) -> bool   # module-level function
+```
+
+Query results are cached (keyed by an MD5 hash of the plan) only when the plan contains no callables -- i.e. no `where` / `select` / `order_by` lambdas -- and caching is not disabled (`CachePolicy.NONE`). Plans made only of `skip` / `take` / `distinct` and similar are cacheable.
+
+**Plan optimisation:** `QueryPlan.optimize()` never changes results. Its only reordering moves a filter ahead of an immediately preceding `order_by` / `then_by`; filters are never moved across `select`, `skip` / `take` or `distinct`.
+
 ---
 
 ### StreamingQuery[T]
 
-Streaming query executor for processing large result sets in batches.
+Streaming query executor for processing large result sets in batches. It is an async iterator that consumes the source lazily and yields lists of at most `batch_size` elements.
 
 **Module:** `revitpy.orm.query_builder`
 
 ```python
-async def foreach_async(self, action: Callable[[T], Any]) -> None
-async def to_list_async(self) -> list[T]
+class StreamingQuery(Generic[T]):
+    def __init__(self, query_builder: QueryBuilder[T], batch_size: int = 100) -> None
+
+    async def __aiter__(self) -> AsyncIterator[list[T]]
+    async def foreach_async(self, action: Callable[[T], Awaitable[None]]) -> None
+    async def to_list_async(self) -> list[T]
+```
+
+```python
+async for batch in ctx.query(Wall).as_streaming(100):
+    process(batch)
 ```
 
 ---
@@ -766,40 +1097,40 @@ Tracks changes to entities for the unit of work pattern.
 
 ```python
 class ChangeTracker:
-    def __init__(self) -> None
+    def __init__(self, thread_safe: bool = True) -> None
 ```
 
 **Properties:**
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `auto_track` | `bool` | Whether to automatically track property changes |
+| `auto_track` | `bool` | Whether to automatically track property changes (settable) |
 | `has_changes` | `bool` | Whether any tracked entities have changes |
-| `changed_entities` | `list` | List of entities with changes |
+| `changed_entities` | `list[ElementId]` | IDs of entities with changes |
 | `change_count` | `int` | Total number of changes |
 
 **Methods:**
 
 ```python
-def attach(self, entity: Any, entity_id: str | None = None) -> None
-def detach(self, entity_id: str) -> None
-def track_property_change(self, entity_id: str, property_name: str, old_value: Any, new_value: Any) -> None
-def track_relationship_change(self, entity_id: str, relationship_name: str, change_type: ChangeType, related_entity_id: str) -> None
-def mark_as_added(self, entity_id: str) -> None
-def mark_as_deleted(self, entity_id: str) -> None
-def get_entity_state(self, entity_id: str) -> str
-def get_changes(self, entity_id: str) -> list[PropertyChange]
-def get_all_changes(self) -> dict[str, list[PropertyChange]]
-def accept_changes(self, entity_id: str | None = None) -> None
-def reject_changes(self, entity_id: str | None = None) -> None
+def attach(self, entity: Any, entity_id: ElementId | None = None) -> None
+def detach(self, entity_id: ElementId) -> None
+def track_property_change(self, entity: Any, property_name: str, old_value: Any, new_value: Any) -> None   # ValueError if entity is None
+def track_relationship_change(self, entity: Any, relationship_name: str, change_type: ChangeType, related_entity: Any | None = None) -> None
+def mark_as_added(self, entity: Any) -> None
+def mark_as_deleted(self, entity: Any) -> None
+def get_entity_state(self, entity_id: ElementId) -> ElementState
+def get_changes(self, entity_id: ElementId) -> ChangeSet | None
+def get_all_changes(self) -> list[ChangeSet]
+def accept_changes(self, entity_id: ElementId | None = None) -> None
+def reject_changes(self, entity_id: ElementId | None = None) -> None
 def clear(self) -> None
-def create_batch_operation(self, name: str) -> None
-def add_batch_operation(self, operation: Callable) -> None
-def get_batch_operations(self) -> list
+def create_batch_operation(self, operation_type: BatchOperationType, entity: Any, properties: dict[str, Any] | None = None) -> BatchOperation
+def add_batch_operation(self, operation: BatchOperation) -> None
+def get_batch_operations(self) -> list[BatchOperation]
 def clear_batch_operations(self) -> None
-def add_change_callback(self, callback: Callable) -> None
-def remove_change_callback(self, callback: Callable) -> None
-def is_tracked(self, entity_id: str) -> bool
+def add_change_callback(self, callback: Callable[[PropertyChange], None]) -> None
+def remove_change_callback(self, callback: Callable[[PropertyChange], None]) -> None
+def is_tracked(self, entity_id: ElementId) -> bool
 def get_tracked_count(self) -> int
 ```
 
@@ -981,84 +1312,98 @@ class ConstraintType(Enum):
 
 ### EventManager
 
-Singleton event manager for registering and dispatching events.
+Singleton event manager for registering and dispatching events. `EventManager()` and `EventManager.get_instance()` return the same instance; `get_event_manager()` is a module-level shortcut.
 
-**Module:** `revitpy.events.manager`
-
-```python
-class EventManager:
-    # Singleton -- use EventManager() to get the instance
-```
+**Module:** `revitpy.events.manager` (exported from `revitpy`)
 
 **Properties:**
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `dispatcher` | `object` | The internal event dispatcher |
+| `dispatcher` | `EventDispatcher` | The internal event dispatcher |
 | `is_running` | `bool` | Whether the event manager is running |
 | `stats` | `dict` | Event processing statistics |
 
 **Lifecycle Methods:**
 
 ```python
-def start(self, auto_discover: bool = False) -> None
-def stop(self, timeout: float | None = None) -> None
+def start(self, auto_discover: bool = True) -> None
+def stop(self, timeout: float = 5.0) -> None
 ```
 
 **Handler Registration:**
 
 ```python
-def register_handler(self, handler: Callable, event_types: list[EventType] | None = None, priority: EventPriority = EventPriority.NORMAL) -> None
-def register_function(self, func: Callable, event_types: list[EventType] | None = None) -> None
-def unregister_handler(self, handler: Callable) -> None
-def register_class_handlers(self, instance: Any) -> None
+def register_handler(self, handler: BaseEventHandler, event_types: list[EventType] | None = None) -> None
+def register_function(self, func: Callable[[EventData], Any], event_types: list[EventType], priority: EventPriority = EventPriority.NORMAL, event_filter: EventFilter | None = None, name: str | None = None) -> BaseEventHandler
+def unregister_handler(self, handler: BaseEventHandler, event_types: list[EventType] | None = None) -> None
+def register_class_handlers(self, instance: Any) -> list[BaseEventHandler]
 ```
+
+`register_function()` is the simplest way to register a plain (or `async`) function. A module-level function decorated with `@event_handler` can be registered with `manager.register_handler(func._event_handler, func._event_types)` or picked up by discovery.
+
+> **Known limitation:** `register_class_handlers()` registers `@event_handler`-decorated methods without binding `self`, so the handler fails at dispatch time with a missing-argument error. Use `register_function()` with bound methods (e.g. `manager.register_function(obj.on_modified, [EventType.ELEMENT_MODIFIED])`) instead.
 
 **Event Dispatch:**
 
 ```python
-def dispatch_event(self, event: EventData) -> EventResult
-async def dispatch_event_async(self, event: EventData) -> EventResult
-def emit(self, event_type: EventType, data: dict | None = None, **kwargs) -> EventResult
-async def emit_async(self, event_type: EventType, data: dict | None = None, **kwargs) -> EventResult
+def dispatch_event(self, event_type: EventType, immediate: bool = False, **event_data) -> EventDispatchResult
+async def dispatch_event_async(self, event_type: EventType, **event_data) -> EventDispatchResult
+def emit(self, event_type: EventType, data: dict | None = None, source: Any | None = None, cancellable: bool = False, immediate: bool = False) -> EventDispatchResult
+async def emit_async(self, event_type: EventType, data: dict | None = None, source: Any | None = None, cancellable: bool = False) -> EventDispatchResult
+```
+
+`**event_data` becomes fields of the event-type-specific data class (e.g. `element_id=` for element events). Without `immediate=True`, events are queued for the background processor started by `start()`.
+
+```python
+from revitpy import EventManager, EventPriority, EventType
+
+def on_element_modified(event):
+    print(f"Element {event.element_id} was modified")
+
+manager = EventManager.get_instance()
+manager.register_function(on_element_modified, [EventType.ELEMENT_MODIFIED], priority=EventPriority.HIGH)
+manager.dispatch_event(EventType.ELEMENT_MODIFIED, element_id=12345, immediate=True)
 ```
 
 **Discovery:**
 
 ```python
-def add_discovery_path(self, path: str) -> None
-def discover_handlers(self) -> None
+def add_discovery_path(self, path: Path) -> None
+def discover_handlers(self, paths: list[Path] | None = None) -> int
 ```
 
 **Listener Management:**
 
 ```python
-def add_listener(self, event_type: EventType, listener: Callable) -> None
-def remove_listener(self, event_type: EventType, listener: Callable) -> None
+def add_listener(self, event_type: EventType, callback: Callable[[EventData], Any], priority: EventPriority = EventPriority.NORMAL) -> None
+def remove_listener(self, event_type: EventType, callback: Callable[[EventData], Any]) -> bool
 ```
 
 **Revit Integration:**
 
 ```python
-def connect_to_revit(self, application) -> None
+def connect_to_revit(self, revit_application: Any) -> None
 def disconnect_from_revit(self) -> None
 ```
+
+`connect_to_revit()` looks for a `revitpy.events.revit_bridge` module that is not shipped, so it currently only logs "Revit event bridge not available". Native Revit events are not bridged automatically; subscribe to them with the Revit API and call `dispatch_event()` yourself.
 
 **Debugging:**
 
 ```python
 def enable_debug(self) -> None
 def disable_debug(self) -> None
-def clear_event_queue(self) -> None
+def clear_event_queue(self) -> int
 def reset_statistics(self) -> None
-def get_registered_handlers(self) -> list
+def get_registered_handlers(self) -> dict[EventType, list[str]]
 ```
 
 ---
 
 ### EventType
 
-**Module:** `revitpy.events.types`
+**Module:** `revitpy.events.types` (exported from `revitpy`)
 
 ```python
 class EventType(Enum):
@@ -1066,13 +1411,13 @@ class EventType(Enum):
     DOCUMENT_OPENED = "document_opened"
     DOCUMENT_CLOSED = "document_closed"
     DOCUMENT_SAVED = "document_saved"
-    DOCUMENT_CREATED = "document_created"
-    DOCUMENT_MODIFIED = "document_modified"
+    DOCUMENT_SYNCHRONIZED = "document_synchronized"
 
     # Element events
     ELEMENT_CREATED = "element_created"
     ELEMENT_MODIFIED = "element_modified"
     ELEMENT_DELETED = "element_deleted"
+    ELEMENT_TYPE_CHANGED = "element_type_changed"
 
     # Transaction events
     TRANSACTION_STARTED = "transaction_started"
@@ -1081,10 +1426,13 @@ class EventType(Enum):
 
     # Parameter events
     PARAMETER_CHANGED = "parameter_changed"
+    PARAMETER_ADDED = "parameter_added"
+    PARAMETER_REMOVED = "parameter_removed"
 
     # View events
     VIEW_ACTIVATED = "view_activated"
     VIEW_DEACTIVATED = "view_deactivated"
+    VIEW_CREATED = "view_created"
 
     # Selection events
     SELECTION_CHANGED = "selection_changed"
@@ -1092,18 +1440,16 @@ class EventType(Enum):
     # Application events
     APPLICATION_INITIALIZED = "application_initialized"
     APPLICATION_CLOSING = "application_closing"
-    IDLE_EVENT = "idle_event"
 
     # Custom events
     CUSTOM = "custom"
-    EXTENSION_EVENT = "extension_event"
 ```
 
 ---
 
 ### EventPriority
 
-**Module:** `revitpy.events.types`
+**Module:** `revitpy.events.types` (exported from `revitpy`)
 
 ```python
 class EventPriority(Enum):
@@ -1137,10 +1483,10 @@ class EventResult(Enum):
 @dataclass
 class EventData:
     event_type: EventType
-    event_id: str
-    timestamp: float
-    source: Any = None
-    data: dict = field(default_factory=dict)
+    event_id: str                 # uuid4 string
+    timestamp: datetime           # datetime.now()
+    source: Any | None = None
+    data: dict[str, Any] = field(default_factory=dict)
     cancellable: bool = False
     cancelled: bool = False
 ```
@@ -1153,12 +1499,12 @@ def get_data(self, key: str, default: Any = None) -> Any
 def set_data(self, key: str, value: Any) -> None
 ```
 
-**Specialized Event Data Classes:**
+**Specialized Event Data Classes** (created by `create_event_data()` according to the event type):
 
 - `DocumentEventData(EventData)` -- document-specific event data
-- `ElementEventData(EventData)` -- element-specific event data
+- `ElementEventData(EventData)` -- element events; has `element_id`
 - `TransactionEventData(EventData)` -- transaction-specific event data
-- `ParameterEventData(EventData)` -- parameter change event data
+- `ParameterEventData(EventData)` -- parameter changes; has `element_id`
 - `ViewEventData(EventData)` -- view-specific event data
 - `SelectionEventData(EventData)` -- selection change event data
 
@@ -1170,60 +1516,60 @@ def set_data(self, key: str, value: Any) -> None
 
 ```python
 def event_handler(
-    event_types: list[EventType] | EventType | None = None,
+    event_types: list[EventType] | None = None,
     priority: EventPriority = EventPriority.NORMAL,
-    event_filter: Callable | None = None,
-    max_errors: int = 3,
+    event_filter: EventFilter | None = None,
+    max_errors: int = 10,
     enabled: bool = True,
 ) -> Callable
 ```
-Decorator to register a function as an event handler.
+Mark a function as an event handler. `event_types` is a **list** (e.g. `[EventType.ELEMENT_MODIFIED]`). The handler object is stored on the function as `_event_handler` and the types as `_event_types`; the decorator does not register it with the manager by itself.
 
 ```python
 def async_event_handler(
-    event_types: list[EventType] | EventType | None = None,
+    event_types: list[EventType] | None = None,
     priority: EventPriority = EventPriority.NORMAL,
-    event_filter: Callable | None = None,
-    max_errors: int = 3,
+    event_filter: EventFilter | None = None,
+    max_errors: int = 10,
     enabled: bool = True,
 ) -> Callable
 ```
-Decorator to register an async function as an event handler.
+Same as `event_handler` for async functions.
 
 ```python
-def event_filter(filter_instance: Callable) -> Callable
+def event_filter(filter_instance: EventFilter) -> Callable
 ```
-Decorator to attach a filter to an event handler.
+Attach a filter to an event handler.
 
 ```python
-def throttled_handler(interval_seconds: float) -> Callable
+def throttled_handler(interval_seconds: float = 0.1) -> Callable
 ```
-Decorator to throttle event handler execution to a minimum interval.
+Throttle handler execution to a minimum interval.
 
 ```python
-def conditional_handler(condition: Callable[..., bool]) -> Callable
+def conditional_handler(condition: Callable[[EventData], bool]) -> Callable
 ```
-Decorator to conditionally execute an event handler.
+Execute the handler only when `condition` returns true.
 
 ```python
 def retry_on_error(max_retries: int = 3, delay_seconds: float = 1.0) -> Callable
 ```
-Decorator to retry an event handler on error.
+Retry a handler on error.
 
 ```python
-def log_events(log_level: str = "INFO") -> Callable
+def log_events(log_level: str = "DEBUG") -> Callable
 ```
-Decorator to log event handler invocations.
+Log handler invocations.
 
 **Convenience Decorators:**
 
 ```python
-def on_element_created() -> Callable
-def on_element_modified() -> Callable
-def on_element_deleted() -> Callable
-def on_parameter_changed() -> Callable
-def on_document_opened() -> Callable
-def on_document_saved() -> Callable
+def on_element_created(element_type: str | None = None, priority: EventPriority = EventPriority.NORMAL) -> Callable
+def on_element_modified(element_type: str | None = None, parameter_name: str | None = None, priority: EventPriority = EventPriority.NORMAL) -> Callable
+def on_element_deleted(element_type: str | None = None, priority: EventPriority = EventPriority.NORMAL) -> Callable
+def on_parameter_changed(parameter_name: str, element_type: str | None = None, priority: EventPriority = EventPriority.NORMAL) -> Callable
+def on_document_opened(priority: EventPriority = EventPriority.NORMAL) -> Callable
+def on_document_saved(priority: EventPriority = EventPriority.NORMAL) -> Callable
 ```
 
 ---
@@ -1234,30 +1580,39 @@ def on_document_saved() -> Callable
 
 Abstract base class for RevitPy extensions with lifecycle management.
 
-**Module:** `revitpy.extensions.extension`
+**Module:** `revitpy.extensions.extension` (exported from `revitpy` and `revitpy.extensions`)
 
 ```python
 class Extension(ABC):
-    def __init__(self, metadata: ExtensionMetadata | None = None) -> None
+    def __init__(
+        self,
+        metadata: ExtensionMetadata,
+        container: DIContainer | None = None,
+        config: Config | None = None,
+    ) -> None
 ```
 
-**Lifecycle Methods (abstract, override in subclasses):**
+`metadata` is required.
+
+**Lifecycle Methods (override in subclasses):**
 
 ```python
-def load(self) -> None
-def activate(self) -> None
-def deactivate(self) -> None
-def dispose(self) -> None
+async def load(self) -> None          # abstract
+async def activate(self) -> None      # abstract
+async def deactivate(self) -> None    # abstract
+async def dispose(self) -> None       # optional override
 ```
 
-**Internal Lifecycle (called by ExtensionManager):**
+**Lifecycle drivers (called by ExtensionManager, or directly):**
 
 ```python
-def load_extension(self) -> None
-def activate_extension(self) -> None
-def deactivate_extension(self) -> None
-def dispose_extension(self) -> None
+async def load_extension(self) -> bool
+async def activate_extension(self) -> bool
+async def deactivate_extension(self) -> bool
+async def dispose_extension(self) -> None
 ```
+
+**Properties:** `name`, `version`, `extension_id`, `status`, `is_loaded`, `is_active`, `has_error`, `last_error`.
 
 **Component Access:**
 
@@ -1275,10 +1630,30 @@ def get_analyzers(self) -> dict[str, Any]
 **Lifecycle Callbacks:**
 
 ```python
-def on_load(self) -> None
-def on_activation(self) -> None
-def on_deactivation(self) -> None
-def on_disposal(self) -> None
+def on_load(self, callback: Callable) -> None
+def on_activation(self, callback: Callable) -> None
+def on_deactivation(self, callback: Callable) -> None
+def on_disposal(self, callback: Callable) -> None
+```
+
+**Logging helpers:** `log_info()`, `log_warning()`, `log_error()`, `log_debug()`.
+
+```python
+from revitpy.extensions import Extension, ExtensionMetadata
+
+class MyExtension(Extension):
+    async def load(self):
+        self.log_info("loading")
+
+    async def activate(self):
+        self.log_info("active")
+
+    async def deactivate(self):
+        pass
+
+ext = MyExtension(ExtensionMetadata(name="my-extension", version="1.0.0"))
+await ext.load_extension()
+await ext.activate_extension()
 ```
 
 ---
@@ -1294,7 +1669,20 @@ class ExtensionMetadata:
     version: str
     description: str = ""
     author: str = ""
-    # Additional metadata fields
+    website: str = ""
+    license: str = ""
+    dependencies: list[str] = field(default_factory=list)
+    revit_versions: list[str] = field(default_factory=list)
+    python_version: str = ">=3.11"
+    provides_commands: list[str] = field(default_factory=list)
+    provides_services: list[str] = field(default_factory=list)
+    provides_tools: list[str] = field(default_factory=list)
+    provides_analyzers: list[str] = field(default_factory=list)
+    config_schema: dict[str, Any] | None = None
+    default_config: dict[str, Any] | None = None
+    extension_id: str = field(default_factory=lambda: str(uuid4()))
+    load_time: datetime | None = None
+    activation_time: datetime | None = None
 ```
 
 ---
@@ -1305,15 +1693,14 @@ class ExtensionMetadata:
 
 ```python
 class ExtensionStatus(Enum):
-    # 9 status values covering the full extension lifecycle
     UNLOADED = "unloaded"
     LOADING = "loading"
     LOADED = "loaded"
-    ACTIVATING = "activating"
+    INITIALIZING = "initializing"
     ACTIVE = "active"
     DEACTIVATING = "deactivating"
-    INACTIVE = "inactive"
-    DISPOSING = "disposing"
+    DEACTIVATED = "deactivated"
+    ERROR = "error"
     DISPOSED = "disposed"
 ```
 
@@ -1482,8 +1869,10 @@ Asynchronous interface for Revit operations.
 
 ```python
 class AsyncRevit:
-    def __init__(self) -> None
+    def __init__(self, revit_application: IRevitApplication | None = None) -> None
 ```
+
+Async operations still execute Revit API calls on the calling thread; inside Revit they must run on Revit's main thread (see `revitpy.revit.host.call_on_revit_thread`).
 
 **Properties:**
 
@@ -1905,7 +2294,7 @@ Decorator to add cancellation support to an async function.
 
 ### MockRevit
 
-Mock Revit environment for testing without an actual Revit installation.
+Mock Revit environment for testing without an actual Revit installation. Connect a `RevitAPI` to it with `api.connect(mock.application)`; `MockDocument.StartTransaction` provides snapshot/rollback semantics, so transactions behave like a live model. Note that `MockParameter` values are converted with `AsString()`, so numeric parameters read back through `Element.get_parameter_value` as strings.
 
 **Module:** `revitpy.testing.mock_revit`
 
@@ -2142,26 +2531,26 @@ class MockElementId:
 
 **Module:** `revitpy.performance`
 
-The performance module exports the following classes:
+The performance module exports exactly these classes (`revitpy.performance.__all__`):
 
-| Class | Description |
-|-------|-------------|
-| `PerformanceOptimizer` | Optimization engine |
-| `OptimizationConfig` | Configuration for the optimizer |
-| `BenchmarkSuite` | Suite of performance benchmarks |
-| `BenchmarkRunner` | Runs benchmark suites |
-| `MemoryManager` | Memory management utilities |
-| `MemoryLeakDetector` | Detects memory leaks |
-| `LatencyTracker` | Tracks operation latency |
-| `LatencyBenchmark` | Latency benchmark definitions |
-| `IntelligentCacheManager` | Advanced caching with adaptive policies |
-| `CacheConfiguration` | Cache configuration (performance module) |
-| `MetricsCollector` | Collects performance metrics |
-| `PerformanceMetrics` | Container for collected metrics |
-| `PerformanceMonitor` | Real-time performance monitoring |
-| `AlertingSystem` | Performance alerting |
-| `RevitPyProfiler` | Code profiling |
-| `ProfileReport` | Profiling results |
+| Class | Source module | Description |
+|-------|---------------|-------------|
+| `PerformanceOptimizer` | `optimizer` | Optimization engine with caching and object pooling |
+| `OptimizationConfig` | `optimizer` | Configuration for the optimizer |
+| `AdaptiveCache` | `optimizer` | Adaptive cache used by the optimizer |
+| `ObjectPool` | `optimizer` | Reusable object pool |
+| `BenchmarkSuite` | `benchmarks` | Suite of performance benchmarks |
+| `BenchmarkRunner` | `benchmarks` | Runs benchmark suites |
+| `BenchmarkConfiguration` | `benchmarks` | Benchmark settings |
+| `MemoryManager` | `memory` | Memory management utilities |
+| `MemoryLeakDetector` | `memory` | Detects memory leaks |
+| `MetricsCollector` | `monitoring` | Collects performance metrics |
+| `PerformanceMonitor` | `monitoring` | Real-time performance monitoring |
+| `AlertingSystem` | `monitoring` | Performance alerting |
+
+Module-level helpers: `get_global_optimizer()`, `initialize_performance_framework()`, `cleanup_performance_framework()`.
+
+> `revitpy.performance` imports `psutil` unconditionally, but `psutil` is only included in the `dev` extra. Install it (`pip install psutil`) before importing this package. `numpy` is optional.
 
 ---
 
@@ -2318,6 +2707,8 @@ Return data as a list of dicts (shallow copy passthrough).
 
 ## IFC Interoperability (`revitpy.ifc`)
 
+Requires the `ifc` extra (`pip install revitpy[ifc]`: `ifcopenshell>=0.8`, `defusedxml`, `ifctester`). `revitpy.ifc.ifc_available()` returns `True` when ifcopenshell is importable.
+
 ### IfcElementMapper
 
 Bidirectional mapping between RevitPy element types and IFC entity types, with custom property map support and type registration.
@@ -2361,7 +2752,7 @@ Get the RevitPy type name for an IFC entity type.
 ```python
 def to_ifc(self, element: Any, ifc_file: Any, config: IfcExportConfig | None = None) -> Any
 ```
-Convert a RevitPy element to an IFC entity. Requires `ifcopenshell`.
+Convert a RevitPy element to an IFC entity (mapping resolved by class name, then `category`). Requires `ifcopenshell`. Raises `IfcExportError` when no mapping exists.
 
 ```python
 def from_ifc(self, ifc_entity: Any, target_type: str | None = None) -> dict[str, Any]
@@ -2393,7 +2784,7 @@ class IfcExporter:
 ```python
 def export(self, elements: list[Any], output_path: str | Path, version: IfcVersion = IfcVersion.IFC4) -> Path
 ```
-Export elements to an IFC file. Creates project structure (IfcProject, IfcSite, IfcBuilding) and converts each element via the mapper.
+Export elements to an IFC file. Creates the spatial hierarchy (IfcProject, IfcSite, IfcBuilding, and an IfcBuildingStorey per element `level`) and converts each element via the mapper. The mapping is looked up by the element's class name first (e.g. `WallElement`), then by its `category` attribute; unmapped elements are skipped with a warning. Requires `ifcopenshell>=0.8` (`pip install revitpy[ifc]`).
 
 ```python
 async def export_async(self, elements: list[Any], output_path: str | Path, version: IfcVersion = IfcVersion.IFC4, progress: Callable[[int, int], None] | None = None) -> Path
@@ -2436,13 +2827,17 @@ Import elements from an IFC file asynchronously.
 
 ### IdsValidator
 
-Validate elements against IDS (Information Delivery Specification) requirements by inspecting their properties.
+Validate elements or IFC files against IDS (Information Delivery Specification) requirements. Three levels of support:
+
+1. `validate()` / JSON rule files -- a RevitPy rule set inspired by IDS, checked against in-memory elements.
+2. `load_ids_xml()` (used by `validate_from_file()` for `.ids` / `.xml`) -- reads buildingSMART IDS 1.0 XML and maps a subset (entity applicability; attribute and property facets with `simpleValue` / `xs:enumeration`; cardinality) onto that rule set. Other facets and restrictions are ignored with a warning.
+3. `validate_ifc_file()` -- full IDS 1.0 validation of an IFC file via `ifctester`.
 
 **Module:** `revitpy.ifc.validator`
 
 ```python
 class IdsValidator:
-    def __init__(self) -> None
+    def __init__(self, mapper: IfcElementMapper | None = None) -> None
 ```
 
 **Methods:**
@@ -2450,23 +2845,35 @@ class IdsValidator:
 ```python
 def validate(self, elements: list[Any], requirements: list[IdsRequirement]) -> list[IdsValidationResult]
 ```
-Validate elements against a list of IDS requirements. Each element is checked against every applicable requirement.
+Validate elements against a list of requirements. A requirement applies when its `entity_type` is `None`, matches the element's RevitPy type/category, or is an IFC entity name the element's type maps to.
 
 ```python
 def validate_from_file(self, elements: list[Any], ids_path: str | Path) -> list[IdsValidationResult]
 ```
-Validate elements against requirements loaded from a JSON file.
+Validate elements against requirements from a file: `.ids` / `.xml` are read as IDS 1.0 XML, anything else as a RevitPy JSON rule list. Raises `IdsValidationError` if the file is missing or cannot be parsed.
+
+```python
+def load_ids_xml(self, ids_path: str | Path) -> list[IdsRequirement]
+```
+Parse a buildingSMART IDS 1.0 XML file (with `defusedxml` when installed) into requirements.
+
+```python
+def validate_ifc_file(self, ifc_path: str | Path, ids_path: str | Path) -> list[IdsValidationResult]
+```
+Full IDS 1.0 validation of an IFC file using `ifctester` (part of the `ifc` extra). Raises `ImportError` if ifcopenshell/ifctester are missing and `IdsValidationError` if a file is missing or validation fails.
 
 ---
 
 ### BcfManager
 
-Create, read, and write BCF (BIM Collaboration Format) issues with simplified BCF 2.1 compatible workflow.
+Create, read, and write BCF (BIM Collaboration Format) issues as buildingSMART BCF-XML 2.1 archives.
 
 **Module:** `revitpy.ifc.bcf`
 
 ```python
 class BcfManager:
+    BCF_VERSION = "2.1"
+
     def __init__(self) -> None
 ```
 
@@ -2474,7 +2881,7 @@ class BcfManager:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `issues` | `list[BcfIssue]` | All managed issues |
+| `issues` | `list[BcfIssue]` | All managed issues (a copy) |
 
 **Methods:**
 
@@ -2486,12 +2893,12 @@ Create a new BCF issue and add it to the managed list.
 ```python
 def read_bcf(self, path: str | Path) -> list[BcfIssue]
 ```
-Read BCF issues from a file. Supports `.bcf`/`.bcfzip` ZIP archives and `.json` files.
+Read BCF issues. `.bcf` / `.bcfzip` / `.zip` archives may be BCF 2.1, BCF 3.0 or legacy RevitPy `markup.xml` archives; `.json` files are accepted as a simplified alternative. XML is parsed with `defusedxml` when installed. Raises `BcfError`.
 
 ```python
 def write_bcf(self, issues: list[BcfIssue] | None = None, path: str | Path = "issues.bcf") -> Path
 ```
-Write BCF issues to a ZIP archive containing XML `markup.xml` per topic. Defaults to all managed issues.
+Write a BCF-XML 2.1 archive: `bcf.version`, and per topic `markup.bcf`, `viewpoint.bcfv` (when the issue has elements or a snapshot) and `snapshot.png`. Element ids are written as viewpoint components: 22-character IFC GlobalIds as `IfcGuid`, other ids (e.g. Revit element ids) as `AuthoringToolId` with `OriginatingSystem="RevitPy"`. No camera is written. Defaults to all managed issues; raises `BcfError` if there are none.
 
 ---
 
@@ -2530,8 +2937,10 @@ Registry of tools that can be invoked through the MCP server. Manages tool defin
 
 ```python
 class RevitTools:
-    def __init__(self, context: Any = None) -> None
+    def __init__(self, context: RevitContext | Any = None) -> None
 ```
+
+`context` is any object shaped like `revitpy.ai.tools.RevitContext` (an `active_document`, `get_element_by_id(id)`, and `transaction(name)` returning a commit-on-success / rollback-on-error context manager); a connected `revitpy.api.RevitAPI` satisfies it. Built-in tools: `query_elements`, `get_element`, `modify_parameter` (category `MODIFY`), `get_quantities`, `validate_model`, `export_data`. Without a context, built-in tools raise `ToolExecutionError("Not connected to a Revit document")` rather than returning placeholder data.
 
 **Methods:**
 
@@ -2564,27 +2973,38 @@ Convert all tools to MCP-format JSON Schema definitions.
 
 ### SafetyGuard
 
-Validates tool calls against a safety policy. Supports `READ_ONLY`, `CAUTIOUS`, and permissive modes, and provides an undo stack for rollback.
+Validates tool calls against a safety policy (`SafetyMode.READ_ONLY`, `CAUTIOUS` (default) or `FULL_ACCESS`) and provides an undo stack.
 
 **Module:** `revitpy.ai.safety`
 
 ```python
+ConfirmationCallback = Callable[[ToolDefinition, dict[str, Any]], bool | Awaitable[bool]]
+
 class SafetyGuard:
-    def __init__(self, config: SafetyConfig | None = None) -> None
+    def __init__(self, config: SafetyConfig | None = None, *, confirmation_callback: ConfirmationCallback | None = None) -> None
 ```
+
+Policy:
+
+- Tools listed in `SafetyConfig.blocked_tools` are always denied.
+- `READ_ONLY` denies `MODIFY` tools.
+- `CAUTIOUS` (the default) requires confirmation for categories in `SafetyConfig.require_confirmation_for` (default `[ToolCategory.MODIFY]`). The `confirmation_callback` must return literally `True` to approve; any other value, an exception, or **no callback at all** denies the call.
+- `FULL_ACCESS` allows everything not blocked.
 
 **Properties:**
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `config` | `SafetyConfig` | The active safety configuration |
+| `confirmation_callback` | `ConfirmationCallback \| None` | Settable confirmation callback |
 
 **Methods:**
 
 ```python
 def validate_tool_call(self, tool: ToolDefinition, arguments: dict[str, Any]) -> bool
+async def avalidate_tool_call(self, tool: ToolDefinition, arguments: dict[str, Any]) -> bool
 ```
-Check whether a tool call is allowed under the current policy. Raises `SafetyViolationError` when blocked.
+Check whether a tool call is allowed. Raise `SafetyViolationError` when blocked or not confirmed. The sync variant denies when the callback is async; use `avalidate_tool_call()` (as `McpServer` does) for async callbacks.
 
 ```python
 def preview_changes(self, tool: ToolDefinition, arguments: dict[str, Any]) -> dict[str, Any]
@@ -2605,6 +3025,19 @@ Pop and return the most recent undo entry, or `None`.
 def get_undo_stack(self) -> list[dict[str, Any]]
 ```
 Return a copy of the current undo stack.
+
+### SafetyConfig
+
+**Module:** `revitpy.ai.types`
+
+```python
+@dataclass
+class SafetyConfig:
+    mode: SafetyMode = SafetyMode.CAUTIOUS
+    max_undo_stack: int = 50
+    require_confirmation_for: list[ToolCategory] = field(default_factory=lambda: [ToolCategory.MODIFY])
+    blocked_tools: list[str] = field(default_factory=list)
+```
 
 ---
 
@@ -2659,12 +3092,15 @@ class McpServer:
     def __init__(self, tools: RevitTools, *, config: McpServerConfig | None = None, safety_guard: SafetyGuard | None = None, prompt_library: PromptLibrary | None = None) -> None
 ```
 
+Security: binds to `localhost` by default. When `config.auth_token` is set, the WebSocket handshake must carry `Authorization: Bearer <token>` (HTTP 401 otherwise); binding to a non-loopback host without a token logs a warning. Handshakes with an `Origin` header not in `config.allowed_origins` are rejected with HTTP 403. Tool calls are checked with `SafetyGuard.avalidate_tool_call()`; tool failures are returned as `tools/call` results with `isError: true`. Works with `websockets` 11/12 (legacy server API) and >= 13 (asyncio API).
+
 **Properties:**
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `config` | `McpServerConfig` | The active server configuration |
 | `connections` | `set[Any]` | Set of active WebSocket connections |
+| `port` | `int \| None` | Bound port while running (useful with `port=0`) |
 
 **Methods:**
 
@@ -2678,7 +3114,24 @@ async def stop(self, timeout: float = 5.0) -> None
 ```
 Gracefully stop the server. Waits up to `timeout` seconds for connections to close.
 
-Supports async context manager protocol (`async with McpServer(...) as server:`).
+Supports the async context manager protocol: `async with McpServer(...) as server:` starts the server on entry and stops it on exit (do not call `start()` again inside the block).
+
+To serve a live Revit model, use the host add-in's **MCP Server** button or `revitpy.revit.host.start_mcp_server()`; `revitpy mcp-serve` runs without a Revit connection.
+
+### McpServerConfig
+
+**Module:** `revitpy.ai.types`
+
+```python
+@dataclass
+class McpServerConfig:
+    host: str = "localhost"
+    port: int = 8765
+    name: str = "revitpy-mcp"
+    version: str = "1.0.0"
+    auth_token: str | None = None          # excluded from repr
+    allowed_origins: list[str] = field(default_factory=list)
+```
 
 ---
 
@@ -2721,52 +3174,55 @@ Asynchronously calculate embodied carbon with optional progress callback `(compl
 
 ### EpdDatabase
 
-Environmental Product Declaration database with local cache, generic fallback values, and optional EC3 API integration.
+Environmental Product Declaration database with local cache, generic fallback values, and optional EC3 API integration. The built-in factors are screening-level generic cradle-to-gate (A1-A3) averages from the ICE v2.0 summary tables (`ICE_V2_SOURCE`), each carrying its source, data year and any density assumption; they are not product EPDs.
 
 **Module:** `revitpy.sustainability.epd`
 
 ```python
 class EpdDatabase:
-    def __init__(self, *, api_token: str | None = None, cache_path: Path | str | None = None) -> None
+    def __init__(self, *, api_token: str | None = None, cache_path: Path | str | None = None, overrides: dict[str, EpdRecord] | None = None) -> None
 ```
 
 **Methods:**
 
 ```python
+def register(self, key: str, epd: EpdRecord) -> None
+```
+Add or replace a record (e.g. a project-specific product EPD) under a case-insensitive key. `overrides` in the constructor calls this for each entry.
+
+```python
 def lookup(self, material_name: str, category: str | None = None) -> EpdRecord | None
 ```
-Look up an EPD record for a material. Searches exact cache match, fuzzy keyword match, then category-based generic fallback.
+Look up an EPD record. Matching is deterministic and scored (`revitpy.sustainability.matching`): specific records before generic fallbacks; exact name, then whole-token, then substring; finally a category-level generic record when `category` is given. Returns an annotated copy (`match_type`, `match_confidence`, `matched_key`) or `None`. Generic-fallback matches are capped at `GENERIC_FALLBACK_MAX_CONFIDENCE` (0.3); low-confidence or ambiguous matches are logged as warnings.
 
 ```python
 async def lookup_async(self, material_name: str, category: str | None = None) -> EpdRecord | None
 ```
-Asynchronously look up an EPD record, querying the EC3 API when a token is configured and local cache misses.
+Asynchronously look up an EPD record, querying the EC3 API when a token is configured; falls back to `lookup()` otherwise.
 
 ```python
 async def search_async(self, query: str, limit: int = 10) -> list[EpdRecord]
 ```
-Search for EPD records matching a query. Searches local cache and optionally the EC3 API.
+Search for EPD records matching a query. Searches the local cache and, with a token, the EC3 API.
 
 ```python
 def get_generic_epd(self, material_category: str) -> EpdRecord | None
 ```
-Get a generic EPD record for a material category (e.g. `"Concrete"`, `"Metals"`).
+Get the representative generic EPD record for a material category (e.g. `"Concrete"`, `"Metals"` -> steel).
 
 ```python
 def load_cache(self, path: Path | str) -> None
-```
-Load cached EPD records from a JSON file.
-
-```python
 def save_cache(self, path: Path | str) -> None
 ```
-Save cached EPD records to a JSON file.
+Load / save cached EPD records as JSON.
+
+`EpdRecord` fields: `material_name`, `category`, `gwp_per_kg`, `gwp_per_m3`, `source`, `lifecycle_stages`, `valid_until`, `manufacturer`, `source_year`, `assumed_density_kg_m3`, `notes`, `is_generic_fallback`, `match_type`, `match_confidence`, `matched_key`.
 
 ---
 
 ### ComplianceChecker
 
-Check building data against emissions compliance standards including NYC LL97, Boston BERDO, EU EPBD, and ASHRAE 90.1.
+Screen building data against NYC LL97, Boston BERDO, EU EPBD national/local limits and ASHRAE 90.1-2019 prescriptive envelope values. Results are **screening-level estimates, not compliance determinations**: every built-in limit records its source, every limit can be overridden, and no check silently falls back to a default building category. Missing or unknown inputs raise `ComplianceError`.
 
 **Module:** `revitpy.sustainability.compliance`
 
@@ -2778,34 +3234,54 @@ class ComplianceChecker:
 **Methods:**
 
 ```python
-def check(self, standard: ComplianceStandard, building_data: dict) -> ComplianceResult
+def check(self, standard: ComplianceStandard, building_data: dict[str, Any]) -> ComplianceResult
 ```
-Check compliance against a specific standard. Dispatches to the standard-specific checker. Required keys in `building_data` vary by standard.
+Dispatch to the standard-specific check. Limit overrides may be passed in `building_data` as `"ll97_limits"`, `"berdo_limits"`, `"epbd_limits"` (plus `"epbd_limit_source"`), and for ASHRAE 90.1 as `"overrides"`. For `ASHRAE_90_1`, `building_data` must contain `climate_zone`, `wall_r_value`, `roof_r_value`, `window_u_value` and `glazing_ratio` (optional `air_tightness`).
 
 ```python
-def check_ll97(self, building_data: dict) -> ComplianceResult
+def check_ll97(self, building_data: dict[str, Any], *, year: int | None = None, limits: dict[str, float] | None = None) -> ComplianceResult
 ```
-Check NYC Local Law 97 compliance. Requires `area_sqft` and `annual_emissions_tco2e`.
+NYC Local Law 97. Keys: `area_sqft` (required), `annual_emissions_tco2e`, and **either** `property_type` (ENERGY STAR Portfolio Manager type such as `"Office"`) **or** `occupancy_type` (LL97 occupancy group such as `"B"`, `"R-2"`, `"B-healthcare"`, or an alias like `"office"`); optional `compliance_year`. Occupancy-group limits are only permitted for 2024-2025 reporting; for later years a warning recommends `property_type`. `year` (default `compliance_year` or the current year) selects the 2024-2029 or 2030-2034 period; years outside those are clamped with a warning note. `limits` overrides are keyed by the resolved group/property type or `"*"`.
 
 ```python
-def check_berdo(self, building_data: dict) -> ComplianceResult
+def check_berdo(self, building_data: dict[str, Any], *, limits: dict[str, float] | None = None) -> ComplianceResult
 ```
-Check Boston BERDO compliance. Requires `area_sqft` and `annual_emissions_kgco2e`.
+Boston BERDO. Keys: `area_sqft`, `annual_emissions_kgco2e`, `building_type` (all required). The built-in values are unverified placeholders; pass `limits` (kgCO2e/sf/yr keyed by building type or `"*"`) from the current BERDO 2.0 standards for a meaningful result.
 
 ```python
-def check_epbd(self, building_data: dict) -> ComplianceResult
+def check_epbd(self, building_data: dict[str, Any], *, limits: dict[str, float] | None = None, limit_source: str | None = None) -> ComplianceResult
 ```
-Check EU EPBD compliance. Requires `area_m2` and `primary_energy_kwh`.
+EU EPBD. The directive sets no pan-EU numeric cap, so there are **no built-in limits**: supply `limits` (primary energy kWh/m2/yr keyed by building type or `"*"`) and ideally a `limit_source` citation, otherwise `ComplianceError` is raised. Keys: `area_m2`, `primary_energy_kwh`, `building_type` (all required).
 
 ```python
-def check_ashrae(self, envelope_data: EnergyEnvelopeData) -> ComplianceResult
+def check_ashrae(self, envelope_data: EnergyEnvelopeData, climate_zone: str | int, *, overrides: dict[str, float] | None = None) -> ComplianceResult
 ```
-Check ASHRAE 90.1 envelope compliance (wall R-value, roof R-value, window U-value, glazing ratio) for climate zone 4A.
+ASHRAE 90.1-2019 prescriptive envelope screening (nonresidential). `climate_zone` is **required** (`"4A"`, `"5B"`, `7`, ...; parsed by `parse_climate_zone()`). Built-in limits cover roof R (insulation above deck), fixed-fenestration U and a 40% glazing ratio; walls are evaluated only when `overrides["wall_r_min"]` is given. Allowed override keys: `wall_r_min`, `roof_r_min`, `window_u_max`, `glazing_ratio_max`.
 
 ```python
 def get_recommendations(self, result: ComplianceResult) -> list[str]
 ```
 Get improvement recommendations based on a compliance result.
+
+```python
+def parse_climate_zone(zone: str | int) -> tuple[int, str]   # module-level
+```
+
+`ComplianceResult` fields: `standard`, `passed`, `threshold`, `actual_value`, `unit`, `recommendations`, `details`, `source`, `notes`.
+
+```python
+from revitpy.sustainability import ComplianceChecker, EnergyEnvelopeData
+
+checker = ComplianceChecker()
+ll97 = checker.check_ll97(
+    {"area_sqft": 50_000, "annual_emissions_tco2e": 300, "property_type": "Office"},
+    year=2030,
+)
+ashrae = checker.check_ashrae(
+    EnergyEnvelopeData(wall_r_value=13, roof_r_value=30, window_u_value=0.38, glazing_ratio=0.35),
+    climate_zone="4A",
+)
+```
 
 ---
 
@@ -2900,7 +3376,7 @@ Return a `TypeMapping` with `MappingStatus.UNMAPPED` for an unregistered type.
 
 ### SpeckleClient
 
-Async HTTP client for the Speckle GraphQL API. Uses `httpx.AsyncClient` for transport and optionally leverages `specklepy`.
+Async client for a Speckle server, backed by `specklepy>=3` (`pip install revitpy[interop]`). The underlying `specklepy` client is created lazily and authenticated with `config.token`; blocking SDK calls run in a worker thread. Uses Speckle's current **project / model / version** terminology.
 
 **Module:** `revitpy.interop.client`
 
@@ -2915,54 +3391,48 @@ class SpeckleClient:
 |----------|------|-------------|
 | `is_connected` | `bool` | Whether the client has successfully connected |
 | `config` | `SpeckleConfig` | The current server configuration |
+| `sdk_client` | `Any \| None` | The underlying `specklepy` client, once created |
 
 **Methods:**
 
 ```python
 async def connect(self) -> None
 ```
-Validate the connection to the Speckle server by sending a `serverInfo` query.
+Validate the connection (server info query). Raises `ImportError` without specklepy and `SpeckleConnectionError` if the server is unreachable or authentication fails.
 
 ```python
-async def get_streams(self) -> list[dict[str, Any]]
+async def get_projects(self, limit: int = 25) -> list[dict[str, Any]]
+async def get_project(self, project_id: str) -> dict[str, Any]
+async def get_models(self, project_id: str, limit: int = 25) -> list[dict[str, Any]]
+async def resolve_model_id(self, project_id: str, model: str, *, create: bool = False) -> str
+async def get_versions(self, project_id: str, model: str = "main", limit: int = 10) -> list[SpeckleCommit]
 ```
-Return a list of streams visible to the authenticated user.
+List projects, models and versions. `model` accepts a model name (e.g. `"main"`) or id.
 
 ```python
-async def get_stream(self, stream_id: str) -> dict[str, Any]
+async def send_objects(self, project_id: str, objects: list[dict[str, Any]], model: str = "main", message: str = "", *, branch: str | None = None) -> SpeckleCommit
 ```
-Return details of a single stream.
+Upload objects (wrapped in a `Collection`) and create a new version on `model`, creating the model if needed. Returns a `SpeckleCommit` whose `id` is the version id and `referenced_object` the root object hash. Requires a token; raises `SpeckleSyncError` on failure.
 
 ```python
-async def get_branches(self, stream_id: str) -> list[dict[str, Any]]
+async def receive_objects(self, project_id: str, version_id: str | None = None, model: str = "main", *, commit_id: str | None = None, branch: str | None = None) -> list[dict[str, Any]]
 ```
-Return the branches of a stream.
-
-```python
-async def get_commits(self, stream_id: str, branch: str = "main", limit: int = 10) -> list[SpeckleCommit]
-```
-Return recent commits on a branch.
-
-```python
-async def send_objects(self, stream_id: str, objects: list[dict[str, Any]], branch: str = "main", message: str = "") -> SpeckleCommit
-```
-Send objects to a Speckle stream and create a commit.
-
-```python
-async def receive_objects(self, stream_id: str, commit_id: str | None = None, branch: str = "main") -> list[dict[str, Any]]
-```
-Receive objects from a Speckle stream. Uses the latest commit when `commit_id` is `None`.
+Download the objects of a version (the latest version of `model` when `version_id` is `None`).
 
 ```python
 async def close(self) -> None
 ```
-Close the underlying HTTP client.
+Release the client.
+
+**Deprecated aliases** (emit `DeprecationWarning`): `get_streams()` -> `get_projects()`, `get_stream(stream_id)` -> `get_project()`, `get_branches(stream_id)` -> `get_models()`, `get_commits(stream_id, branch, limit)` -> `get_versions()`. The keyword arguments `branch=` and `commit_id=` are deprecated aliases of `model=` and `version_id=`; passing both the old and new name raises `TypeError`.
+
+Module helpers: `dict_to_base()`, `base_to_dict()`, `flatten_received()`.
 
 ---
 
 ### SpeckleSync
 
-High-level synchronisation between RevitPy and Speckle, with push, pull, and bidirectional sync operations.
+High-level synchronisation between RevitPy and Speckle, with push, pull, and bidirectional sync operations. `project_id` defaults to `config.default_project` (or the deprecated `default_stream`).
 
 **Module:** `revitpy.interop.sync`
 
@@ -2974,19 +3444,66 @@ class SpeckleSync:
 **Methods:**
 
 ```python
-async def push(self, elements: list[Any], stream_id: str, branch: str = "main", message: str = "") -> SyncResult
+async def push(self, elements: list[Any], project_id: str | None = None, model: str = "main", message: str = "", *, stream_id: str | None = None, branch: str | None = None) -> SyncResult
 ```
-Push local elements to a Speckle stream. Maps each element via the mapper and sends through the client.
+Map each element with the mapper and send them as a new version of `model`.
 
 ```python
-async def pull(self, stream_id: str, branch: str = "main", commit_id: str | None = None) -> list[dict[str, Any]]
+async def pull(self, project_id: str | None = None, model: str = "main", version_id: str | None = None, *, stream_id: str | None = None, branch: str | None = None, commit_id: str | None = None) -> list[dict[str, Any]]
 ```
-Pull objects from a Speckle stream and map them back to RevitPy-compatible dicts.
+Pull a version (latest when `version_id` is `None`) and map the objects back to RevitPy-compatible dicts.
 
 ```python
-async def sync(self, elements: list[Any], stream_id: str, mode: SyncMode = SyncMode.INCREMENTAL, direction: SyncDirection = SyncDirection.BIDIRECTIONAL) -> SyncResult
+async def sync(self, elements: list[Any], project_id: str | None = None, mode: SyncMode = SyncMode.INCREMENTAL, direction: SyncDirection = SyncDirection.BIDIRECTIONAL, *, model: str = "main", stream_id: str | None = None) -> SyncResult
 ```
-Run a full sync operation. Direction controls whether elements are pushed, pulled, or both. Mode controls whether all or only changed elements are synced.
+Run a sync. Direction controls whether elements are pushed, pulled, or both; mode controls whether all or only changed elements are synced.
+
+`stream_id`, `branch` and `commit_id` are deprecated aliases of `project_id`, `model` and `version_id`.
+
+`SyncResult` fields: `direction`, `objects_sent`, `objects_received`, `errors`, `commit_id`, `duration_ms`, `object_id`, plus the `version_id` property (alias of `commit_id`).
+
+---
+
+### Convenience functions
+
+**Module:** `revitpy.interop`
+
+```python
+def speckle_available() -> bool
+async def push_to_speckle(elements: list, project_id: str | None = None, model: str = "main", message: str = "", config: SpeckleConfig | None = None, *, stream_id: str | None = None, branch: str | None = None) -> SyncResult
+async def pull_from_speckle(project_id: str | None = None, model: str = "main", version_id: str | None = None, config: SpeckleConfig | None = None, *, stream_id: str | None = None, branch: str | None = None, commit_id: str | None = None) -> list[dict]
+async def sync(elements: list, project_id: str | None = None, mode: SyncMode = SyncMode.INCREMENTAL, direction: SyncDirection = SyncDirection.BIDIRECTIONAL, config: SpeckleConfig | None = None, *, model: str = "main", stream_id: str | None = None) -> SyncResult
+```
+
+```python
+@dataclass
+class SpeckleConfig:
+    server_url: str = "https://app.speckle.systems"
+    token: str | None = None
+    default_stream: str | None = None     # deprecated alias of default_project
+    default_project: str | None = None
+```
+
+---
+
+### SpeckleSubscriptions
+
+WebSocket subscriptions to new versions on a project model. Each subscription runs as an asyncio task; events are passed to the callback and, when an `event_manager` is given, to `event_manager.dispatch("speckle.version_created", payload)`.
+
+**Module:** `revitpy.interop.subscriptions`
+
+```python
+class SpeckleSubscriptions:
+    def __init__(self, client: SpeckleClient, event_manager: Any | None = None) -> None
+
+    async def subscribe(self, project_id: str | None = None, model: str = "main", callback: Callable[..., Any] | None = None, *, stream_id: str | None = None, branch: str | None = None) -> None
+    async def unsubscribe(self, project_id: str) -> None   # all models of the project
+    @property
+    def active_subscriptions(self) -> list[str]            # "project/model" keys
+    async def close(self) -> None
+```
+
+> `specklepy` pulls in `gql[websockets]`, which requires `websockets<12`, so installing the `interop` extra constrains `websockets` to 11.x. `revitpy.ai` supports both the legacy (<13) and the asyncio (>=13) websockets server APIs.
 
 ---
 
@@ -3074,14 +3591,33 @@ Check whether the cached token is still valid (uses a 60-second buffer before ex
 
 ### ApsClient
 
-Authenticated HTTP client for the APS API with sliding-window rate limiting (20 req/s) and exponential-backoff retry on transient failures.
+Authenticated HTTP client for the APS API (`https://developer.api.autodesk.com`) with sliding-window rate limiting (20 req/s), retry on 429 / 5xx with exponential backoff (honoring `Retry-After` in seconds on 429/503, capped at 60 s), and explicit timeouts.
 
 **Module:** `revitpy.cloud.client`
 
 ```python
 class ApsClient:
-    def __init__(self, authenticator: ApsAuthenticator, *, region: CloudRegion = CloudRegion.US) -> None
+    def __init__(
+        self,
+        authenticator: ApsAuthenticator,
+        *,
+        region: CloudRegion = CloudRegion.US,
+        timeout: httpx.Timeout | float | None = None,           # default 30 s (connect 10 s)
+        download_timeout: httpx.Timeout | float | None = None,  # default 300 s (connect 10 s)
+        da_base_path: str | None = None,
+    ) -> None
 ```
+
+A float timeout becomes `httpx.Timeout(seconds, connect=min(10, seconds))`.
+
+**Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `region` | `CloudRegion` | Target APS region |
+| `timeout` | `httpx.Timeout` | Timeout for API requests |
+| `download_timeout` | `httpx.Timeout` | Timeout for result/report downloads |
+| `da_base_path` | `str` | Design Automation v3 base path. `CloudRegion.US` maps to `/da/us-east/v3`; regions without a documented endpoint (e.g. `EMEA`) fall back to it with a warning. Pass `da_base_path` to override |
 
 **Methods:**
 
@@ -3116,7 +3652,12 @@ Manages Design Automation work items through the APS API: submit, poll, download
 ```python
 class JobManager:
     def __init__(self, client: ApsClient) -> None
+
+    @property
+    def workitems_path(self) -> str   # f"{client.da_base_path}/workitems"
 ```
+
+All work-item requests go to `workitems_path`.
 
 **Methods:**
 
@@ -3138,7 +3679,7 @@ Poll a work item until it reaches a terminal state. Raises `JobExecutionError` o
 ```python
 async def download_results(self, job_id: str, output_dir: Path) -> list[Path]
 ```
-Download output files for a completed work item to a local directory.
+Download output files for a completed work item. Files are streamed to disk in chunks using the client's `download_timeout`, written to a `.part` temp file and renamed on success.
 
 ```python
 async def cancel(self, job_id: str) -> bool
@@ -3209,28 +3750,39 @@ Write a workflow/pipeline configuration to disk.
 
 ### WebhookHandler
 
-Receive, verify (HMAC-SHA256), and route APS Design Automation webhook events to registered callbacks.
+Receive, verify, and route APS webhook events to registered callbacks. Signatures follow the APS Webhooks scheme: the `x-adsk-signature` header carries `sha1hash=` followed by the hex HMAC-SHA1 of the raw request body, keyed with the hook's secret.
 
 **Module:** `revitpy.cloud.webhooks`
 
 ```python
+SIGNATURE_HEADER = "x-adsk-signature"
+
+def compute_signature(secret: str, payload: bytes) -> str   # "sha1hash=<hexdigest>"
+
 class WebhookHandler:
     def __init__(self, config: WebhookConfig | None = None) -> None
 ```
+
+`WebhookConfig(url: str, secret: str, events: list[str] = [])`; `WebhookEvent(event_type, job_id, status, timestamp, payload)`.
 
 **Methods:**
 
 ```python
 def verify_signature(self, payload: bytes, signature: str) -> bool
 ```
-Verify HMAC-SHA256 signature of an incoming webhook payload. Raises `WebhookError` if no secret is configured.
+Constant-time check of an `x-adsk-signature` value (`sha1hash=<hex>` or a bare hex digest). Raises `WebhookError` if no secret is configured.
 
 ```python
-def handle_event(self, event_data: dict[str, Any]) -> WebhookEvent
+def handle_event(self, event_data: dict[str, Any] | None = None, *, raw_body: bytes | None = None, signature: str | None = None, verify: bool = True) -> WebhookEvent
 ```
-Parse an incoming webhook payload and dispatch to registered callbacks. Returns the parsed `WebhookEvent`.
+Verify, parse and dispatch a webhook payload. **Verification is on by default**: a secret must be configured and both `raw_body` and `signature` supplied; the event is parsed from the signed `raw_body` and `event_data` is ignored. Pass `verify=False` explicitly to accept unsigned payloads (e.g. Design Automation `onComplete` callbacks, which APS does not sign). Raises `WebhookError` on a missing/invalid signature, a non-object body, or a missing `eventType`.
 
 ```python
-def register_callback(self, event_type: str, callback: Callable) -> None
+def handle_request(self, raw_body: bytes, headers: Mapping[str, str]) -> WebhookEvent
+```
+Look up `x-adsk-signature` case-insensitively in `headers` and call `handle_event(raw_body=..., signature=..., verify=True)`.
+
+```python
+def register_callback(self, event_type: str, callback: Callable[[WebhookEvent], Any]) -> None
 ```
 Register a callback for a specific event type. Use `"*"` to listen for all event types.

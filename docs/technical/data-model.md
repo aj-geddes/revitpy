@@ -5,8 +5,6 @@ description: Explore the RevitPy ORM data model including Pydantic entity types,
 doc_tier: technical
 ---
 
-# Data Model
-
 This document covers the RevitPy ORM data model: the entity type hierarchy, Pydantic validation rules, cache system, change tracking, relationship management, and the query execution pipeline.
 
 All types are defined in `revitpy/orm/validation.py`, `revitpy/orm/types.py`, `revitpy/orm/cache.py`, `revitpy/orm/change_tracker.py`, `revitpy/orm/relationships.py`, and `revitpy/orm/query_builder.py`.
@@ -303,7 +301,7 @@ The main `ChangeTracker` class manages a collection of `EntityTracker` instances
 - `track_relationship_change(entity, relationship_name, change_type, related_entity)` -- records a relationship change.
 - `mark_as_added(entity)` / `mark_as_deleted(entity)` -- set entity state.
 - `accept_changes(entity_id=None)` -- moves current values to original; clears change records.
-- `reject_changes(entity_id=None)` -- reverts entity attributes to `original_values`.
+- `reject_changes(entity_id=None)` -- reverts only properties with a recorded change, to the value before their first change. Repeated changes keep the first `old_value`.
 - `get_all_changes()` -- returns `ChangeSet` objects for all dirty entities.
 
 Thread safety is controlled by the `thread_safe` constructor parameter. When enabled, all public methods acquire a `threading.RLock`.
@@ -398,14 +396,17 @@ When a relationship collection is modified (via `add()` or `remove()` on `OneToM
 2. Terminal method called (to_list, first, count, etc.)
        |
 3. QueryPlan.optimize()
-   - Moves filters before projections
+   - Moves a filter ahead of an immediately preceding order_by/then_by
+     (never across select, skip/take or distinct, which would change results)
    - Estimates cost (filter=2.0, select=1.0, order_by=3.0, skip/take=0.1, distinct=2.5)
    - Sets use_index=True if any filters exist
    - Enables parallel_execution if estimated_cost > 10.0
    - Applies OPTIMIZATION_IMPROVEMENT_FACTOR (0.8) to total cost
        |
 4. LazyQueryExecutor.execute()
-   - Checks query cache (by MD5 hash of plan operations)
+   - Checks query cache (by MD5 hash of plan operations), only for
+     cacheable plans: plans containing callables (where/select/order_by
+     lambdas) are never cached (see plan_is_cacheable / is_cacheable)
    - Fetches initial elements from provider (by type or all)
    - Builds lazy generator chain:
      * filter -> generator expression
@@ -415,7 +416,8 @@ When a relationship collection is modified (via `add()` or `remove()` on `OneToM
      * take -> itertools.islice(elements, count)
      * distinct -> custom generator with seen-set
    - Materialises with list()
-   - Caches results if < 1,000 elements and cache policy != NONE
+   - Caches results if the plan is cacheable, < 1,000 elements,
+     and cache policy != NONE
        |
 5. Result returned to caller
 ```
@@ -434,4 +436,6 @@ async for batch in streaming:
     process(batch)
 ```
 
-For queries with `parallel_execution` enabled, the full result set is computed first and then yielded in chunks. For smaller queries, all results are yielded in a single batch.
+Batches hold at most `batch_size` elements, and the pipeline is consumed lazily as you iterate. `StreamingQuery` also offers `to_list_async()` and `foreach_async(action)`.
+
+Builders are immutable. Every chained call, including `select()`, returns a clone and leaves the parent builder unchanged. `select()` keeps the source element type, which determines which elements the provider fetches before the projection runs.

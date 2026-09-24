@@ -5,9 +5,9 @@ description: Extract quantities, material takeoffs, and cost estimates from Revi
 doc_tier: user
 ---
 
-# Quantity Extraction
-
 RevitPy includes an extraction layer (`revitpy.extract`) for pulling measured quantities, material data, cost estimates, and structured exports from Revit elements. The module is designed around four core classes: `QuantityExtractor`, `MaterialTakeoff`, `CostEstimator`, and `DataExporter`.
+
+> Cost estimates and classification codes are **screening-level**: they are only as good as the cost database you supply and the name matching that maps model names onto it. Every cost line and classified material records how its name was matched and a heuristic confidence, so low-confidence mappings can be reviewed.
 
 ## Quick Start
 
@@ -35,7 +35,7 @@ export_data([{"name": "Wall-1", "area": 25.5}], config=config)
 
 ## QuantityExtractor
 
-`QuantityExtractor` extracts measured quantities (area, volume, length, count, weight) from duck-typed element objects. Elements are expected to expose attributes such as `area`, `volume`, `length`, `count`, `weight`, `name`, `category`, `level`, and `system`.
+`QuantityExtractor` extracts measured quantities (area, volume, length, count, weight) from duck-typed element objects. Elements are expected to expose attributes such as `area`, `volume`, `length`, `count`, `weight`, `name`, `category`, `level`, and `system`. RevitPy element wrappers (`api.query(Room).execute()`, live or MockRevit) work too: a missing `area`/`volume`/`length` is read from the `Area`/`Volume`/`Length` parameter and converted from Revit internal units (ft², ft³, ft) to m²/m³/m.
 
 ### Creating an Extractor
 
@@ -70,7 +70,7 @@ Each returned `QuantityItem` contains the following fields:
 | Field | Type | Description |
 |---|---|---|
 | `element_id` | `Any` | The element's `id` attribute |
-| `element_name` | `str` | The element's `name` attribute |
+| `element_name` | `str` | The element's `name`; falls back to `str(id)`, then `"Unknown"` when both are missing |
 | `category` | `str` | The element's `category` attribute |
 | `quantity_type` | `QuantityType` | The type of quantity extracted |
 | `value` | `float` | The numeric quantity value |
@@ -161,6 +161,8 @@ Each `MaterialQuantity` dataclass contains:
 | `mass` | `float` | `0.0` | Total mass in kilograms |
 | `classification_code` | `str` | `""` | Classification code (after classification) |
 | `classification_system` | `str` | `""` | Classification system name (after classification) |
+| `classification_match` | `str` | `""` | Match tier used: `exact`, `token`, `substring` or `none` |
+| `classification_confidence` | `float` or `None` | `None` | Heuristic match confidence (0--1); `None` when unclassified |
 
 ### Aggregating Materials
 
@@ -190,7 +192,15 @@ for mat in classified:
     print(f"{mat.material_name}: {mat.classification_code} ({mat.classification_system})")
 ```
 
-Classification uses exact matching first, then partial matching on the lowercased material name. Built-in mappings include common materials such as concrete, steel, wood, masonry, glass, aluminum, gypsum, insulation, carpet, tile, paint, roofing, waterproofing, brick, stone, plaster, copper, asphalt, and gravel.
+Classification uses deterministic scored matching (shared with the sustainability module, `revitpy.sustainability.matching`):
+
+1. **exact**: the name equals a key, ignoring case and punctuation (confidence 1.0);
+2. **token**: a key's whole words appear in the name (confidence 0.5--0.9);
+3. **substring**: a key appears inside a word (confidence 0.15--0.45).
+
+Within a tier, the key whose match ends latest in the name wins (the head noun), then the longest key, then alphabetical order. Results never depend on dictionary order. If competing keys would give a different code, the match is marked ambiguous, confidence is multiplied by 0.6, and a warning is logged. For example, `"Aluminum-Clad Wood Window"` classifies as wood (`A1030` / `06 00 00`) with confidence below 0.5 and a warning that `aluminum` also matched. Review any `classification_confidence` below 0.5.
+
+The built-in code tables are convenience mappings and have not been checked against the current UniFormat or MasterFormat editions. Built-in mappings include common materials such as concrete, steel, wood, masonry, glass, aluminum, gypsum, insulation, carpet, tile, paint, roofing, waterproofing, brick, stone, plaster, copper, asphalt, and gravel.
 
 #### UniFormat Classification Codes (Built-in)
 
@@ -287,7 +297,7 @@ Supported file formats:
 
 ### Estimating Costs
 
-Pass a list of `QuantityItem` objects (from `QuantityExtractor`) to the `estimate` method. The estimator looks up unit costs by category name using exact match, case-insensitive match, then partial match.
+Pass a list of `QuantityItem` objects (from `QuantityExtractor`) to the `estimate` method. The estimator looks up unit costs by category name with deterministic scored matching: exact (ignoring case and punctuation), then whole-token, then substring. Ties go to the key matching latest in the name, then the longest key, then alphabetical order. Each `CostItem` records `matched_key`, `match_type` and `match_confidence`, and low-confidence or ambiguous matches are logged as warnings. Categories with no match are skipped.
 
 ```python
 from revitpy.extract import QuantityExtractor, CostEstimator, AggregationLevel
@@ -327,6 +337,16 @@ Each `CostItem` contains:
 | `source` | `CostSource` | Where the cost data came from |
 | `category` | `str` | Element category |
 | `system` | `str` | Building system |
+| `matched_key` | `str` | Cost database key that was used |
+| `match_type` | `str` | `exact`, `token` or `substring` |
+| `match_confidence` | `float` | Heuristic match confidence (0--1), not a probability |
+
+```python
+for item in summary.items:
+    if item.match_confidence < 0.5:
+        print(f"Review: {item.category!r} priced as {item.matched_key!r} "
+              f"({item.match_type}, {item.match_confidence})")
+```
 
 ### Working with Cost Breakdowns
 

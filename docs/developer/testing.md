@@ -5,96 +5,73 @@ description: Learn how to run tests, use MockRevit utilities, write new test cas
 doc_tier: developer
 ---
 
-# Testing Guide
-
 RevitPy uses **pytest** as its test framework. All tests run without an actual Revit installation thanks to the mock infrastructure in both `revitpy/testing/` and the `tests/conftest.py` fixtures.
 
 ## Test Directory Structure
 
-The actual layout of the `tests/` directory:
+The test suite (all Python; the C# add-in is verified by compiling it):
 
 ```
 tests/
-  conftest.py                          # Global fixtures and configuration
-  README.md
-
-  orm/
-    __init__.py
-    conftest.py                        # ORM-specific fixtures (MockElementProvider,
-                                       #   cache_manager, change_tracker, sample_walls)
-    test_cache.py
-    test_change_tracker.py
-    test_element_set.py
-    test_query_builder.py
-    test_query_integration.py
-    test_validation.py
-    test_performance_benchmarks.py
-
-  unit/
-    csharp/                            # C# bridge unit tests
-    python/                            # Python unit tests
-
-  integration/
-    bridge/                            # Python-C# bridge integration tests
-
-  performance/
-    benchmarks/                        # Benchmark suites
-    test_comprehensive_performance.py  # Performance regression tests
-
-  security/
-    auth/                              # Authentication tests
-    validation/                        # Input validation security tests
-
-  compatibility/                       # Cross-version compatibility tests
+  conftest.py             # Global fixtures, marker auto-assignment by path
+  api/                    # Core API: RevitAPI, typed elements, transactions, queries
+  revit/                  # revitpy.revit adapters (fake Autodesk.Revit.DB) and host helpers
+  orm/                    # ORM: cache, change tracker, element set, query builder,
+                          #   persistence (unit of work), validation, benchmarks
+  ai/                     # MCP server, protocol, tools, safety guard, prompts
+  cloud/                  # APS auth, client, jobs, batch, CI, webhooks (+ hardening tests)
+  extract/                # Quantities, materials, costs, schedules, exporters
+  ifc/                    # Mapper, exporter (incl. real ifcopenshell), importer,
+                          #   IDS validator, BCF, diff
+  interop/                # Speckle client, sync, mapper, diff, merge, subscriptions
+  sustainability/         # Carbon, EPD (+ matching), compliance, materials, reports
+  events/                 # Class-based handlers, native Revit event bridge
+  performance/            # test_comprehensive_performance.py (slow stress tests)
+  test_examples.py        # Runs every script in examples/
 ```
 
-CI (`.github/workflows/ci.yml`) runs `pytest tests/orm/ -q --tb=short` in the **test** job.
+`tests/revit/` runs the live-Revit adapters against a fake `Autodesk.Revit.DB` namespace. The adapters accept an injected `db` for this purpose, so no Revit or pythonnet is needed. Tests that need the optional integrations (ifcopenshell, ifctester, specklepy) are skipped when those packages are missing.
+
+CI (`.github/workflows/ci.yml`) runs `pytest tests/ --cov=revitpy` on Python 3.11, 3.12 and 3.13 without optional integrations. A separate job runs `pytest tests/` with `pip install -e ".[dev,all]"`.
 
 ## Pytest Configuration
 
-The project-wide pytest settings in `pyproject.toml`:
+The project-wide pytest settings live in `pyproject.toml` (there is no `pytest.ini`):
 
 ```toml
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config"
+addopts = "-ra -q --strict-markers --strict-config -m 'not slow'"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [ ... ]
 asyncio_mode = "auto"
 ```
 
 Key points:
 
-- `--strict-markers` -- using an unregistered marker is an error.
-- `--strict-config` -- configuration warnings are errors.
-- `asyncio_mode = "auto"` -- async test functions are detected automatically; no need for the `@pytest.mark.asyncio` decorator in most cases.
+- `-m 'not slow'`: long-running stress tests are **excluded by default**. Run them with `pytest -m slow`. A `-m` on the command line replaces the default.
+- `--strict-markers`: using an unregistered marker is an error.
+- `--strict-config`: configuration warnings are errors.
+- `asyncio_mode = "auto"`: async test functions are detected automatically, so you don't need `@pytest.mark.asyncio`.
 
 ### Registered Markers
 
-Markers registered in `pyproject.toml`:
+All markers are registered in `pyproject.toml`: `slow`, `integration`, `unit`, `performance`, `benchmark`, `security`, `regression`, `compatibility`, `mock_revit`, `real_revit`, `bridge`, `e2e`. `tests/conftest.py` registers the same names again and adds the path-based auto-marking.
 
 | Marker | Description |
 |---|---|
-| `slow` | Tests that take a long time; deselect with `-m "not slow"` |
-| `integration` | Integration tests |
-| `unit` | Unit tests |
-
-Additional markers registered dynamically by `tests/conftest.py`:
-
-| Marker | Description |
-|---|---|
-| `e2e` | End-to-end workflow tests |
-| `performance` | Performance and benchmark tests |
+| `slow` | Long-running tests, excluded by default (run with `-m slow`) |
+| `unit` / `integration` / `e2e` | Test level; also auto-assigned from the file path |
+| `performance` / `benchmark` | Performance and benchmark tests |
 | `security` | Security-focused tests |
-| `bridge` | Python-C# bridge tests |
 | `mock_revit` | Tests using the mock Revit environment |
 | `real_revit` | Tests requiring an actual Revit installation (auto-skipped when Revit is unavailable) |
-| `compatibility` | Cross-version compatibility tests |
-| `regression` | Regression tests for bug fixes |
+| `compatibility` / `regression` / `bridge` | Cross-version, regression and legacy bridge tests |
 
-The `conftest.py` `pytest_collection_modifyitems` hook automatically assigns markers based on file path (e.g., files under `unit/` get the `unit` marker).
+The `conftest.py` hook `pytest_collection_modifyitems` assigns markers based on file path. For example, files whose path contains `performance` get the `performance` marker.
 
 ## Mock Utilities
 
@@ -147,20 +124,23 @@ Constants: `REVIT_VERSIONS`, `PYTHON_VERSIONS`, `PLATFORMS`, `PERFORMANCE_THRESH
 | `change_tracker` | Thread-safe `ChangeTracker` |
 | `sample_walls` | List of three `WallElement` instances |
 
-The ORM conftest also marks known-failing tests as `xfail` and marks `performance_benchmarks` tests as `xfail` due to timing sensitivity.
+The ORM conftest marks `performance_benchmarks` tests as non-strict `xfail` because they are timing-sensitive.
 
 ## Running Tests
 
 ```bash
-# Full test suite
+# Default suite (slow tests excluded)
 pytest
 
-# ORM tests only (what CI runs)
+# Only the slow stress tests / absolutely everything
+pytest -m slow
+pytest -m "slow or not slow"
+
+# One area
+pytest tests/api tests/revit
 pytest tests/orm/ -q --tb=short
 
 # By marker
-pytest -m unit
-pytest -m "not slow"
 pytest -m performance
 
 # With coverage
@@ -219,6 +199,37 @@ class TestMyFeature:
         assert param.value == 3000.0
 ```
 
+### Testing Code That Uses `RevitAPI`
+
+Connect `RevitAPI` to `MockRevit().application` and your code runs unchanged. Typed queries, nested transactions and rollback all work, because `MockDocument.StartTransaction` snapshots and restores parameter values:
+
+```python
+from revitpy import RevitAPI
+from revitpy.api import Wall
+from revitpy.testing import MockRevit
+
+
+def test_rename_walls_rolls_back_on_error():
+    mock = MockRevit()
+    mock.create_document("Test.rvt")
+    mock.create_element(name="W1", category="OST_Walls")
+
+    api = RevitAPI()
+    api.connect(mock.application)
+    wall = api.query(Wall).first()
+
+    try:
+        with api.transaction("Rename"):
+            wall.name = "Renamed"
+            raise RuntimeError("boom")
+    except RuntimeError:
+        pass
+
+    assert api.query(Wall).first().name == "W1"
+```
+
+Mock parameter values set with `create_element(parameters=...)` are returned by `Element.get_parameter_value()` as **strings** (for example `10.0` becomes `"10.0"`), because `MockParameter` has no storage type. Compare numbers accordingly, or read `MockElement.GetParameterValue(name).value` directly.
+
 ### Using ORM Fixtures
 
 ```python
@@ -274,9 +285,9 @@ def test_large_dataset():
     """Test with a large dataset."""
     ...
 
-@pytest.mark.integration
-def test_bridge_communication():
-    """Test Python-C# bridge."""
+@pytest.mark.real_revit
+def test_against_live_model():
+    """Skipped automatically unless Revit is available."""
     ...
 ```
 

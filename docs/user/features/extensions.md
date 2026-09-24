@@ -5,8 +5,6 @@ description: Guide to the RevitPy extension framework with plugin lifecycle mana
 doc_tier: user
 ---
 
-# Extensions
-
 RevitPy has an extension framework for building modular, reusable plugins. Extensions have a defined lifecycle, can declare commands, services, tools, and analyzers, and benefit from a built-in dependency injection container.
 
 ## Extension Base Class

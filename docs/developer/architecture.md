@@ -5,295 +5,237 @@ description: Explore the layered architecture of the RevitPy framework with modu
 doc_tier: developer
 ---
 
-# Architecture Overview
+RevitPy is a CPython package (`revitpy/`) plus one C# Revit add-in (`src/RevitPy.Addin`) that hosts CPython inside Revit. The Python code is written against small protocols (`IRevitApplication`, `IRevitDocument`, `IRevitElement`). Two implementations of those protocols exist:
 
-RevitPy is organised as a set of layered Python packages inside the top-level `revitpy/` directory. Each layer has a clear responsibility and a well-defined dependency direction: higher layers depend on lower layers, never the reverse.
+- **Live Revit**: `revitpy.revit.adapters` wraps `Autodesk.Revit.DB` objects through pythonnet.
+- **Tests**: `revitpy.testing` provides `MockApplication`, `MockDocument` and `MockElement`.
+
+Everything above that seam (queries, typed elements, transactions, the ORM) runs the same code in both cases.
 
 ## Layer Diagram
 
-```
-+-------------------------------------------------------+
-|                   User Scripts / Plugins               |
-+-------------------------------------------------------+
-        |               |               |
-        v               v               v
-+---------------+ +-----------+ +-------------------+
-|  ORM Layer    | |  Events   | |  Extensions       |
-| revitpy/orm/  | | revitpy/  | | revitpy/          |
-|               | | events/   | | extensions/       |
-+-------+-------+ +-----+-----+ +--------+----------+
-        |               |                |
-        v               v                v
-+-------------------------------------------------------+
-|               Core API Layer (revitpy/api/)            |
-+-------------------------------------------------------+
-        |               |               |
-        v               v               v
-+---------------+ +-----------+ +-------------------+
-| Async Support | |Performance| | Testing Utilities |
-| revitpy/      | | revitpy/  | | revitpy/testing/  |
-| async_support/| |performance|                     |
-+---------------+ +-----------+ +-------------------+
-        |
-        v
-+-------------------------------------------------------+
-|            Revit Application (via IronPython / .NET)   |
-+-------------------------------------------------------+
+```mermaid
+graph TD
+    subgraph Revit["Revit process (Windows)"]
+        RevitDB["Autodesk.Revit.DB / UI"]
+        Addin["RevitPy.Addin (C#)<br/>IExternalApplication, ribbon,<br/>PythonHost, RevitDispatcher"]
+    end
 
-Domain Modules (depend on Core API):
+    subgraph Python["CPython (embedded via pythonnet)"]
+        Scripts["User scripts / pyRevit scripts<br/>(__revit__)"]
+        Host["revitpy.revit.host<br/>call_on_revit_thread, in-Revit MCP"]
+        API["revitpy.api<br/>RevitAPI, Element + Wall/Floor/Door/Window/Room/Level,<br/>Transaction, QueryBuilder"]
+        Adapters["revitpy.revit.adapters<br/>RevitApplication/Document/ElementAdapter"]
+        ORM["revitpy.orm"]
+        Events["revitpy.events"]
+        Ext["revitpy.extensions"]
+        Domain["Domain modules<br/>extract, ifc, ai, sustainability, interop, cloud"]
+    end
 
-+----------+ +-----+ +------+ +----------------+ +---------+ +-------+
-| Extract  | | IFC | |  AI  | |Sustainability  | | Interop | | Cloud |
-| revitpy/ | |revit| |revit | | revitpy/       | | revitpy/| |revitpy|
-| extract/ | |py/  | |py/   | | sustainability/| | interop/| |/cloud/|
-|          | |ifc/ | |ai/   | |                | |         | |       |
-+----------+ +-----+ +------+ +----------------+ +---------+ +-------+
+    Mock["revitpy.testing<br/>MockApplication / MockDocument / MockElement"]
+
+    Addin -->|"initializes CPython,<br/>runs scripts on main thread"| Scripts
+    Scripts --> API
+    Scripts --> Host
+    Host --> API
+    ORM --> API
+    Ext --> API
+    Domain -.->|duck-typed elements| API
+    API -->|"connect(__revit__)"| Adapters
+    API -->|"connect(mock.application)"| Mock
+    Adapters -->|pythonnet| RevitDB
+    Host -->|"__revitpy_dispatcher__"| Addin
 ```
+
+## Live Revit Connectivity
+
+### Adapter layer (`revitpy/revit/adapters.py`)
+
+`RevitAPI.connect(app)` checks whether `app` already looks like a RevitPy application (it has `ActiveDocument`). If it doesn't, `connect()` wraps it with `adapt_application()`. That means pyRevit's or the add-in's `__revit__` (a `UIApplication`) and a plain `Application` both work.
+
+| Adapter | Wraps | Notes |
+|---|---|---|
+| `RevitApplicationAdapter` | `UIApplication` or `Application` | `ActiveDocument` (UI only), `OpenDocumentFile`, `CreateDocument` (`NewProjectDocument`), `GetOpenDocuments` |
+| `RevitDocumentAdapter` | `DB.Document` | `FilteredElementCollector`-based `GetElements` / `GetElementsByCategory`. `GetElement`, `Delete`, `Save`, `Close`. `StartTransaction` opens a `Transaction`, or a `SubTransaction` when the document is already modifiable. |
+| `RevitElementAdapter` | `DB.Element` | `GetParameterValue` converts by `StorageType` (String, Double, Integer, ElementId). It supports the pseudo-parameters `Name`, `Category`, `Type`, `Family` and `Level`. `SetParameterValue` converts to the storage type and raises `PermissionError` for read-only parameters. |
+
+`Autodesk.Revit.DB` is loaded lazily by `load_revit_api()`, so the module imports on any platform. Using an adapter outside Revit raises `RevitApiUnavailableError`. Values are in Revit internal units (feet).
+
+### Typed elements and transactions (`revitpy/api/`)
+
+- `Element.wrap()` picks the subclass registered for the element's category. `Wall`, `Floor`, `Door`, `Window`, `Room` and `Level` declare `revit_categories` such as `("OST_Walls", "Walls")`. `RevitDocumentProvider.get_elements_of_type()` uses `GetElementsByCategory` when the document provides it, which makes `api.query(Wall)` work.
+- `Transaction` delegates to `RevitDocumentProvider.start_transaction()`, which calls the document's `StartTransaction`. A document without one raises `TransactionError`. Commit and rollback call the handle's `Commit()` / `RollBack()`. An exception inside `with api.transaction(...)` rolls back.
+- `Element.set_parameter_value()` writes through to the Revit element immediately. The change log (`is_dirty`, `changes`) is kept for inspection and `discard_changes()`.
+
+### Host add-in (`src/RevitPy.Addin`)
+
+| File | Responsibility |
+|---|---|
+| `RevitPyApplication.cs` | `IExternalApplication` (`RevitPy.Addin.RevitPyApplication`). Loads settings, registers the dispatcher, and builds the **RevitPy** ribbon tab (Run Script, Rerun, MCP Server, About). Optionally initializes Python at startup. |
+| `AddinSettings.cs` | Reads `%APPDATA%\RevitPy\settings.ini` (`python_dll`, `python_home`, `python_path`\*, `startup_script`\*, `initialize_on_startup`). Env overrides: `REVITPY_PYTHON_DLL` / `_HOME` / `_PATH`. Finds a CPython 3.11–3.14 DLL. |
+| `PythonHost.cs` | Initializes CPython via pythonnet on Revit's main thread and appends `python_path` entries to `sys.path`. Exposes the dispatcher as `builtins.__revitpy_dispatcher__`, then releases the GIL. Runs scripts as `__main__` with `__revit__` bound and stdout/stderr captured. |
+| `RevitDispatcher.cs` | `IExternalEventHandler` queue that runs Python callables on Revit's main thread. |
+| `Commands.cs` | The four ribbon commands. The MCP button runs `revitpy.revit.host.toggle_mcp_server(__revit__)`. |
+| `RevitPy.addin` | Manifest, installed next to a `RevitPy\` folder that holds the DLLs. |
+
+The project builds one Revit version at a time: `dotnet build -c Release -p:RevitVersion=2025`. The mapping is 2024 → net48, 2025/2026 → net8.0-windows, 2027 → net10.0-windows. Revit API reference assemblies come from the `Nice3point.Revit.Api.*` NuGet packages, so the build also works on Linux CI. `scripts/install-addin.ps1` builds and installs it.
+
+> `src/RevitPy.Addin` is the only C# project; the earlier C# host design was removed in the 2026 refresh.
+
+### Threading model
+
+Revit's API is single-threaded. The add-in initializes CPython on Revit's main thread, so in Python `threading.main_thread()` is Revit's API thread. After initialization the add-in releases the GIL so that Python background threads can run while Revit is idle.
+
+```mermaid
+sequenceDiagram
+    participant BG as Python background thread<br/>(e.g. MCP server loop)
+    participant Host as revitpy.revit.host
+    participant Disp as RevitDispatcher (C#)
+    participant Revit as Revit main thread
+
+    BG->>Host: call_on_revit_thread(func)
+    Host->>Disp: Post(func) (enqueue + ExternalEvent.Raise)
+    loop poll every 5 ms until IsCompleted or timeout
+        Host->>Disp: request.IsCompleted?
+    end
+    Revit->>Disp: Execute(uiapp) when Revit is idle
+    Disp->>Revit: acquire GIL, run func(uiapp)
+    Disp-->>Host: Complete(result) / Fail(traceback)
+    Host-->>BG: result, or RevitThreadError / TimeoutError
+```
+
+- Code already on the main thread (ribbon scripts, pyRevit scripts, event handlers) calls the API directly. `call_on_revit_thread` detects this and runs `func` inline.
+- The caller **polls** instead of blocking. pythonnet holds the GIL during .NET calls, so a blocking wait would stop `Execute()` from getting the GIL and would deadlock Revit.
+- `TimeoutError` (default 60 s) usually means a modal dialog is open or Revit is busy.
+- `AsyncRevit`, `TaskQueue`, the async decorators and the ORM's `*_async` query methods run synchronous work in thread-pool executors. Don't use them for Revit API calls on a live model.
+
+### In-Revit MCP server (`revitpy/revit/host.py`)
+
+`start_mcp_server(uiapp)` builds a `RevitAPI` connected to the live session and wraps its tools in `MainThreadRevitTools`, which runs every tool through `call_on_revit_thread`. It then runs `McpServer` on a daemon thread with its own asyncio loop. Defaults come from `REVITPY_MCP_HOST` (`127.0.0.1`), `REVITPY_MCP_PORT` (`8765`) and `REVITPY_MCP_TOKEN` (random if unset). The server requires `Authorization: Bearer <token>`. The `SafetyGuard` uses `revit_confirmation`, a Yes/No `TaskDialog` shown on the main thread, to approve model-changing tools. Any failure or timeout denies the call.
 
 ## Directory Structure
 
-The following listing reflects the actual contents of the repository. Filenames are taken directly from the source tree.
-
 ```
 revitpy/
-  __init__.py              # Public API: RevitAPI, Element, Transaction,
-                           #   AsyncRevit, EventManager, Extension,
-                           #   MockRevit, Config, QueryBuilder, ElementSet
-  config.py                # Config and ConfigManager classes
+  __init__.py        Public API (RevitAPI, Element, Transaction, FilterOperator,
+                     EventManager, EventType, EventPriority, event_handler,
+                     Extension, MockRevit, Config, feature-module classes)
+  cli.py             `revitpy` command: version, doctor, mcp-serve
+  config.py          Config, ConfigManager
 
   api/
-    __init__.py
-    wrapper.py             # RevitAPI, RevitDocumentProvider, DocumentInfo
-    element.py             # Element, ElementSet, ElementId, ParameterValue,
-                           #   ElementProperty, ElementMetaclass
-    transaction.py         # Transaction, TransactionGroup, TransactionOptions,
-                           #   TransactionStatus, transaction_scope,
-                           #   async_transaction_scope, retry_transaction
-    query.py               # QueryBuilder (API-level), Query factory,
-                           #   FilterCriteria, FilterOperator, SortCriteria
-    exceptions.py          # RevitAPIError, TransactionError,
-                           #   ElementNotFoundError, ValidationError,
-                           #   PermissionError, ModelError, ConnectionError
+    wrapper.py       RevitAPI, RevitDocumentProvider, DocumentInfo, protocols
+    element.py       Element, Wall/Floor/Door/Window/Room/Level, ElementSet,
+                     ElementId, ParameterValue, ElementProperty
+    transaction.py   Transaction, TransactionGroup, TransactionOptions,
+                     TransactionStatus, transaction_scope, retry_transaction
+    query.py         QueryBuilder, Query, FilterOperator, SortDirection
+    exceptions.py    RevitAPIError, TransactionError, ElementNotFoundError,
+                     ValidationError, PermissionError, ModelError, ConnectionError
 
-  orm/
-    __init__.py
-    context.py             # RevitContext, ContextConfiguration,
-                           #   create_context, create_async_context
-    query_builder.py       # ORM QueryBuilder (lazy evaluation, async,
-                           #   query plans, streaming), LazyQueryExecutor,
-                           #   QueryPlan, StreamingQuery
-    element_set.py         # ORM-level ElementSet
-    cache.py               # CacheManager, CacheConfiguration
-    change_tracker.py      # ChangeTracker
-    relationships.py       # RelationshipManager
-    async_support.py       # AsyncRevitContext
-    validation.py          # WallElement, RoomElement, validation rules
-    decorators.py          # ORM decorators
-    types.py               # CachePolicy, ElementState, LoadStrategy,
-                           #   QueryMode, IElementProvider, IUnitOfWork,
-                           #   IQueryable, IAsyncQueryable, type aliases
-    exceptions.py          # ORMException, QueryError, RelationshipError
+  revit/
+    adapters.py      pythonnet adapters, adapt_application, load_revit_api
+    host.py          call_on_revit_thread, in_revit_host, MCP server in Revit
 
-  events/
-    __init__.py
-    manager.py             # EventManager
-    handlers.py            # Event handler base classes
-    dispatcher.py          # Event dispatching logic
-    decorators.py          # @event_handler and related decorators
-    filters.py             # Event filtering
-    types.py               # Event type definitions
+  orm/               context.py, query_builder.py, element_set.py, cache.py,
+                     change_tracker.py, relationships.py, async_support.py,
+                     validation.py, decorators.py, types.py, exceptions.py
+  events/            manager.py, dispatcher.py, handlers.py, decorators.py,
+                     filters.py, types.py
+  extensions/        extension.py, manager.py, loader.py, registry.py,
+                     lifecycle.py, dependency_injection.py, decorators.py
+  async_support/     async_revit.py, task_queue.py, context_managers.py,
+                     decorators.py, cancellation.py, progress.py
+  performance/       optimizer.py, benchmarks.py, memory.py, monitoring.py
+  testing/           mock_revit.py (MockRevit, MockApplication, MockDocument,
+                     MockElement, MockTransaction, MockParameter, MockElementId)
 
-  extensions/
-    __init__.py
-    extension.py           # Extension base class
-    manager.py             # ExtensionManager
-    loader.py              # Extension loading
-    registry.py            # Extension registry
-    lifecycle.py           # Extension lifecycle management
-    dependency_injection.py# DI container for extensions
-    decorators.py          # Extension decorators
+  extract/           quantities.py (QuantityExtractor), materials.py (MaterialTakeoff),
+                     costs.py (CostEstimator), schedules.py (ScheduleBuilder),
+                     exporters.py (DataExporter), types.py, exceptions.py
+  ifc/               exporter.py (IfcExporter), importer.py (IfcImporter),
+                     mapper.py (IfcElementMapper), validator.py (IdsValidator),
+                     bcf.py (BcfManager), diff.py (IfcDiff), types.py, _compat.py
+  ai/                server.py (McpServer), tools.py (RevitTools), safety.py
+                     (SafetyGuard), prompts.py (PromptLibrary), _protocol.py, types.py
+  sustainability/    carbon.py (CarbonCalculator), epd.py (EpdDatabase),
+                     compliance.py (ComplianceChecker), materials.py
+                     (MaterialExtractor), reports.py (SustainabilityReporter),
+                     matching.py, types.py
+  interop/           client.py (SpeckleClient), sync.py (SpeckleSync), mapper.py
+                     (SpeckleTypeMapper), diff.py, merge.py, subscriptions.py,
+                     types.py, _compat.py
+  cloud/             auth.py (ApsAuthenticator), client.py (ApsClient), jobs.py
+                     (JobManager), batch.py (BatchProcessor), ci.py (CIHelper),
+                     webhooks.py (WebhookHandler), types.py
 
-  async_support/
-    __init__.py
-    async_revit.py         # AsyncRevit
-    decorators.py          # @async_transaction and related decorators
-    context_managers.py    # Async context managers
-    task_queue.py          # Task queue for async operations
-    cancellation.py        # Cancellation token support
-    progress.py            # Async progress reporting
-
-  performance/
-    __init__.py
-    monitoring.py          # Performance monitoring
-    optimizer.py           # Query and operation optimiser
-    benchmarks.py          # Benchmarking utilities
-    memory.py              # Memory profiling utilities
-
-  testing/
-    __init__.py            # Exports: MockRevit, MockDocument,
-                           #   MockElement, MockApplication
-    mock_revit.py          # MockRevit, MockApplication, MockDocument,
-                           #   MockElement, MockTransaction, MockParameter,
-                           #   MockElementId
-
-  extract/
-    __init__.py
-    engine.py              # QuantityEngine, TakeoffConfig
-    materials.py           # MaterialAggregator, MaterialReport
-    cost.py                # CostEstimator, RateTable
-    export.py              # DataExporter (CSV, Excel, JSON)
-
-  ifc/
-    __init__.py
-    exporter.py            # IFCExporter, ExportConfig
-    importer.py            # IFCImporter, ImportMapping
-    mapper.py              # ElementMapper, TypeMapping
-    ids.py                 # IDSValidator, IDSSpecification
-    bcf.py                 # BCFManager, BCFIssue, BCFViewpoint
-    diff.py                # IFCDiff, ChangeSet
-
-  ai/
-    __init__.py
-    server.py              # MCPServer, ServerConfig
-    tools.py               # ToolRegistry, tool decorator
-    guardrails.py          # SafetyGuardrails, PermissionPolicy
-    prompts.py             # PromptTemplate, PromptLibrary
-
-  sustainability/
-    __init__.py
-    carbon.py              # CarbonCalculator, CarbonResult
-    epd.py                 # EPDDatabase, EPDRecord
-    compliance.py          # ComplianceChecker, Standard
-    reports.py             # SustainabilityReport, ReportConfig
-
-  interop/
-    __init__.py
-    connector.py           # SpeckleConnector, ConnectionConfig
-    mapper.py              # TypeMapper, ObjectConverter
-    diff.py                # SpeckleDiff, MergeStrategy
-    subscriptions.py       # StreamSubscription, RealtimeSync
-
-  cloud/
-    __init__.py
-    automation.py          # DesignAutomation, JobConfig
-    batch.py               # BatchProcessor, BatchJob
-    cicd.py                # CICDHelper, PipelineConfig
+src/RevitPy.Addin/   C# host add-in (the only C# project that is built)
+scripts/install-addin.ps1
 ```
 
 ## Module Responsibilities
 
-### Core API Layer (`revitpy/api/`)
+### Core API (`revitpy/api/`)
 
-The lowest application-level layer. It wraps the Revit .NET API behind Python protocols and provides:
+- **`RevitAPI`**: connection lifecycle (`connect` / `disconnect`), document operations, and the factory for queries (`query()`, `elements`) and transactions (`transaction()`, `transaction_group()`). It must be connected first. Otherwise these raise `ConnectionError`.
+- **`Element`** and its typed subclasses: parameter access with caching and conversion, and immediate write-through with a change log.
+- **`ElementSet`**: LINQ-style collection (`where`, `select`, `first`, `single`, `any`, `all`, `order_by`, `group_by`).
+- **`Transaction` / `TransactionGroup`**: context managers over the provider's transactions, with commit and rollback handlers. `retry_transaction()` retries a whole operation.
+- **`QueryBuilder`**: property/`FilterOperator` filters, sorting, `skip` / `take`, `distinct`.
 
-- **`RevitAPI`** (`wrapper.py`) -- main entry point. Manages connection lifecycle (`connect` / `disconnect`), document operations (`open_document`, `create_document`, `save_document`, `close_document`), and serves as a factory for queries and transactions. Uses `weakref`-based document caching.
-- **`Element`** (`element.py`) -- Pythonic element wrapper with parameter caching, change tracking (`is_dirty`, `changes`, `save_changes`, `discard_changes`), and automatic type conversion between Revit and Python types. Uses a custom metaclass (`ElementMetaclass`) for property registration.
-- **`ElementSet`** (`element.py`) -- generic collection with LINQ-style operations (`where`, `select`, `first`, `single`, `any`, `all`, `order_by`, `group_by`) and lazy evaluation.
-- **`Transaction` / `TransactionGroup`** (`transaction.py`) -- context-manager-based transaction wrappers supporting both sync and async usage, commit/rollback handlers, operation batching, and retry logic via the `retry_transaction` helper.
-- **`QueryBuilder`** (`query.py`) -- fluent query interface with filter operators (`EQUALS`, `CONTAINS`, `REGEX`, etc.), sorting, pagination (`skip` / `take`), and distinct.
-- **Exceptions** (`exceptions.py`) -- hierarchy rooted at `RevitAPIError` with specialised subclasses: `TransactionError`, `ElementNotFoundError`, `ValidationError`, `PermissionError`, `ModelError`, `ConnectionError`.
+### ORM (`revitpy/orm/`)
 
-Protocols (`IRevitApplication`, `IRevitDocument`, `IRevitElement`, `IElementProvider`, `ITransactionProvider`) decouple the framework from the concrete Revit runtime, making testing possible without Revit installed.
+`RevitContext` (created with `create_context(provider)`) combines the ORM `QueryBuilder`, `CacheManager`, `ChangeTracker` and `RelationshipManager`. `save_changes()` / `save_changes_async()` pass tracked changes to an optional `IUnitOfWork` and commit it, raising on failure. Without a unit of work, changes are only accepted in the tracker. Any `IElementProvider` works as the data source, including `api.active_document`.
 
-### ORM Layer (`revitpy/orm/`)
+### Events, Extensions, Async, Performance, Testing, Config
 
-A higher-level layer on top of the core API, inspired by Entity Framework patterns:
+- **Events**: singleton `EventManager` with priority-based `EventDispatcher`. Register handlers with `register_function()` or the `@event_handler([...])` decorator on module-level functions.
+- **Extensions**: `Extension` base class (constructed with `ExtensionMetadata`), `ExtensionManager`, DI container.
+- **Async**: `AsyncRevit`, `TaskQueue`, cancellation and progress. These use executors (see [Threading model](#threading-model)).
+- **Performance**: `PerformanceOptimizer`, `AdaptiveCache`, `ObjectPool`, `BenchmarkSuite` / `BenchmarkRunner`, `MemoryManager` / `MemoryLeakDetector`, `MetricsCollector` / `PerformanceMonitor` / `AlertingSystem`. It imports `psutil`, which is installed with the `dev` extra.
+- **Testing**: `MockRevit` and the mock application, document and element classes. `MockDocument.StartTransaction` supports commit, rollback and nesting through snapshot and restore.
+- **Config**: `Config` (dict-backed) and `ConfigManager` (YAML).
 
-- **`RevitContext`** (`context.py`) -- orchestrates querying, change tracking, caching, and relationships. Supports thread-safe mode, configurable cache policies (`CachePolicy.MEMORY`, `CachePolicy.NONE`), and an async facade via `as_async()`. Acts as a Unit of Work: `save_changes()` commits all tracked changes; `reject_changes()` discards them. Disposable via context manager.
-- **ORM `QueryBuilder`** (`query_builder.py`) -- enhanced query builder with `QueryPlan`-based optimization (filters reordered before projections), lazy evaluation through generator chains, query-result caching (keyed by MD5 hash of the plan), async execution (`to_list_async`, `first_async`, `count_async`), and streaming support via `StreamingQuery`.
-- **`CacheManager`** / **`ChangeTracker`** / **`RelationshipManager`** -- internal components for caching, dirty-tracking, and navigating entity relationships.
+### Domain modules
 
-### Events System (`revitpy/events/`)
+`extract`, `ifc`, `ai`, `sustainability`, `interop` and `cloud` operate on duck-typed element objects and plain dataclasses. None of them requires a live Revit session. See the [feature guides]({{ '/user/' | relative_url }}) for each one. IFC needs the `ifc` extra (`ifcopenshell>=0.8`, `ifctester`, `defusedxml`), and Speckle needs the `interop` extra (`specklepy>=3`).
 
-Publish-subscribe event system. The `EventManager` class is exported from the top-level package. The `@event_handler` decorator registers handler functions. Includes event filtering and a dispatcher.
+### CLI (`revitpy/cli.py`)
 
-### Extensions Framework (`revitpy/extensions/`)
-
-Plugin architecture. The `Extension` base class defines the extension contract; `ExtensionManager` handles discovery, loading, lifecycle, and dependency injection.
-
-### Async Support (`revitpy/async_support/`)
-
-Wraps Revit operations for use with `async`/`await`. `AsyncRevit` is the main class. Includes decorators (e.g., `@async_transaction`), a task queue, cancellation tokens, and progress reporting.
-
-### Performance Module (`revitpy/performance/`)
-
-Monitoring, benchmarking, memory profiling, and an optimiser. Used internally by the ORM query engine and available for user scripts.
-
-### Testing Utilities (`revitpy/testing/`)
-
-`MockRevit` provides a complete mock Revit environment (application, documents, elements, transactions, parameters) so that tests run without an actual Revit installation. Exported at the top level for user test suites.
-
-### Configuration (`revitpy/config.py`)
-
-`Config` is a dictionary-backed configuration container with attribute access. `ConfigManager` loads YAML files and exposes the active config.
-
-### Quantity Extraction (`revitpy/extract/`)
-
-Quantity takeoff engine for BIM data extraction. Provides material aggregation pipelines, cost estimation with configurable rate tables, and multi-format data export (CSV, Excel, JSON). Designed for integration into automated quantity surveying workflows.
-
-### IFC Interop (`revitpy/ifc/`)
-
-IFC import/export layer with bidirectional element mapping between Revit and IFC entities. Includes IDS (Information Delivery Specification) validation, BCF (BIM Collaboration Format) issue tracking, and model diff capabilities for detecting changes between IFC versions.
-
-### AI & MCP Server (`revitpy/ai/`)
-
-Model Context Protocol server that exposes RevitPy operations as AI-callable tools. Provides a tool registration API, safety guardrails for destructive operations, and prompt templates for common Revit automation tasks. Enables AI-assisted BIM workflows through structured tool invocation.
-
-### Sustainability (`revitpy/sustainability/`)
-
-Embodied carbon calculation engine with EPD (Environmental Product Declaration) database integration. Supports compliance checking against standards (EN 15978, LEED, BREEAM) and generates sustainability reports with material-level carbon breakdowns.
-
-### Speckle Interop (`revitpy/interop/`)
-
-Speckle connector for collaborative BIM data exchange. Handles type mapping between RevitPy elements and Speckle objects, diff and merge operations for model synchronisation, and real-time subscriptions for live updates from Speckle streams.
-
-### Cloud Automation (`revitpy/cloud/`)
-
-APS (Autodesk Platform Services) Design Automation integration for headless Revit processing. Includes batch job orchestration, cloud-based model processing pipelines, and CI/CD helper utilities for automated build-and-check workflows.
+`revitpy version`, `revitpy doctor [--json]` (environment and optional-integration checks, exit 1 if a core dependency is missing) and `revitpy mcp-serve [--host --port --token]` (MCP server without a live Revit connection).
 
 ## Dependency Graph
 
-Arrows point from dependent to dependency.
+Arrows point from dependent to dependency (package-internal imports only).
 
 ```
-revitpy/__init__.py
-    |
-    +---> revitpy/api/  (RevitAPI, Element, Transaction)
-    +---> revitpy/orm/  (QueryBuilder, ElementSet)
-    +---> revitpy/events/  (EventManager, event_handler)
-    +---> revitpy/extensions/  (ExtensionManager, Extension)
-    +---> revitpy/async_support/  (AsyncRevit, async_transaction)
-    +---> revitpy/testing/  (MockRevit)
-    +---> revitpy/config.py  (Config, ConfigManager)
-
-revitpy/orm/ ---> revitpy/api/  (uses Element, ElementSet protocols)
-revitpy/events/ ---> revitpy/api/  (event types reference API objects)
-revitpy/extensions/ ---> revitpy/api/  (extensions operate on API objects)
-revitpy/async_support/ ---> revitpy/api/  (wraps synchronous API)
-revitpy/testing/ ---> (standalone; no internal dependencies)
-revitpy/performance/ ---> (standalone utilities)
-revitpy/extract/ ---> revitpy/api/  (reads element parameters for takeoff)
-revitpy/ifc/ ---> revitpy/api/  (maps Element to IFC entities)
-revitpy/ai/ ---> revitpy/api/  (exposes API operations as MCP tools)
-revitpy/sustainability/ ---> revitpy/extract/  (uses material data for carbon calc)
-revitpy/interop/ ---> revitpy/api/  (converts Element to Speckle objects)
-revitpy/cloud/ ---> revitpy/api/  (orchestrates headless Revit jobs)
+revitpy/api/          ---> revitpy/revit/  (lazy, in RevitAPI.connect)
+revitpy/revit/        ---> revitpy/api/, revitpy/ai/
+revitpy/orm/          ---> revitpy/api/
+revitpy/extract/      ---> revitpy/api/
+revitpy/async_support/---> revitpy/api/
+revitpy/events/       ---> revitpy/async_support/
+revitpy/extensions/   ---> revitpy/api/, async_support/, events/, config
+revitpy/cli.py        ---> revitpy/ai/, revitpy/revit/
+revitpy/testing/, performance/, ifc/, ai/, sustainability/, interop/, cloud/
+                      ---> (no internal dependencies)
 ```
 
 ## Third-Party Dependencies
 
-All runtime dependencies are declared in `pyproject.toml`:
+Runtime dependencies from `pyproject.toml`:
 
-| Package | Minimum version | Purpose |
+| Package | Constraint | Purpose |
 |---|---|---|
-| pydantic | >= 2.0.0 | Data validation (e.g., `ParameterValue`) |
+| pydantic | >= 2.5, < 3 | Validation (`ParameterValue`, ORM models) |
 | typing-extensions | >= 4.0.0 | Backported type hints |
-| asyncio-mqtt | >= 0.11.0 | MQTT-based messaging |
 | aiofiles | >= 23.0.0 | Async file I/O |
-| loguru | >= 0.7.0 | Logging throughout the framework |
-| httpx | >= 0.24.0 | HTTP client |
-| websockets | >= 11.0.0 | WebSocket support |
-| pyyaml | >= 6.0.0 | YAML configuration loading |
-| click | >= 8.0.0 | CLI (`revitpy` entry point) |
-| rich | >= 13.0.0 | Rich terminal output |
-| jinja2 | >= 3.0.0 | Template rendering |
+| loguru | >= 0.7.0 | Logging |
+| httpx | >= 0.25.0 | HTTP (APS cloud client, EC3 EPD lookups) |
+| websockets | >= 11.0.0 | MCP server (`<12` when specklepy is installed, via gql) |
+| pyyaml | >= 6.0.0 | YAML configuration |
+| click | >= 8.0.0 | `revitpy` CLI |
+| rich | >= 13.0.0 | CLI output |
+| jinja2 | >= 3.0.0 | Prompt templates |
+
+pythonnet is not a pip dependency. The add-in (or pyRevit) provides it inside Revit.

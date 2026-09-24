@@ -80,5 +80,21 @@
     {% include footer.html %}
 
     <script src="{{ '/assets/js/main.js' | relative_url }}"></script>
+    {% if content contains 'language-mermaid' %}
+    <script type="module">
+      // Kramdown renders ```mermaid fences as <pre><code class="language-mermaid">.
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      document.querySelectorAll("code.language-mermaid").forEach((code) => {
+        const block = code.closest("div.highlighter-rouge, pre") || code;
+        const diagram = document.createElement("div");
+        diagram.className = "mermaid";
+        diagram.textContent = code.textContent;
+        block.replaceWith(diagram);
+      });
+      const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "default" });
+      await mermaid.run({ querySelector: ".mermaid" });
+    </script>
+    {% endif %}
 </body>
 </html>

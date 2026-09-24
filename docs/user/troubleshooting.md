@@ -5,8 +5,6 @@ description: Troubleshooting guide for RevitPy covering API and ORM exception hi
 doc_tier: user
 ---
 
-# Troubleshooting
-
 This guide covers the exception classes in RevitPy and common issues you may encounter.
 
 ## API Exceptions
@@ -39,13 +37,13 @@ from revitpy.api.exceptions import ConnectionError
 ```
 
 **Common causes:**
-- Calling `api.elements` or `api.transaction()` before calling `api.connect()`.
-- Calling `api.connect()` without providing a Revit application object.
-- The Revit application is not running or not accessible.
+- Calling `api.query()`, `api.elements` or `api.transaction()` before `api.connect()`. These raise `ConnectionError: No active document`.
+- Calling `api.connect()` without an application object.
+- Passing an object that is neither a Revit `UIApplication`/`Application` nor a RevitPy-compatible application such as `MockApplication`.
+- Running outside Revit, where the Revit API cannot be loaded. The subclass `revitpy.revit.RevitApiUnavailableError` is raised when a live adapter is used outside Revit.
 
 **Solutions:**
-- Ensure `api.connect(revit_application)` is called before any operations.
-- Verify that the Revit application object is valid and accessible.
+- Inside Revit, call `api.connect(__revit__)`. In tests, call `api.connect(MockRevit().application)`.
 - Use `api.is_connected` to check the connection status before operations.
 
 ### ElementNotFoundError
@@ -84,6 +82,8 @@ from revitpy.api.exceptions import TransactionError
 - `cause` -- The underlying exception.
 
 **Common causes:**
+- The document cannot open transactions. `RevitDocumentProvider.start_transaction()` raises `TransactionError` when the document has no `StartTransaction` method (for example a custom provider). It no longer pretends to succeed.
+- Revit refused to start the transaction, for example on a read-only document or while another command is running.
 - Attempting to start a transaction that has already been started.
 - Committing a transaction that is not in the `STARTED` state.
 - An operation failing inside a transaction, triggering a rollback.
@@ -112,7 +112,8 @@ from revitpy.api.exceptions import ValidationError
 
 **Solutions:**
 - Verify the expected type before setting parameter values. Use `ParameterValue.storage_type` to check.
-- Ensure values match the parameter's storage type (`String`, `Double`, `Integer`).
+- Ensure values match the parameter's storage type (`String`, `Double`, `Integer`, `ElementId`). On a live model, doubles are in Revit internal units (feet), so pass `3.0 / 0.3048` for 3 m.
+- On a live model, parameter writes must happen inside `api.transaction()`.
 
 ### PermissionError
 
@@ -236,11 +237,22 @@ Raised when a batch operation partially or fully fails.
 
 ### ValidationError (ORM)
 
-Raised when entity validation fails in the ORM layer.
+Raised when entity validation fails in the ORM layer, including by the factory functions `create_wall`, `create_room`, `create_door` and `create_window`. Constructing a model directly (for example `WallElement(...)`) raises pydantic's own `ValidationError` instead.
 
 **Attributes:**
-- `validation_errors` -- Dictionary of field names to lists of error messages.
-- `entity` -- The entity that failed validation.
+- `validation_errors` -- Dictionary of field names (dotted paths) to lists of error messages.
+- `entity` -- The entity that failed validation, if any.
+- `cause` -- The original pydantic `ValidationError` (from the factory functions).
+
+```python
+from revitpy.orm import create_wall
+from revitpy.orm.exceptions import ValidationError
+
+try:
+    create_wall(id=1, height=-1.0, length=10.0, width=0.5)
+except ValidationError as e:
+    print(e.validation_errors)   # {'height': ['...']}
+```
 
 ### ConcurrencyError
 
@@ -265,11 +277,11 @@ Raised when ORM transaction operations fail.
 
 **Problem:** You see `ConnectionError: No active document` when calling `api.elements`, `api.query()`, or `api.transaction()`.
 
-**Solution:** Open or create a document first:
+**Solution:** Connect first. If Revit has no document open, open or create one:
 ```python
-api.connect(revit_application)
-api.open_document("path/to/project.rvt")
-# Now api.active_document is set
+api.connect(__revit__)          # or api.connect(mock.application) in tests
+if api.active_document is None:
+    api.open_document("path/to/project.rvt")
 ```
 
 ### "RevitContext has been disposed" error
@@ -327,11 +339,82 @@ service = container.get_service(MyService)
 - For large datasets, use the ORM `as_streaming()` method for batch processing.
 - Check `context.cache_statistics` to verify cache hit rates.
 
-### Transaction timeout
+### Long-running transactions
 
-**Problem:** A transaction times out before completing.
+**Problem:** A large edit keeps Revit busy for a long time.
 
 **Solution:**
-- Increase `timeout_seconds` in `TransactionOptions`.
-- Break large operations into smaller transactions using `TransactionGroup`.
-- Use batch processing with `AsyncRevit.update_elements_async()` for bulk updates.
+- `TransactionOptions.timeout_seconds` is stored but not enforced, so changing it has no effect.
+- Split the work into several `api.transaction()` blocks so that each commit is smaller.
+- Narrow queries (typed `api.query(Wall)`, filters, `take()`) before editing.
+
+## Running Inside Revit
+
+### "No Python 3.11-3.14 (x64) installation was found"
+
+**Problem:** The RevitPy add-in cannot find a Python DLL. You see this message when you click **Run Script** or **MCP Server**.
+
+**Solution:** The add-in looks for `python3XX.dll` (3.11–3.14, 64-bit) in this order:
+
+1. `python_dll` in `%APPDATA%\RevitPy\settings.ini`, or the `REVITPY_PYTHON_DLL` environment variable.
+2. `python_home`, or `REVITPY_PYTHON_HOME`.
+3. Directories on `PATH`.
+4. Per-user installs under `%LOCALAPPDATA%\Programs\Python\Python3*`.
+
+Set the full path explicitly:
+
+```ini
+python_dll = C:\Python312\python312.dll
+```
+
+Use a 64-bit CPython from python.org. The Microsoft Store Python and 32-bit builds won't load. **RevitPy > About** shows the settings file path and whether Python initialized. Settings are read when Revit starts, so restart Revit after editing them.
+
+### `ModuleNotFoundError: No module named 'revitpy'` inside Revit
+
+The embedded interpreter only sees its own `site-packages` plus any `python_path` entries. Add the environment where `revitpy` is installed:
+
+```ini
+python_path = C:\dev\my-venv\Lib\site-packages
+```
+
+The venv must be created from the same Python version as the DLL. Compiled dependencies such as `pydantic-core` must match that interpreter.
+
+### Revit API errors from background threads, or `TimeoutError`
+
+**Problem:** You get errors such as "Cannot access Revit API outside of a valid API context", or Revit freezes, when you call RevitPy from a `threading.Thread`, an asyncio loop in another thread, or a server.
+
+**Solution:** The Revit API may only be used on Revit's main thread. Inside the RevitPy add-in, dispatch the work:
+
+```python
+from revitpy.revit.host import call_on_revit_thread
+
+count = call_on_revit_thread(lambda uiapp: len(list(uiapp.ActiveUIDocument.Selection.GetElementIds())))
+```
+
+`call_on_revit_thread` raises:
+
+- `TimeoutError` if Revit did not run the request within `timeout` seconds (default 60). Usually a modal dialog is open or Revit is busy. Close the dialog or pass a larger `timeout`.
+- `RevitHostUnavailableError` outside the add-in. pyRevit does not provide the dispatcher.
+- `RevitThreadError` if the function raised. The message contains the traceback.
+
+Don't run live Revit calls through `AsyncRevit`, `TaskQueue` or the async decorators, because they use thread-pool executors.
+
+### Values look 3.28 times too large or too small
+
+Revit returns and accepts lengths in feet (areas in ft², volumes in ft³), regardless of project units. Convert explicitly: `metres = feet * 0.3048`.
+
+### MCP client can't connect to the in-Revit server
+
+- Start the server with **RevitPy > MCP Server**. The dialog shows the URL (default `ws://127.0.0.1:8765`) and the bearer token.
+- Send `Authorization: Bearer <token>`. Set a fixed token with the `REVITPY_MCP_TOKEN` environment variable, and a different host or port with `REVITPY_MCP_HOST` / `REVITPY_MCP_PORT`.
+- Tools that change the model show a Yes/No dialog in Revit. If nobody answers or the dialog fails, the call is denied.
+
+## Optional Integrations
+
+### `pip` resolves `websockets` to 11.x after installing `revitpy[interop]`
+
+`specklepy` requires `gql[websockets]`, which pins `websockets<12`. This is expected, and RevitPy works with it. If another tool in the same environment needs `websockets>=12`, keep Speckle support in a separate virtual environment.
+
+### `ImportError` mentioning ifcopenshell or specklepy
+
+IFC and Speckle support are optional. Install them with `pip install "revitpy[ifc]"` (`ifcopenshell>=0.8`, `ifctester`, `defusedxml`) or `pip install "revitpy[interop]"` (`specklepy>=3`). Run `revitpy doctor` to see which integrations are available.

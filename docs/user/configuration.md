@@ -5,9 +5,43 @@ description: Complete reference for RevitPy configuration classes including Conf
 doc_tier: user
 ---
 
-# Configuration
+RevitPy uses several configuration classes to control framework behavior. This page is a reference for all configuration types and their fields. It also covers the settings of the RevitPy Revit add-in and the in-Revit MCP server.
 
-RevitPy uses several configuration classes to control framework behavior. This page is a reference for all configuration types and their fields.
+## Revit Add-in Settings
+
+The RevitPy host add-in (`src/RevitPy.Addin`) reads `%APPDATA%\RevitPy\settings.ini` when Revit starts. A missing file means defaults. Lines are `key = value`. Lines starting with `#` or `;` are comments; inline comments are not supported. `%VAR%` environment variables are expanded.
+
+```ini
+# RevitPy add-in settings
+python_dll = C:\Python312\python312.dll
+python_home = C:\Python312
+python_path = C:\dev\my-venv\Lib\site-packages
+python_path = C:\dev\my-tools
+startup_script = %USERPROFILE%\revitpy\startup.py
+initialize_on_startup = false
+```
+
+| Key | Default | Description |
+|---|---|---|
+| `python_dll` | *(auto)* | Full path to `python3XX.dll`, a 64-bit CPython 3.11–3.14. If unset or missing, the add-in searches `python_home`, then `PATH`, then `%LOCALAPPDATA%\Programs\Python\Python3*`, and uses the first directory that contains a supported DLL (the newest version in that directory). |
+| `python_home` | *(none)* | Sets `PythonEngine.PythonHome` and is also searched for the DLL. |
+| `python_path` | *(none)* | Extra `sys.path` entry. Repeatable, and `;`-separated lists are accepted. Point it at the `site-packages` where `revitpy` is installed. |
+| `startup_script` | *(none)* | Python file run once after the interpreter starts (no `__revit__`). Repeatable. |
+| `initialize_on_startup` | `false` | `true`/`1`/`yes` starts Python when Revit finishes initializing. Otherwise Python starts on the first ribbon command. |
+
+Environment overrides: `REVITPY_PYTHON_DLL` and `REVITPY_PYTHON_HOME` replace the file's values, and `REVITPY_PYTHON_PATH` (`;`-separated) adds more paths. **RevitPy > About** shows the settings path and Python version.
+
+### In-Revit MCP server
+
+**RevitPy > MCP Server** toggles an MCP server inside the Revit session. It is configured with environment variables, read when the server starts:
+
+| Variable | Default | Description |
+|---|---|---|
+| `REVITPY_MCP_HOST` | `127.0.0.1` | Bind address |
+| `REVITPY_MCP_PORT` | `8765` | Bind port |
+| `REVITPY_MCP_TOKEN` | random per start | Bearer token clients must send (`Authorization: Bearer ...`) |
+
+Tools that change the model need a Yes/No confirmation in Revit. `revitpy mcp-serve --host --port --token` (which also reads `REVITPY_MCP_TOKEN`) runs the same server outside Revit, without a live model.
 
 ## Config
 
@@ -114,10 +148,10 @@ options = TransactionOptions(
 | `name` | `str` or `None` | Auto-generated | Transaction name. If `None`, a name like `Transaction_<8-char-hex>` is generated automatically. |
 | `description` | `str` or `None` | `None` | Human-readable description |
 | `auto_commit` | `bool` | `True` | Commit automatically when the context manager exits without error |
-| `timeout_seconds` | `float` or `None` | `None` | Timeout in seconds |
-| `retry_count` | `int` | `0` | Number of retry attempts on failure |
-| `retry_delay` | `float` | `1.0` | Delay between retries in seconds |
-| `suppress_warnings` | `bool` | `False` | Suppress transaction warnings |
+| `timeout_seconds` | `float` or `None` | `None` | Stored only; `Transaction` does not enforce it |
+| `retry_count` | `int` | `0` | Stored only; use `retry_transaction()` for retries |
+| `retry_delay` | `float` | `1.0` | Stored only |
+| `suppress_warnings` | `bool` | `False` | Stored only |
 
 ## ContextConfiguration
 
@@ -236,7 +270,7 @@ print(info.path)        # "/path/to/MyProject.rvt"
 print(info.name)        # "MyProject" (title without extension)
 print(info.is_modified) # False
 print(info.is_read_only)# False
-print(info.version)     # None or a version string
+print(info.version)     # e.g. "2025" on a live model, None on mocks
 ```
 
 ### Fields

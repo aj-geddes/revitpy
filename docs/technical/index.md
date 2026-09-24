@@ -5,8 +5,6 @@ description: In-depth technical documentation for software architects and integr
 doc_tier: technical
 ---
 
-# Technical Documentation
-
 This section provides in-depth technical documentation for software architects, system integrators, and senior developers who need to understand RevitPy's internal design, data model, performance characteristics, and security posture.
 
 These documents are derived directly from the source code and reflect the current implementation.
@@ -15,11 +13,11 @@ These documents are derived directly from the source code and reflect the curren
 
 | Document | Description |
 |---|---|
-| [System Design](system-design.md) | Component architecture, design patterns, module dependencies, and technology stack. |
-| [Data Model](data-model.md) | ORM entity types, Pydantic validation rules, caching, change tracking, relationships, and query execution. |
-| [Performance](performance.md) | Performance targets, optimization strategies, caching architecture, benchmarking framework, and memory management. |
-| [Security](security.md) | Input validation, security linting, thread safety, error handling, CI security checks, cloud token management, AI safety model, and webhook verification. |
-| [Infrastructure](infrastructure.md) | Cloud deployment architecture, APS Design Automation setup, CI/CD pipelines, and container orchestration for headless Revit processing. |
+| [System Design]({{ '/technical/system-design/' | relative_url }}) | Component architecture, design patterns, module dependencies, and technology stack. |
+| [Data Model]({{ '/technical/data-model/' | relative_url }}) | ORM entity types, Pydantic validation rules, caching, change tracking, relationships, and query execution. |
+| [Performance]({{ '/technical/performance/' | relative_url }}) | Performance targets, optimization strategies, caching architecture, benchmarking framework, and memory management. |
+| [Security]({{ '/technical/security/' | relative_url }}) | Input validation, security linting, thread safety, error handling, CI security checks, cloud token management, AI safety model, and webhook verification. |
+| [Infrastructure]({{ '/technical/infrastructure/' | relative_url }}) | Cloud deployment architecture, APS Design Automation setup, CI/CD pipelines, and container orchestration for headless Revit processing. |
 
 ## Audience
 

@@ -11,7 +11,7 @@ doc_tier: user
 
 ### What Python versions are supported?
 
-RevitPy requires Python 3.11 or later. The `pyproject.toml` specifies `requires-python = ">=3.11"` and classifiers list Python 3.11 and 3.12.
+RevitPy supports CPython 3.11–3.13. `pyproject.toml` specifies `requires-python = ">=3.11"`, and CI tests 3.11, 3.12 and 3.13. The RevitPy Revit add-in can embed a 64-bit CPython 3.11–3.14. IronPython is not supported.
 
 ### What license is RevitPy released under?
 
@@ -19,7 +19,44 @@ RevitPy is released under the MIT license.
 
 ### Do I need Revit installed to develop with RevitPy?
 
-No. RevitPy includes a `MockRevit` environment that simulates the Revit application, documents, and elements. You can develop and test your code entirely without a Revit installation. See the [Testing guide](features/testing) for details.
+No. RevitPy includes a `MockRevit` environment that simulates the Revit application, documents, and elements. You can develop and test your code entirely without a Revit installation. See the [Testing guide]({{ '/user/features/testing/' | relative_url }}) for details.
+
+### How do I run RevitPy against a live Revit model?
+
+Run your script inside Revit, either through the RevitPy add-in (**RevitPy > Run Script**) or in a pyRevit script on a CPython 3.11+ engine. Then connect with Revit's `UIApplication`:
+
+```python
+from revitpy import RevitAPI
+
+api = RevitAPI()
+api.connect(__revit__)
+```
+
+See [Getting Started]({{ '/user/getting-started/' | relative_url }}#connect-to-revit) for installing the add-in. RevitPy cannot attach to Revit from a separate process.
+
+### What units are values in?
+
+Revit internal units. Lengths are in **feet**, areas in square feet and volumes in cubic feet, no matter what display units the project uses. `set_parameter_value("Unconnected Height", 10.0)` sets 10 ft. Convert explicitly, for example `metres = feet * 0.3048`.
+
+### Can I call RevitPy from a background thread?
+
+Not directly. The Revit API only works on Revit's main thread. Inside the RevitPy add-in, use `revitpy.revit.host.call_on_revit_thread()` to run a function there and get its result:
+
+```python
+from revitpy.revit.host import call_on_revit_thread
+
+title = call_on_revit_thread(lambda uiapp: uiapp.ActiveUIDocument.Document.Title)
+```
+
+It raises `TimeoutError` (default 60 s) if Revit cannot run the request, for example while a modal dialog is open. `AsyncRevit`, `TaskQueue` and the async decorators run synchronous work in thread-pool executors. Don't use them for Revit API calls on a live model.
+
+### Is there a command-line tool?
+
+Yes, the package installs `revitpy`:
+
+- `revitpy version` prints the installed version.
+- `revitpy doctor [--json]` checks Python, dependencies and optional integrations. It exits with status 1 if a core dependency is missing.
+- `revitpy mcp-serve [--host --port --token]` runs the MCP server without a live Revit connection. Tools that need a document report that RevitPy is not connected. To work on a live model, use the add-in's **MCP Server** button.
 
 ## API and Querying
 
@@ -50,7 +87,11 @@ Use the API QueryBuilder for straightforward property-based queries. Use the ORM
 all_elements = api.elements.execute()
 
 # Using the ORM
-all_of_type = context.all(WallElement)
+from revitpy.api import Wall
+from revitpy.orm import create_context
+
+context = create_context(api.active_document)
+all_walls = context.all(Wall)
 ```
 
 ### How do I paginate results?
@@ -85,14 +126,20 @@ with api.transaction("My Work") as txn:
 
 ### Can I nest transactions?
 
-RevitPy does not support nested transactions in the API layer. Use `TransactionGroup` to coordinate multiple transactions:
+Yes. On a live document, a `with api.transaction(...)` block opened inside another one becomes a Revit `SubTransaction`. If it raises, only its own changes roll back:
 
 ```python
-with api.transaction_group("Batch") as group:
-    txn1 = group.add_transaction()
-    txn2 = group.add_transaction()
-    # All start, commit, or rollback together
+with api.transaction("Outer"):
+    wall.set_parameter_value("Comments", "kept")
+    try:
+        with api.transaction("Inner"):
+            wall.set_parameter_value("Mark", "discarded")
+            raise ValueError("undo only the inner block")
+    except ValueError:
+        pass
 ```
+
+`MockDocument` behaves the same way through snapshot and restore. Documents without a `StartTransaction` method cannot open transactions, and `RevitDocumentProvider.start_transaction()` raises `TransactionError` for them.
 
 ### How does retry work with transactions?
 
@@ -119,11 +166,11 @@ This retries the operation up to `max_retries` times with the specified delay be
 When `auto_track_changes` is enabled in `ContextConfiguration` (the default), entities retrieved through `RevitContext` are automatically attached and tracked. The `ChangeTracker` records entity states:
 
 1. When you retrieve an entity, it is attached with state `UNCHANGED`.
-2. When you modify an attached entity, it transitions to `MODIFIED`.
+2. When you modify an attached entity (or call `context.update(entity, name=value)`), it transitions to `MODIFIED`.
 3. `context.add(entity)` marks it as `ADDED`.
 4. `context.remove(entity)` marks it as `DELETED`.
-5. `context.save_changes()` persists all pending changes and accepts them.
-6. `context.reject_changes()` reverts to the last accepted state.
+5. `context.save_changes()` (or `await ctx.save_changes_async()`) hands pending changes to the context's `unit_of_work` and commits it. A commit failure raises. Without a unit of work, changes are only accepted in the tracker and nothing is written. On a live model, `Element` parameter writes already go straight to Revit inside `api.transaction()`.
+6. `context.reject_changes()` sets each changed property back to its value before the first change; properties that weren't changed are left alone.
 
 You can check the state of any entity with `context.get_entity_state(entity)`.
 
@@ -151,6 +198,10 @@ context.invalidate_cache(entity_type=WallElement, entity_id=some_id)
 
 ## Events
 
+### Which element event types exist?
+
+`EventType.ELEMENT_CREATED`, `ELEMENT_MODIFIED`, `ELEMENT_DELETED` and `ELEMENT_TYPE_CHANGED`. There is no `ELEMENT_CHANGED`.
+
 ### How do I register event handlers at module level?
 
 Use the `@event_handler` decorator at module level. The handler metadata is stored on the function. To activate it, either let the `EventManager` auto-discover it, or register it manually:
@@ -167,7 +218,12 @@ def on_created(event_data):
 from revitpy.events.manager import get_event_manager
 manager = get_event_manager()
 manager.register_handler(on_created._event_handler, on_created._event_types)
+
+# Or skip the decorator entirely
+manager.register_function(on_created, [EventType.ELEMENT_CREATED])
 ```
+
+Decorated methods on a class work too: call `manager.register_class_handlers(instance)` and each method is bound to that instance.
 
 ### What is the maximum error count for handlers?
 
@@ -226,7 +282,7 @@ from revitpy import RevitAPI, MockRevit
 
 mock = MockRevit()
 doc = mock.create_document("Test.rvt")
-mock.create_elements(count=5, element_type="Wall")
+mock.create_elements(count=5, category="OST_Walls", element_type="Wall")
 
 api = RevitAPI()
 api.connect(mock.application)
@@ -234,8 +290,18 @@ api.connect(mock.application)
 # Run tests against the API as normal
 ```
 
-See the [Testing guide](features/testing) for pytest integration examples.
+See the [Testing guide]({{ '/user/features/testing/' | relative_url }}) for pytest integration examples.
 
 ### Can I serialize mock state for reproducible tests?
 
 Yes. `MockRevit` supports `save_state(path)` and `load_state(path)` to persist the entire mock environment (documents, elements, fixtures) as JSON.
+
+## Integrations
+
+### Why does installing `revitpy[interop]` downgrade `websockets`?
+
+`specklepy` depends on `gql[websockets]`, which pins `websockets<12`. RevitPy itself accepts `websockets>=11` and its MCP server works with both the legacy (<13) and the new asyncio websockets APIs. The downgrade is expected. If another package in the same environment needs `websockets>=12`, install Speckle support in a separate virtual environment.
+
+### What does the `ifc` extra install?
+
+`ifcopenshell>=0.8`, `ifctester` (used by `IdsValidator.validate_ifc_file()`) and `defusedxml` (safe BCF XML parsing).

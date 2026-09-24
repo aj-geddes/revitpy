@@ -5,17 +5,20 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Development Status](https://img.shields.io/badge/status-alpha-orange.svg)]()
 
-A modern Python framework for Autodesk Revit development featuring LINQ-style queries, an ORM layer with change tracking, an event system, extension framework, async support, quantity extraction, IFC interoperability, AI agent integration, sustainability analytics, Speckle connectivity, and cloud automation.
+A modern CPython framework for Autodesk Revit: LINQ-style queries, typed elements, real Revit transactions, an ORM with change tracking, events, extensions, and a mock Revit for testing. Domain modules cover quantity takeoff, IFC, AI agents (MCP), embodied carbon, Speckle, and APS Design Automation.
 
-> **Status**: Alpha (Development Status 3). The API surface is functional but may change before 1.0.
+> **Status**: Alpha (Development Status 3). The API works but may change before 1.0.
 
 ## Installation
 
 ```bash
 pip install revitpy
+pip install "revitpy[ifc]"       # IFC: ifcopenshell>=0.8, ifctester, defusedxml
+pip install "revitpy[interop]"   # Speckle: specklepy>=3
+pip install "revitpy[all]"       # all optional integrations
 ```
 
-For development:
+Python 3.11–3.13 is supported. For development:
 
 ```bash
 git clone https://github.com/aj-geddes/revitpy.git
@@ -23,239 +26,272 @@ cd revitpy
 pip install -e ".[dev]"
 ```
 
-## Key Features
+## Quick Start
 
-### LINQ-Style Query Builder
-
-Fluent query interface for filtering, sorting, and paginating Revit elements.
+`RevitAPI` must be connected before you query or open transactions. Inside Revit you connect to the live session; in tests you connect to `MockRevit`:
 
 ```python
-from revitpy import RevitAPI
+from revitpy import FilterOperator, RevitAPI
+from revitpy.api import Wall
 
 api = RevitAPI()
+api.connect(__revit__)  # Revit's UIApplication (RevitPy add-in or pyRevit)
 
-# Chain filters with a fluent interface
-results = (
+# Typed query: elements of the Walls category are wrapped as Wall
+walls = api.query(Wall).contains("Name", "Exterior").execute()
+
+# Generic query with the fluent builder
+tall = (
     api.query()
-    .where("category", FilterOperator.EQUALS, "Walls")
-    .contains("name", "Exterior")
-    .order_by_descending("height")
-    .skip(0)
+    .where("Category", FilterOperator.EQUALS, "OST_Walls")
+    .where("Unconnected Height", FilterOperator.GREATER_THAN, 10.0)  # feet
+    .order_by_descending("Unconnected Height")
     .take(50)
     .execute()
 )
+
+# Writes run inside a real Revit transaction: commit on success,
+# roll back if the block raises. Nested blocks become SubTransactions.
+with api.transaction("Mark exterior walls"):
+    for wall in walls:
+        wall.set_parameter_value("Comments", "Exterior")
 ```
+
+Things to keep in mind with a live model:
+
+- Lengths, areas and volumes are in Revit internal units (feet, square feet, cubic feet).
+- Revit API calls must run on Revit's main thread. Scripts started from the RevitPy ribbon or pyRevit already run there. Background threads in the RevitPy add-in should use `revitpy.revit.host.call_on_revit_thread()`.
+- Parameter writes apply straight away inside the open transaction. Revit undoes them if the transaction rolls back.
+
+## Running Inside Revit
+
+### Option 1: The RevitPy add-in
+
+`src/RevitPy.Addin` is a Revit add-in (`RevitPy.Addin.RevitPyApplication`) that embeds CPython through pythonnet. It adds a **RevitPy** ribbon tab with **Run Script**, **Rerun**, **MCP Server** and **About** buttons. Scripts run on Revit's main thread with `__revit__` bound to the `UIApplication`.
+
+Requirements: Windows, Revit 2024–2027, and a 64-bit CPython 3.11–3.14 with `revitpy` installed (a venv is fine).
+
+```powershell
+# Build (the .NET 10 SDK can build every target)
+dotnet build src/RevitPy.Addin/RevitPy.Addin.csproj -c Release -p:RevitVersion=2025
+
+# Build + install for the current user (see the script for all options)
+./scripts/install-addin.ps1 -RevitVersion 2025
+```
+
+| Revit | Target framework |
+|---|---|
+| 2024 | net48 |
+| 2025, 2026 | net8.0-windows |
+| 2027 | net10.0-windows |
+
+Settings are read from `%APPDATA%\RevitPy\settings.ini`:
+
+```ini
+# Optional. Otherwise the add-in searches PATH and per-user Python installs.
+python_dll = C:\Python312\python312.dll
+python_home = C:\Python312
+# Repeatable. Point it at the site-packages where revitpy is installed.
+python_path = C:\dev\my-venv\Lib\site-packages
+# Optional, repeatable. Runs once, when Python starts.
+startup_script = %USERPROFILE%\revitpy\startup.py
+# true = start Python when Revit starts instead of on first use.
+initialize_on_startup = false
+```
+
+Comments must be on their own line (`#` or `;`). Values are expanded with `%VAR%` environment variables.
+
+The environment variables `REVITPY_PYTHON_DLL`, `REVITPY_PYTHON_HOME` and `REVITPY_PYTHON_PATH` (`;`-separated) override these settings.
+
+The **MCP Server** button starts an MCP server inside the Revit session (default `ws://127.0.0.1:8765`, override with `REVITPY_MCP_HOST` / `REVITPY_MCP_PORT` / `REVITPY_MCP_TOKEN`). It requires a bearer token (a random one is generated if you don't set it), and Revit asks you to confirm any tool that changes the model.
+
+> The other C# projects under `src/` (Core, Runtime, Bridge, Host, WebHost, Compatibility, and so on) are legacy code. They do not compile and are not part of the build.
+
+### Option 2: pyRevit (CPython engine)
+
+In a pyRevit script running on a CPython 3.11+ engine, with `revitpy` and its dependencies importable:
+
+```python
+#! python3
+from revitpy import RevitAPI
+from revitpy.api import Door
+
+api = RevitAPI()
+api.connect(__revit__)
+print(api.query(Door).count(), "doors")
+```
+
+## Testing Without Revit
+
+`MockRevit` stands in for the Revit application, so the same code runs in pytest:
+
+```python
+from revitpy import RevitAPI
+from revitpy.api import Wall
+from revitpy.testing import MockRevit
+
+mock = MockRevit()
+doc = mock.create_document("Test.rvt")
+mock.create_element(name="Exterior Wall", category="OST_Walls")
+mock.create_element(name="Door 1", category="OST_Doors")
+assert doc.GetElementCount() == 2
+
+api = RevitAPI()
+api.connect(mock.application)
+
+walls = api.query(Wall).execute()
+with api.transaction("Rename"):
+    walls[0].name = "Wall-A"
+
+assert api.query(Wall).first().name == "Wall-A"
+```
+
+## More Features
 
 ### ORM with Change Tracking
 
-Entity framework-inspired ORM with Pydantic validation, caching, and relationship management.
-
 ```python
-from revitpy.orm import create_context, RevitContext
+from revitpy.api import Wall
+from revitpy.orm import create_context
 
-context = create_context(provider)
-
-# Query through the ORM
-walls = context.all(WallElement)
-tall_walls = context.where(WallElement, lambda w: w.height > 10)
-
-# Change tracking
-context.attach(element)
-element.name = "Updated Wall"
-count = context.save_changes()  # Persists tracked changes
+context = create_context(api.active_document)  # any IElementProvider
+walls = context.all(Wall)
+exterior = context.where(Wall, lambda w: "Exterior" in w.name)
 ```
 
-### Event System
+Without a unit of work, `save_changes()` / `save_changes_async()` only accept tracked changes. Pass `unit_of_work=` to `RevitContext` to persist them. That unit of work's `commit` (or `commit_async`) is called, and a failure raises.
 
-Priority-based event dispatching with sync and async handler support.
+### Events
 
 ```python
-from revitpy import EventManager, event_handler
+from revitpy import EventManager, EventPriority, EventType
 
-@event_handler(EventType.ELEMENT_CHANGED, priority=EventPriority.HIGH)
-def on_element_changed(event_data):
-    print(f"Element {event_data.element_id} was modified")
+def on_element_modified(event):
+    print(f"Element {event.element_id} was modified")
 
 manager = EventManager.get_instance()
-manager.register_class_handlers(my_handler_instance)
+manager.register_function(
+    on_element_modified, [EventType.ELEMENT_MODIFIED], priority=EventPriority.HIGH
+)
+manager.dispatch_event(EventType.ELEMENT_MODIFIED, element_id=12345, immediate=True)
 ```
 
-### Extension Framework
-
-Plugin architecture with lifecycle management and dependency injection.
+### Extensions
 
 ```python
-from revitpy import Extension
+import asyncio
+
+from revitpy.extensions import Extension, ExtensionMetadata
 
 class MyExtension(Extension):
     async def load(self):
-        self.log_info("Extension loading")
+        self.log_info("loading")
 
     async def activate(self):
-        self.log_info("Extension active")
+        self.log_info("active")
 
     async def deactivate(self):
         pass
 
-    async def dispose(self):
-        pass
+async def main():
+    ext = MyExtension(ExtensionMetadata(name="my-extension", version="1.0.0"))
+    await ext.load_extension()
+    await ext.activate_extension()
+
+asyncio.run(main())
 ```
 
-### Transaction Management
-
-Context manager support for safe, rollback-capable transactions.
+### Domain Modules
 
 ```python
-from revitpy import RevitAPI
+from pathlib import Path
+from types import SimpleNamespace
 
-api = RevitAPI()
+# Quantity takeoff: works on any object exposing area/volume/length/... attributes
+from revitpy.extract import AggregationLevel, DataExporter, QuantityExtractor
 
-with api.transaction("Rename Walls") as txn:
-    for element in elements:
-        element.name = f"Wall-{element.id}"
-    # Auto-commits on exit, rolls back on exception
-```
-
-### Testing Without Revit
-
-Mock environment for unit testing outside of Revit.
-
-```python
-from revitpy import MockRevit
-
-mock = MockRevit()
-doc = mock.create_document("Test.rvt")
-element = mock.create_element(name="Test Wall", category="Walls")
-
-assert element.Name == "Test Wall"
-assert doc.GetElementCount() == 1
-```
-
-### Quantity Extraction
-
-Extract quantities, materials, costs, and export data from Revit elements.
-
-```python
-from revitpy.extract import QuantityExtractor, DataExporter
-
+items = [SimpleNamespace(id=1, name="W1", category="Walls", level="Level 1", area=25.5)]
 extractor = QuantityExtractor()
-items = extractor.extract(elements)
-grouped = extractor.extract_grouped(elements, group_by=AggregationLevel.LEVEL)
+quantities = extractor.extract(items)
+by_level = extractor.extract_grouped(items, group_by=AggregationLevel.LEVEL)
+DataExporter().to_csv([q.__dict__ for q in quantities], Path("takeoff.csv"))
 
-exporter = DataExporter()
-exporter.to_csv([item.__dict__ for item in items], Path("takeoff.csv"))
-```
-
-### IFC Interoperability
-
-Bidirectional IFC workflows via IfcOpenShell (optional).
-
-```python
+# IFC export (pip install "revitpy[ifc]")
 from revitpy.ifc import IfcExporter, IfcVersion
+from revitpy.orm import create_wall
 
-exporter = IfcExporter()
-exporter.export(elements, Path("model.ifc"), version=IfcVersion.IFC4)
-```
+wall = create_wall(id=1001, height=10.0, length=20.0, width=0.5, name="W1")
+IfcExporter().export([wall], Path("model.ifc"), version=IfcVersion.IFC4)
 
-### AI & MCP Server
-
-Expose RevitPy operations as MCP tools for AI agents with safety guardrails.
-
-```python
-from revitpy.ai import McpServer, RevitTools, SafetyGuard
-
-tools = RevitTools()
-guard = SafetyGuard()
-
-async with McpServer(tools, safety_guard=guard) as server:
-    await server.start()
-```
-
-### Sustainability & Carbon Analytics
-
-Embodied carbon calculations, EPD database, and compliance checking.
-
-```python
-from revitpy.sustainability import CarbonCalculator, ComplianceChecker
+# Embodied carbon
+from revitpy.sustainability import CarbonCalculator, MaterialData
 
 calculator = CarbonCalculator()
-results = calculator.calculate(materials)
-summary = calculator.summarize(results)
-benchmark = calculator.benchmark(summary, building_area_m2=5000.0)
+results = calculator.calculate([MaterialData(name="Concrete", category="Concrete", mass_kg=50_000)])
+benchmark = calculator.benchmark(calculator.summarize(results), building_area_m2=5000.0)
+
+# APS Design Automation (inside an async function)
+from revitpy.cloud import ApsAuthenticator, ApsClient, ApsCredentials, JobConfig, JobManager
+
+client = ApsClient(ApsAuthenticator(ApsCredentials(client_id="...", client_secret="...")))
+jobs = JobManager(client)
+job_id = await jobs.submit(JobConfig(activity_id="RevitPy.Validate+prod", input_file="https://.../model.rvt"))
+result = await jobs.wait_for_completion(job_id)
 ```
 
-### Cloud & Design Automation
+The MCP server for AI agents lives in `revitpy.ai`. Speckle (projects/models/versions) is in `revitpy.interop`. See the [feature guides](https://aj-geddes.github.io/revitpy/user/) for both.
 
-Submit Design Automation jobs to Autodesk Platform Services.
+## Command Line
 
-```python
-from revitpy.cloud import ApsClient, JobManager
-
-client = ApsClient(credentials)
-jobs = JobManager(client)
-job_id = await jobs.submit(config)
-result = await jobs.wait_for_completion(job_id)
+```bash
+revitpy version                 # installed version
+revitpy doctor [--json]         # check Python, dependencies, optional integrations
+revitpy mcp-serve --port 8765 --token SECRET   # MCP server without a live Revit (use the add-in for a live model)
 ```
 
 ## Architecture
 
 ```
 revitpy/
-  api/             Core API: RevitAPI, Element, Transaction, QueryBuilder
-  orm/             ORM layer: RevitContext, change tracking, caching, validation
-  events/          Event system: manager, engine, decorators, filters
-  extensions/      Plugin framework: Extension, ExtensionManager, DI
-  async_support/   Async: AsyncRevit, TaskQueue, progress, cancellation
-  performance/     Optimizer, benchmarks, memory management
-  testing/         MockRevit, MockDocument, MockElement
-  config.py        Configuration management
-  extract/         Quantity takeoff, material aggregation, cost estimation, data export
-  ifc/             IFC export/import, element mapping, IDS validation, BCF, diff
-  ai/              MCP server, tool registration, safety guardrails, prompt templates
-  sustainability/  Carbon calculations, EPD database, compliance checking, reports
-  interop/         Speckle sync, type mapping, diff, merge, subscriptions
-  cloud/           APS Design Automation, batch processing, CI/CD helpers
-```
-
-## Requirements
-
-- Python 3.11+
-- See [pyproject.toml](pyproject.toml) for full dependency list
-
-Optional dependencies:
-
-```bash
-pip install revitpy[ifc]          # IFC support (ifcopenshell)
-pip install revitpy[interop]      # Speckle connectivity (specklepy)
-pip install revitpy[all]          # All optional dependencies
+  api/             RevitAPI, Element + typed Wall/Floor/Door/Window/Room/Level, Transaction, QueryBuilder
+  revit/           Live Revit: pythonnet adapters (adapters.py), in-Revit host helpers + MCP (host.py)
+  cli.py           `revitpy` command (version, doctor, mcp-serve)
+  orm/             RevitContext, change tracking, caching, relationships, validation models
+  events/          EventManager, dispatcher, decorators, filters
+  extensions/      Extension, ExtensionManager, dependency injection
+  async_support/   AsyncRevit, TaskQueue, progress, cancellation
+  performance/     Optimizer, benchmarks, memory and metrics monitoring
+  testing/         MockRevit, MockApplication, MockDocument, MockElement
+  config.py        Config, ConfigManager
+  extract/         Quantity takeoff, materials, costs, schedules, export
+  ifc/             IFC export/import, mapping, IDS validation, BCF 2.1, diff
+  ai/              MCP server, tools, safety guard, prompts
+  sustainability/  Carbon, EPD database, compliance, reports
+  interop/         Speckle client, sync, mapping, diff, merge, subscriptions
+  cloud/           APS auth/client, Design Automation jobs, batch, CI, webhooks
+src/RevitPy.Addin/ C# Revit add-in hosting CPython (the only C# project that is built)
 ```
 
 ## Development
 
 ```bash
-# Run tests
-pytest tests/
-
-# Lint and format
-ruff check revitpy/ tests/
-ruff format revitpy/ tests/
-
-# Type check
-mypy revitpy/
-
-# Pre-commit hooks
-pre-commit install
-pre-commit run --all-files
+pytest                 # slow stress tests are excluded by default
+pytest -m slow         # run only the slow tests
+ruff check revitpy/ tests/ && ruff format --check revitpy/ tests/
+mypy revitpy
+pre-commit install && pre-commit install --hook-type pre-push
 ```
 
 ## Documentation
 
-Full documentation is available at [aj-geddes.github.io/revitpy](https://aj-geddes.github.io/revitpy/).
+Full documentation: [aj-geddes.github.io/revitpy](https://aj-geddes.github.io/revitpy/)
 
 - [Getting Started](https://aj-geddes.github.io/revitpy/user/getting-started/)
 - [API Reference](https://aj-geddes.github.io/revitpy/developer/api-reference/)
 - [User Guide](https://aj-geddes.github.io/revitpy/user/)
 - [Contributing](https://aj-geddes.github.io/revitpy/developer/contributing/)
+- [Examples](examples/) (runnable scripts)
+- [Changelog](CHANGELOG.md)
 
 ## License
 

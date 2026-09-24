@@ -5,8 +5,6 @@ description: RevitPy security model covering Pydantic input validation, ruff sec
 doc_tier: technical
 ---
 
-# Security
-
 This document covers RevitPy's security posture: input validation via Pydantic, security-focused linting rules, thread safety patterns, the exception hierarchy, and the CI security pipeline.
 
 ## Input Validation
@@ -117,13 +115,13 @@ Tests are allowed to use `assert` (`S101`) and hardcoded credentials (`S105`, `S
 
 ### Known Exceptions in Source
 
-The codebase has one annotated security-related suppression:
+The codebase has a small number of annotated `# noqa: S...` suppressions (`grep -rn "noqa: S" revitpy`). The main one is:
 
-- `query_builder.py` line 120: `hashlib.md5(plan_str.encode()).hexdigest()  # noqa: S324` -- MD5 is used for query plan hashing (cache key generation), not for cryptographic security. This is a performance optimization where collision resistance is not a security requirement.
+- `orm/query_builder.py` (`QueryBuilder.query_hash`): `hashlib.md5(plan_str.encode()).hexdigest()  # noqa: S324` -- MD5 is used for query plan hashing (cache key generation), not for cryptographic security. This is a performance optimization where collision resistance is not a security requirement.
 
 ## Thread Safety
 
-Thread safety patterns are documented in detail in the [Performance](performance.md#thread-safety-patterns) document. A summary of the security-relevant aspects:
+Thread safety patterns are documented in detail in the [Performance]({{ '/technical/performance/' | relative_url }}#thread-safety-patterns) document. A summary of the security-relevant aspects:
 
 ### Concurrent Access Protection
 
@@ -309,7 +307,7 @@ While not a security tool per se, mypy catches type-related bugs that could lead
 
 ## Cloud Token Management and Scope Control
 
-The `revitpy.cloud` module manages OAuth2 tokens for Autodesk Platform Services (APS) with security controls at multiple levels. For full details see [Infrastructure & Cloud](infrastructure.md).
+The `revitpy.cloud` module manages OAuth2 tokens for Autodesk Platform Services (APS) with security controls at multiple levels. For full details see [Infrastructure & Cloud]({{ '/technical/infrastructure/' | relative_url }}).
 
 ### Token Lifecycle
 
@@ -333,23 +331,23 @@ The client enforces a sliding-window rate limit of 20 requests per second to pre
 
 ### HMAC Webhook Signature Verification
 
-`WebhookHandler.verify_signature()` (in `revitpy/cloud/webhooks.py`) validates incoming webhook payloads using HMAC-SHA256:
+`WebhookHandler` (in `revitpy/cloud/webhooks.py`) implements the APS Webhooks signature scheme. The `x-adsk-signature` header carries `sha1hash=` followed by the hex **HMAC-SHA1** of the raw request body, keyed with the hook's secret:
 
 ```python
-def verify_signature(self, payload: bytes, signature: str) -> bool:
-    expected = hmac.new(
-        self._config.secret.encode("utf-8"),
-        payload,
-        hashlib.sha256,
-    ).hexdigest()
-    return hmac.compare_digest(expected, signature)
+from revitpy.cloud import WebhookConfig, WebhookHandler
+
+handler = WebhookHandler(WebhookConfig(url="https://example.com/aps-hook", secret=secret))
+event = handler.handle_event(
+    raw_body=request_body_bytes,
+    signature=request.headers["x-adsk-signature"],
+)
 ```
 
 Key properties:
 
-- Uses `hmac.compare_digest` for constant-time comparison, preventing timing side-channel attacks.
-- Raises `WebhookError` if called without a configured secret, preventing accidental unverified processing.
-- The `WebhookConfig.secret` is expected to be injected at runtime, not hardcoded.
+- **Verified by default.** `handle_event(..., verify=True)` requires a configured secret plus `raw_body` and `signature`. It parses the event from the signed bytes and ignores any pre-parsed `event_data`. Pass `verify=False` explicitly to accept unsigned payloads, for example Design Automation `onComplete` callbacks, which APS does not sign.
+- `verify_signature(payload, signature)` accepts `sha1hash=<hex>` or a bare hex digest, and compares with `hmac.compare_digest` (constant time). `compute_signature(secret, payload)` produces the header value.
+- `verify_signature` raises `WebhookError` if no secret is configured, so it can't silently accept unverified traffic.
 
 ## AI Safety Model
 
@@ -362,7 +360,7 @@ The `revitpy.ai` module includes a safety system that controls which tools an AI
 | Mode | Value | Behaviour |
 |---|---|---|
 | `READ_ONLY` | `read_only` | Blocks all tools in `ToolCategory.MODIFY`. Only query, analyse, and export tools are allowed. |
-| `CAUTIOUS` | `cautious` | Allows all tool categories but flags tools whose category appears in `SafetyConfig.require_confirmation_for`, indicating the caller should confirm before execution. This is the default mode. |
+| `CAUTIOUS` | `cautious` | Tools whose category is in `SafetyConfig.require_confirmation_for` (default `[ToolCategory.MODIFY]`) run only if the `SafetyGuard` `confirmation_callback` returns `True`. Without a callback, or on any other result or exception, they are denied. This is the default mode. |
 | `FULL_ACCESS` | `full_access` | Allows all tool categories without confirmation requirements. |
 
 ### Tool Categories
@@ -382,10 +380,10 @@ When the MCP server receives a `tools/call` request, the following validation pi
 
 1. **Tool lookup** -- `RevitTools.get_tool(tool_name)` resolves the tool name to a `ToolDefinition`. Unknown tools return an MCP error response (code `-32602`).
 
-2. **Safety validation** -- `SafetyGuard.validate_tool_call(tool, arguments)` checks the call against the active policy:
+2. **Safety validation** -- `SafetyGuard.avalidate_tool_call(tool, arguments)` checks the call against the active policy:
    - If the tool name appears in `SafetyConfig.blocked_tools`, a `SafetyViolationError` is raised unconditionally.
    - In `READ_ONLY` mode, any tool with `ToolCategory.MODIFY` raises `SafetyViolationError`.
-   - In `CAUTIOUS` mode, tools whose category is in `require_confirmation_for` are flagged (logged at `INFO` level).
+   - In `CAUTIOUS` mode, tools whose category is in `require_confirmation_for` are passed to `confirmation_callback(tool, arguments)`. The callback may be sync or async (the server calls `avalidate_tool_call`). Anything other than `True` raises `SafetyViolationError`. Inside Revit, `revitpy.revit.host.revit_confirmation` shows a Yes/No `TaskDialog`.
 
 3. **Execution** -- if validation passes, `RevitTools.execute_tool(tool_name, arguments)` runs the tool and returns a `ToolResult`.
 
@@ -399,7 +397,7 @@ When the MCP server receives a `tools/call` request, the following validation pi
 |---|---|---|---|
 | `mode` | `SafetyMode` | `CAUTIOUS` | Active safety enforcement level |
 | `max_undo_stack` | `int` | `50` | Maximum number of undo entries retained |
-| `require_confirmation_for` | `list[ToolCategory]` | `[]` | Tool categories that require explicit confirmation in `CAUTIOUS` mode |
+| `require_confirmation_for` | `list[ToolCategory]` | `[ToolCategory.MODIFY]` | Tool categories that need approval from the confirmation callback in `CAUTIOUS` mode |
 | `blocked_tools` | `list[str]` | `[]` | Tool names that are always blocked regardless of mode |
 
 ### Preview and Undo Mechanism
@@ -435,9 +433,11 @@ AiError
 
 `McpServer` (in `revitpy/ai/server.py`) exposes tools over a WebSocket connection. Security-relevant aspects:
 
-- **Default binding** -- the server binds to `localhost:8765` by default (`McpServerConfig`), limiting exposure to the local machine.
+- **Default binding** -- the server binds to `localhost:8765` by default (`McpServerConfig`), limiting exposure to the local machine. The in-Revit server and `revitpy mcp-serve` bind `127.0.0.1:8765`.
+- **Bearer-token authentication** -- when `McpServerConfig.auth_token` is set, the WebSocket handshake must carry `Authorization: Bearer <token>`. Otherwise it is rejected with HTTP 401, and the token comparison is constant time. The token is excluded from `repr`. Binding to a non-loopback address without a token logs a warning. The in-Revit server always uses a token (from `REVITPY_MCP_TOKEN` or randomly generated).
+- **Origin allow-list** -- handshakes that carry an `Origin` header not listed in `McpServerConfig.allowed_origins` are rejected with HTTP 403. This stops arbitrary web pages from driving a localhost server.
 - **Connection tracking** -- active connections are tracked in a `set`. The `connections` property returns a copy to prevent external mutation.
 - **Error isolation** -- exceptions during message handling are caught per-message and returned as MCP error responses (JSON-RPC error code `-32603`). A single malformed message does not terminate the connection.
 - **Graceful shutdown** -- `stop(timeout=5.0)` closes the server and waits for existing connections to drain within the timeout. The connection set is cleared on stop.
 - **Safety integration** -- every `tools/call` request passes through `SafetyGuard.validate_tool_call()` before execution, ensuring the configured safety policy is enforced regardless of the client.
-- **No built-in authentication** -- the WebSocket server does not implement its own authentication layer. In production deployments, it should be placed behind a reverse proxy or gateway that handles authentication and TLS termination.
+- **No TLS** -- the server speaks plain `ws://`. Keep it on loopback, or put it behind a reverse proxy that terminates TLS if it must be reachable from other machines.
