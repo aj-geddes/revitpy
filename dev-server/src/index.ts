@@ -1,37 +1,24 @@
-/**
- * RevitPy Development Server
- * High-performance hot-reload development server for RevitPy
- *
- * Features:
- * - <500ms Python module reload
- * - <200ms UI component hot-reload
- * - WebSocket communication with Revit, VS Code, and WebView2
- * - Dependency tracking and state preservation
- * - Error recovery and rollback
- * - Performance monitoring and optimization
- */
-
-export { DevServer } from './core/DevServer.js';
-export { FileWatcherService } from './watchers/FileWatcher.js';
-export { CommunicationService } from './communication/WebSocketManager.js';
-export { ModuleReloaderService } from './python/ModuleReloader.js';
-export { UIReloaderService } from './ui/UIReloader.js';
-export { BuildService } from './build/BuildSystem.js';
-export { PerformanceService } from './performance/PerformanceMonitor.js';
-export { ErrorRecoveryService } from './recovery/ErrorRecovery.js';
-export { AssetProcessor } from './processors/AssetProcessor.js';
-
-// Connectors
-export { RevitConnector } from './connectors/RevitConnector.js';
-export { VSCodeConnector } from './connectors/VSCodeConnector.js';
-export { WebViewConnector } from './connectors/WebViewConnector.js';
-
-// Utilities
-export { ConfigValidator } from './utils/ConfigValidator.js';
-export { Logger, PerformanceTimer, PerformanceProfiler } from './utils/Logger.js';
-
-// Types
-export type * from './types/index.js';
-
-// Default export
-export { DevServer as default } from './core/DevServer.js';
+/** Library API of @revitpy/dev-server (the CLI is `revitpy-dev-server`). */
+export { ChangeBatcher } from './batcher.js';
+export { LiveClient } from './client.js';
+export type { ClientOptions, ExecResult, LiveStatus, ReloadResult } from './client.js';
+export { discoveryPath, readDiscovery, SUPPORTED_PROTOCOL } from './discovery.js';
+export type { LiveConnectionInfo } from './discovery.js';
+export {
+  isRetryable,
+  LiveAuthError,
+  LiveProtocolError,
+  LiveServerError,
+  LiveTimeoutError,
+  LiveUnavailableError,
+} from './errors.js';
+export { ConsoleReporter, describeError, formatDuration, formatExecResult, formatStatus, useColor } from './format.js';
+export type { ConsoleReporterOptions, Output } from './format.js';
+export { DevLoop } from './loop.js';
+export type { CycleResult, DevLoopOptions, Reporter } from './loop.js';
+export { backoffDelay, isAbortError, retry, sleep } from './retry.js';
+export type { BackoffOptions, RetryOptions } from './retry.js';
+export { LiveSession } from './session.js';
+export type { SessionOptions } from './session.js';
+export { watchPython, DEFAULT_IGNORES } from './watcher.js';
+export type { PythonWatcher, PythonWatcherOptions } from './watcher.js';
