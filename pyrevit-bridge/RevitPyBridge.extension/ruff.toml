@@ -1,0 +1,7 @@
+# Files in this extension run under pyRevit's IronPython 2.7 engine as well as
+# CPython 3, so pyupgrade rewrites (f-strings, dropping `object` bases,
+# `super()` without arguments, removing __future__ imports) must not apply.
+extend = "../../pyproject.toml"
+
+[lint]
+extend-ignore = ["UP"]

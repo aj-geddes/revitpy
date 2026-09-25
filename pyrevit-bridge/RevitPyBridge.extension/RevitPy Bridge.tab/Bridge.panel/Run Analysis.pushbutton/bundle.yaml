@@ -1,0 +1,5 @@
+title: Run Analysis
+tooltip: >-
+  Send the selected elements to an analysis running in RevitPy
+  (through the RevitPy Live Server) and show the result.
+author: RevitPy

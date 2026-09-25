@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "revitpy-bridge-analyses"
+version = "0.1.0"
+description = "RevitPy Live Server analyses for the pyRevit bridge: element summaries, parameter statistics, quantity take-off, embodied carbon and bounding-box clash screening."
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "RevitPy Team" }]
+dependencies = ["revitpy"]
+
+# Imported by the RevitPy Live Server at start-up; importing the module
+# registers its analyses with revitpy.revit.live.register_analysis.
+[project.entry-points."revitpy.analyses"]
+bridge = "revitpy_bridge_analyses.analyses"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/revitpy_bridge_analyses"]
