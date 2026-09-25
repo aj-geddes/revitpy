@@ -307,10 +307,10 @@ const package = await client.getPackage('revitpy-geometry');
 
 ## Support and Resources
 
-- **API Documentation**: https://docs.revitpy.dev/api/
+- **API Documentation**: https://aj-geddes.github.io/revitpy/developer/api-reference/
 - **Community Forum**: https://forum.revitpy.dev/
 - **Discord**: https://discord.gg/revitpy
-- **GitHub Issues**: https://github.com/highvelocitysolutions/revitpy/issues
+- **GitHub Issues**: https://github.com/aj-geddes/revitpy/issues
 - **Email Support**: support@revitpy.dev
 
 ## Contributing
@@ -323,7 +323,7 @@ We welcome contributions to the RevitPy Package Manager:
 4. **Share packages** with the community
 5. **Provide feedback** on the API design
 
-See our [Contributing Guide](https://github.com/highvelocitysolutions/revitpy/blob/main/CONTRIBUTING.md) for more details.
+See our [Contributing Guide](https://github.com/aj-geddes/revitpy/blob/main/docs/developer/contributing.md) for more details.
 
 ---
 

@@ -82,7 +82,6 @@ Rules marked "TODO" indicate known technical debt.
 "__init__.py" = ["F401"]                          # Unused imports (re-exports)
 "tests/**/*" = ["S101", "D", "F401", "E402"]      # assert, docstrings, imports
 "**/tests/**/*" = ["S101", "S105", "S106", "D", "F401", "E402"]
-"bridge/**/*" = ["F401", "E402"]
 "revitpy/performance/**/*" = ["F401"]
 "cli/**/*" = ["F401", "E402", "B904"]
 "revitpy-package-manager/**/*" = ["F401", "E402", "F403", "F405", "S"]

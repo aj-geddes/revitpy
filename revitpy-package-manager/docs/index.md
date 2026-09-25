@@ -2,7 +2,6 @@
 
 Welcome to the comprehensive documentation for **RevitPy Package Manager** - the enterprise-grade package management system that revolutionizes how you develop, distribute, and manage Python extensions for Autodesk Revit.
 
-![RevitPy Logo](https://raw.githubusercontent.com/highvelocitysolutions/revitpy/main/assets/revitpy-logo.png){ align=right width=200 }
 
 ## What is RevitPy Package Manager?
 
@@ -176,7 +175,7 @@ graph TB
 - **Documentation**: You're reading it! Comprehensive guides and references
 - **Community Forum**: [forum.revitpy.dev](https://forum.revitpy.dev) for questions and discussions
 - **Discord**: [discord.gg/revitpy](https://discord.gg/revitpy) for real-time chat
-- **GitHub Issues**: [Report bugs and request features](https://github.com/highvelocitysolutions/revitpy/issues)
+- **GitHub Issues**: [Report bugs and request features](https://github.com/aj-geddes/revitpy/issues)
 
 ### Stay Updated
 - **Newsletter**: Subscribe for release updates and community highlights
@@ -191,7 +190,7 @@ RevitPy is an open-source project that thrives on community contributions. Wheth
 
 ## License & Legal
 
-RevitPy Package Manager is released under the MIT License, allowing both personal and commercial use. See our [license page](https://github.com/highvelocitysolutions/revitpy/blob/main/LICENSE) for full details.
+RevitPy Package Manager is released under the MIT License, allowing both personal and commercial use. See our [license page](https://github.com/aj-geddes/revitpy/blob/main/LICENSE) for full details.
 
 For enterprise licensing, support contracts, and custom development, contact us at [enterprise@revitpy.dev](mailto:enterprise@revitpy.dev).
 

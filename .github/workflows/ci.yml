@@ -223,3 +223,123 @@ jobs:
 
       - name: Audit dependencies
         run: pip-audit --skip-editable
+
+  pocs:
+    name: Proofs of concept
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            proof-of-concepts/pyproject.toml
+
+      - name: Install RevitPy and the PoCs
+        run: pip install -e . -e "./proof-of-concepts[test]"
+
+      - name: Lint
+        run: |
+          pip install "ruff>=0.15.4"
+          ruff check proof-of-concepts
+          ruff format --check proof-of-concepts
+
+      - name: Run PoC tests (uses proof-of-concepts/pyproject.toml config)
+        working-directory: proof-of-concepts
+        run: pytest
+
+  vscode-extension:
+    name: VS Code extension (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22"]
+    defaults:
+      run:
+        working-directory: vscode-extension
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run compile
+      - run: npm test
+      - run: npx vsce package
+      - if: matrix.node == '22'
+        uses: actions/upload-artifact@v7
+        with:
+          name: revitpy-vscode-vsix
+          path: vscode-extension/*.vsix
+
+  dev-server:
+    name: Dev server (Node)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dev-server
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install revitpy (real Live Server integration test)
+        working-directory: .
+        run: pip install -e .
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: dev-server/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+      - name: Test
+        run: npm test
+        env:
+          REVITPY_PYTHON: python
+          REVITPY_REQUIRE_REAL_SERVER: "1"
+
+      - name: Check the packed CLI
+        run: |
+          npm pack
+          mkdir -p "$RUNNER_TEMP/pack" && cd "$RUNNER_TEMP/pack"
+          npm init -y > /dev/null
+          npm install "$GITHUB_WORKSPACE"/dev-server/revitpy-dev-server-*.tgz
+          npx revitpy-dev-server --version
+
+  pyrevit-bridge:
+    name: pyRevit bridge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[dev]" -e pyrevit-bridge/analyses vermin
+      - name: Lint
+        run: |
+          ruff check pyrevit-bridge
+          ruff format --check pyrevit-bridge
+      - name: Test (includes the Python 2.7 compatibility check)
+        run: pytest pyrevit-bridge/tests -o addopts="" -p no:cacheprovider

@@ -22,6 +22,23 @@ This release makes RevitPy work against a live Revit model and brings the featur
 
 ### Added
 
+- **RevitPy Live Server** (`revitpy.revit.live`): an authenticated JSON-RPC-over-WebSocket endpoint inside Revit that development tools use to run code in the open session.
+  - Methods: `live/status`, `live/execute`, `live/runFile`, `live/reload`, `debug/start` (starts debugpy), `bridge/listAnalyses` and `bridge/analyze`.
+  - It is started from the new **Live Server** ribbon button or by setting `start_live_server = true`.
+  - A bearer token is mandatory. The server publishes its URL and token in the user-only discovery file `~/.revitpy/live.json`.
+  - Analyses register with `@register_analysis(name, main_thread=...)` or through the `revitpy.analyses` entry-point group.
+  - See `docs/developer/live-server.md`.
+- `revitpy.live_client` (`LiveClient`, `call_live`) and `revitpy live status|run|exec|reload|debug`.
+- `revitpy.rpc.JsonRpcWebSocketServer`: the shared authenticated JSON-RPC base class now used by both `McpServer` and the Live Server.
+- VS Code extension (`vscode-extension/`), rebuilt as a Live Server client:
+  - Run Script and Run Selection in Revit, reload on save, and Attach Debugger through debugpy.
+  - Create Project via `revitpy-dev`, and configuration of a Revit API stubs folder for Pylance.
+  - The custom language server, debug adapter and `.rvtpy` language were removed.
+- Dev server (`dev-server/`, 2.0.0), rebuilt as a focused file watcher: `revitpy-dev-server watch --run entry.py` reloads changed modules and re-runs the script through the Live Server. The WebView/UI hot reload, asset pipeline and unmeasured performance claims were removed.
+- pyRevit bridge (`pyrevit-bridge/`, replacing `bridge/`):
+  - A single `revitpy_bridge.py` for pyRevit that is compatible with IronPython 2.7 and CPython 3, plus a sample pyRevit extension.
+  - The `revitpy-bridge-analyses` package: element summary, parameter statistics, quantity take-off, embodied carbon and bounding-box clash shortlist.
+  - Communication goes through the Live Server; the named-pipe, file-exchange and custom WebSocket transports were removed.
 - Live Revit connectivity (`revitpy.revit`):
   - pythonnet adapters map `Autodesk.Revit.DB` objects to RevitPy's protocols.
   - `RevitAPI.connect(__revit__)` wraps a `UIApplication` or `Application` automatically.
@@ -60,6 +77,12 @@ This release makes RevitPy work against a live Revit model and brings the featur
 - `revitpy.performance` exports only the classes that exist: `PerformanceOptimizer`, `OptimizationConfig`, `AdaptiveCache`, `ObjectPool`, `BenchmarkSuite`, `BenchmarkRunner`, `BenchmarkConfiguration`, `MemoryManager`, `MemoryLeakDetector`, `MetricsCollector`, `PerformanceMonitor`, `AlertingSystem`.
 - `examples/` rewritten as runnable scripts: `query_elements.py`, `bulk_update_parameters.py`, `room_schedule_export.py`, `orm_usage.py` and `mcp_server_in_revit.py`. The old example projects were removed.
 - Documentation rewritten against the current code (README, getting started, architecture, API reference, FAQ, troubleshooting).
+- `proof-of-concepts/` rebuilt as five small runnable demos: energy analytics, space planning, IoT monitoring, structural analysis and facade progress from photos.
+  - They read model data through `RevitAPI` (`api.query(...)`, typed elements, `QuantityExtractor`, `revitpy.sustainability`) and write results back inside `api.transaction(...)`.
+  - They run against `__revit__` in Revit, or a `MockApplication` demo building elsewhere.
+  - One `proof-of-concepts/pyproject.toml` (`revitpy-pocs`) declares only the packages actually imported: numpy, pandas, scipy, scikit-learn, plotly and loguru.
+  - Each PoC has `python -m` entry points, pytest suites and a `pocs` CI job.
+  - Removed: the private `revitpy_mock`, the pyRevit exchange snippets, and mocked TensorFlow/OpenCV/cloud-IoT code. Also removed the aspirational `requirements.txt` files and the `MARKET_VALIDATION_FRAMEWORK.md` / `ROI_CALCULATOR.md` marketing documents.
 
 ### Fixed
 

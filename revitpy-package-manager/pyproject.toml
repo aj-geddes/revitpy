@@ -107,10 +107,10 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/highvelocitysolutions/revitpy"
-Documentation = "https://docs.revitpy.dev"
-Repository = "https://github.com/highvelocitysolutions/revitpy"
-"Bug Tracker" = "https://github.com/highvelocitysolutions/revitpy/issues"
+Homepage = "https://github.com/aj-geddes/revitpy/tree/main/revitpy-package-manager"
+Documentation = "https://aj-geddes.github.io/revitpy/"
+Repository = "https://github.com/aj-geddes/revitpy"
+Issues = "https://github.com/aj-geddes/revitpy/issues"
 
 [project.scripts]
 revitpy-registry = "revitpy_package_manager.registry.api.main:main"

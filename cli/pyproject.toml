@@ -85,10 +85,10 @@ docs = [
 revitpy-dev = "revitpy_cli.main:main"
 
 [project.urls]
-Homepage = "https://github.com/revitpy/revitpy-cli"
-Documentation = "https://revitpy-cli.readthedocs.io/"
-Repository = "https://github.com/revitpy/revitpy-cli"
-Issues = "https://github.com/revitpy/revitpy-cli/issues"
+Homepage = "https://github.com/aj-geddes/revitpy/tree/main/cli"
+Documentation = "https://aj-geddes.github.io/revitpy/"
+Repository = "https://github.com/aj-geddes/revitpy"
+Issues = "https://github.com/aj-geddes/revitpy/issues"
 
 [tool.hatch.version]
 source = "vcs"

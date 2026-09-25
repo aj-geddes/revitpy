@@ -38,7 +38,7 @@ This guide will help you install RevitPy Package Manager and get it configured f
 
     ```bash
     # Clone the repository
-    git clone https://github.com/highvelocitysolutions/revitpy.git
+    git clone https://github.com/aj-geddes/revitpy.git
     cd revitpy/revitpy-package-manager
 
     # Install in development mode
@@ -52,7 +52,7 @@ This guide will help you install RevitPy Package Manager and get it configured f
 
     Download the pre-built installer:
 
-    1. Visit [releases page](https://github.com/highvelocitysolutions/revitpy/releases)
+    1. Visit [releases page](https://github.com/aj-geddes/revitpy/releases)
     2. Download `revitpy-package-manager-installer.exe`
     3. Run the installer with administrator privileges
     4. Follow the setup wizard
