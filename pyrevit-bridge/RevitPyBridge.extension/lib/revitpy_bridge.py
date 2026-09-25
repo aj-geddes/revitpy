@@ -110,8 +110,7 @@ class AnalysisFailed(BridgeError):
 
 def _not_running(url, reason):
     return LiveServerNotRunning(
-        "RevitPy Live Server is not running at %s (%s). %s"
-        % (url, reason, _START_HINT)
+        "RevitPy Live Server is not running at %s (%s). %s" % (url, reason, _START_HINT)
     )
 
 
@@ -299,7 +298,9 @@ class _DotNetTransport(object):
                 self._Segment(data), self._MessageType.Text, True, self._token(30)
             ).Wait()
         except Exception as exc:
-            raise BridgeError("Cannot send to the Live Server: %s" % _exception_text(exc))
+            raise BridgeError(
+                "Cannot send to the Live Server: %s" % _exception_text(exc)
+            )
 
     def recv(self, timeout):
         buffer = self._Array.CreateInstance(self._Byte, 65536)
@@ -364,7 +365,9 @@ class RevitPyBridge(object):
     or token) is picked up automatically.
     """
 
-    def __init__(self, timeout=DEFAULT_TIMEOUT, discovery_file=None, url=None, token=None):
+    def __init__(
+        self, timeout=DEFAULT_TIMEOUT, discovery_file=None, url=None, token=None
+    ):
         self.timeout = float(timeout)
         self._discovery_file = discovery_file
         self._url = url
@@ -387,7 +390,12 @@ class RevitPyBridge(object):
         with self._lock:
             request_id = next(self._ids)
         request = json.dumps(
-            {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params or {}}
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "method": method,
+                "params": params or {},
+            }
         )
         transport = _open_transport(url, token, self.timeout)
         try:
@@ -406,7 +414,9 @@ class RevitPyBridge(object):
         if error is not None:
             if not isinstance(error, dict):
                 error = {"message": text_type(error)}
-            raise RpcError(int(error.get("code", 0)), text_type(error.get("message", "")))
+            raise RpcError(
+                int(error.get("code", 0)), text_type(error.get("message", ""))
+            )
         return reply.get("result")
 
     def status(self):
@@ -434,7 +444,9 @@ class RevitPyBridge(object):
         try:
             result = self.call("bridge/analyze", params)
         except RpcError as exc:
-            if exc.code == INVALID_PARAMS and "Unknown analysis" in text_type(exc.message):
+            if exc.code == INVALID_PARAMS and "Unknown analysis" in text_type(
+                exc.message
+            ):
                 raise UnknownAnalysis(exc.code, exc.message)
             raise
         if not isinstance(result, dict):
