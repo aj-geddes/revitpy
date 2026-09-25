@@ -1,189 +1,95 @@
+/**
+ * RevitPy for VS Code: run, reload and debug Python inside Revit through the
+ * RevitPy Live Server (JSON-RPC 2.0 over WebSocket, docs/developer/live-server.md).
+ */
 import * as vscode from 'vscode';
-import * as path from 'path';
-import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
-import { RevitPyConnectionManager } from './client/connectionManager';
-import { RevitPyDebuggerProvider } from './debugger/debuggerProvider';
-import { PackageManager } from './client/packageManager';
-import { ProjectManager } from './client/projectManager';
-import { RevitPyStatusBar } from './client/statusBar';
-import { RevitPyTreeProvider } from './client/treeProvider';
-import { Logger } from './common/logger';
+import { ConnectionManager, type ConnectionSettings } from './connection';
+import { createProject } from './createProject';
+import { attachDebugger } from './debug';
+import { LiveCommands } from './liveCommands';
+import { RevitStatusBar } from './statusBar';
+import { configureStubs } from './stubs';
 
-let client: LanguageClient;
-let connectionManager: RevitPyConnectionManager;
-let debuggerProvider: RevitPyDebuggerProvider;
-let packageManager: PackageManager;
-let projectManager: ProjectManager;
-let statusBar: RevitPyStatusBar;
-let logger: Logger;
-
-export async function activate(context: vscode.ExtensionContext) {
-    logger = new Logger('RevitPy');
-    logger.info('RevitPy extension is being activated');
-
-    // Initialize status bar
-    statusBar = new RevitPyStatusBar();
-    context.subscriptions.push(statusBar);
-
-    // Initialize connection manager
-    connectionManager = new RevitPyConnectionManager(logger);
-    context.subscriptions.push(connectionManager);
-
-    // Initialize package manager
-    packageManager = new PackageManager(logger);
-    context.subscriptions.push(packageManager);
-
-    // Initialize project manager
-    projectManager = new ProjectManager(logger);
-    context.subscriptions.push(projectManager);
-
-    // Initialize debugger
-    debuggerProvider = new RevitPyDebuggerProvider(connectionManager, logger);
-    context.subscriptions.push(
-        vscode.debug.registerDebugAdapterDescriptorFactory('revitpy', debuggerProvider)
-    );
-
-    // Start Language Server
-    await startLanguageServer(context);
-
-    // Register commands
-    registerCommands(context);
-
-    // Initialize tree providers
-    initializeTreeProviders(context);
-
-    // Set context for when RevitPy project is present
-    updateWorkspaceContext();
-
-    logger.info('RevitPy extension activated successfully');
+function readSettings(): ConnectionSettings {
+  const config = vscode.workspace.getConfiguration('revitpy');
+  const discoveryFile = config.get<string>('discoveryFile', '').trim();
+  return {
+    discoveryFile: discoveryFile || undefined,
+    requestTimeoutMs: Math.max(5, config.get<number>('requestTimeoutSeconds', 330)) * 1000,
+  };
 }
 
-export function deactivate(): Thenable<void> | undefined {
-    logger?.info('RevitPy extension is being deactivated');
+export function activate(context: vscode.ExtensionContext): void {
+  const output = vscode.window.createOutputChannel('RevitPy');
+  const connection = new ConnectionManager(readSettings);
+  const commands = new LiveCommands(connection, output);
+  const statusBar = new RevitStatusBar(connection);
 
-    connectionManager?.disconnect();
+  connection.on('disconnected', (reason: unknown) => {
+    output.appendLine(`[disconnected] ${String(reason)}`);
+  });
 
-    if (!client) {
-        return undefined;
+  // Periodic status refresh keeps the active document in the status bar current.
+  let timer: NodeJS.Timeout | undefined;
+  const scheduleRefresh = (): void => {
+    if (timer) {
+      clearInterval(timer);
+      timer = undefined;
     }
-    return client.stop();
-}
-
-async function startLanguageServer(context: vscode.ExtensionContext) {
-    const serverModule = context.asAbsolutePath(path.join('out', 'server', 'server.js'));
-
-    const serverOptions: ServerOptions = {
-        run: { module: serverModule, transport: TransportKind.ipc },
-        debug: {
-            module: serverModule,
-            transport: TransportKind.ipc,
-            options: { execArgv: ['--nolazy', '--inspect=6009'] }
+    const seconds = vscode.workspace.getConfiguration('revitpy').get<number>('statusRefreshSeconds', 30);
+    if (seconds > 0) {
+      timer = setInterval(() => {
+        if (connection.isConnected) {
+          connection.refreshStatus().catch(() => undefined);
         }
-    };
-
-    const clientOptions: LanguageClientOptions = {
-        documentSelector: [
-            { scheme: 'file', language: 'python' },
-            { scheme: 'file', language: 'revitpy' }
-        ],
-        synchronize: {
-            fileEvents: [
-                vscode.workspace.createFileSystemWatcher('**/*.py'),
-                vscode.workspace.createFileSystemWatcher('**/*.rvtpy'),
-                vscode.workspace.createFileSystemWatcher('**/revitpy.json')
-            ]
-        }
-    };
-
-    client = new LanguageClient(
-        'revitpyLanguageServer',
-        'RevitPy Language Server',
-        serverOptions,
-        clientOptions
-    );
-
-    try {
-        await client.start();
-        logger.info('Language Server started successfully');
-    } catch (error) {
-        logger.error('Failed to start Language Server', error);
+      }, seconds * 1000);
     }
-}
+  };
+  scheduleRefresh();
 
-function registerCommands(context: vscode.ExtensionContext) {
-    const commands = [
-        vscode.commands.registerCommand('revitpy.createProject', () => {
-            projectManager.createProject();
-        }),
+  context.subscriptions.push(
+    output,
+    statusBar,
+    { dispose: () => connection.dispose() },
+    { dispose: () => timer && clearInterval(timer) },
+    vscode.commands.registerCommand('revitpy.connect', () => commands.connect()),
+    vscode.commands.registerCommand('revitpy.disconnect', () => commands.disconnect()),
+    vscode.commands.registerCommand('revitpy.showStatus', () => commands.showStatus()),
+    vscode.commands.registerCommand('revitpy.runScript', (resource?: vscode.Uri) =>
+      commands.runScript(resource instanceof vscode.Uri ? resource : undefined),
+    ),
+    vscode.commands.registerCommand('revitpy.runSelection', () => commands.runSelection()),
+    vscode.commands.registerCommand('revitpy.reloadModule', async () => {
+      const document = vscode.window.activeTextEditor?.document;
+      if (!document) {
+        void vscode.window.showWarningMessage('Open a Python module to reload it in Revit.');
+        return;
+      }
+      await commands.reloadFile(document, { quiet: false });
+    }),
+    vscode.commands.registerCommand('revitpy.attachDebugger', () => attachDebugger(connection, output)),
+    vscode.commands.registerCommand('revitpy.createProject', () => createProject(output)),
+    vscode.commands.registerCommand('revitpy.configureStubs', () => configureStubs(output)),
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      if (vscode.workspace.getConfiguration('revitpy').get<boolean>('reloadOnSave', false)) {
+        void commands.reloadFile(document, { quiet: true });
+      }
+    }),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration('revitpy.statusRefreshSeconds')) {
+        scheduleRefresh();
+      }
+    }),
+  );
 
-        vscode.commands.registerCommand('revitpy.connectToRevit', async () => {
-            await connectionManager.connect();
-            statusBar.updateConnectionStatus(connectionManager.isConnected());
-        }),
-
-        vscode.commands.registerCommand('revitpy.disconnectFromRevit', async () => {
-            await connectionManager.disconnect();
-            statusBar.updateConnectionStatus(connectionManager.isConnected());
-        }),
-
-        vscode.commands.registerCommand('revitpy.runScript', async (uri?: vscode.Uri) => {
-            const scriptPath = uri?.fsPath || vscode.window.activeTextEditor?.document.fileName;
-            if (scriptPath && connectionManager.isConnected()) {
-                await connectionManager.runScript(scriptPath);
-            } else {
-                vscode.window.showErrorMessage('Not connected to Revit or no script selected');
-            }
-        }),
-
-        vscode.commands.registerCommand('revitpy.debugScript', async (uri?: vscode.Uri) => {
-            const scriptPath = uri?.fsPath || vscode.window.activeTextEditor?.document.fileName;
-            if (scriptPath) {
-                await debuggerProvider.startDebugging(scriptPath);
-            } else {
-                vscode.window.showErrorMessage('No script selected for debugging');
-            }
-        }),
-
-        vscode.commands.registerCommand('revitpy.openPackageManager', () => {
-            packageManager.openPackageManager();
-        }),
-
-        vscode.commands.registerCommand('revitpy.refreshPackages', async () => {
-            await packageManager.refreshPackages();
-        }),
-
-        vscode.commands.registerCommand('revitpy.generateStubs', async () => {
-            await connectionManager.generateStubs();
-        })
-    ];
-
-    context.subscriptions.push(...commands);
-}
-
-function initializeTreeProviders(context: vscode.ExtensionContext) {
-    const packageTreeProvider = new RevitPyTreeProvider('packages', packageManager);
-    const connectionTreeProvider = new RevitPyTreeProvider('connection', connectionManager);
-
-    vscode.window.registerTreeDataProvider('revitpyPackages', packageTreeProvider);
-    vscode.window.registerTreeDataProvider('revitpyConnection', connectionTreeProvider);
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('revitpyPackages.refresh', () => {
-            packageTreeProvider.refresh();
-        }),
-        vscode.commands.registerCommand('revitpyConnection.refresh', () => {
-            connectionTreeProvider.refresh();
-        })
+  if (vscode.workspace.getConfiguration('revitpy').get<boolean>('autoConnect', true)) {
+    connection.connect().then(
+      (client) => output.appendLine(`[connected] ${client.url}`),
+      (error: unknown) => output.appendLine(`[auto-connect] ${error instanceof Error ? error.message : String(error)}`),
     );
+  }
 }
 
-function updateWorkspaceContext() {
-    const hasRevitPyProject = vscode.workspace.workspaceFolders?.some(folder => {
-        const revitPyConfig = vscode.workspace.fs.readFile(
-            vscode.Uri.joinPath(folder.uri, 'revitpy.json')
-        );
-        return revitPyConfig !== undefined;
-    }) || false;
-
-    vscode.commands.executeCommand('setContext', 'workspaceHasRevitPyProject', hasRevitPyProject);
+export function deactivate(): void {
+  // Everything is disposed through context.subscriptions.
 }

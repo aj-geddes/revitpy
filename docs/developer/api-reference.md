@@ -702,6 +702,53 @@ Run an `McpServer` for this Revit session on a background thread. `start_mcp_ser
 
 ---
 
+### revitpy.revit.live
+
+**Module:** `revitpy.revit.live` (runs inside Revit). Protocol details: [Live Server Protocol]({{ '/developer/live-server/' | relative_url }}).
+
+```python
+def start_live_server(ui_application, *, host=None, port=None, token=None, startup_timeout=10.0) -> str
+def stop_live_server(timeout: float = 10.0) -> str
+def toggle_live_server(ui_application) -> str
+def live_server_status() -> str
+def is_live_server_running() -> bool
+def register_analysis(name: str, *, replace: bool = False, main_thread: bool = True)  # decorator: func(elements, options, uiapp)
+def unregister_analysis(name: str) -> None
+def registered_analyses() -> list[str]
+def load_analysis_plugins() -> list[str]   # imports "revitpy.analyses" entry points
+def discovery_path() -> Path               # ~/.revitpy/live.json or REVITPY_LIVE_DISCOVERY
+```
+
+`LiveServer(host="127.0.0.1", port=8766, auth_token=..., revit_version=None, execute_timeout=300.0)` requires a non-empty token. Defaults for `start_live_server` come from `REVITPY_LIVE_HOST`, `REVITPY_LIVE_PORT` and `REVITPY_LIVE_TOKEN` (random when unset).
+
+### revitpy.live_client
+
+```python
+class LiveConnectionInfo:        # url, token, protocol, revit_version, pid
+    @classmethod
+    def from_discovery(cls, path=None) -> LiveConnectionInfo
+
+class LiveClient:                # async with LiveClient() as client: ...
+    async def call(self, method, params=None) -> Any
+    async def status(self) -> dict
+    async def execute(self, code, filename="<live>", cwd=None) -> dict
+    async def run_file(self, path) -> dict
+    async def reload(self, modules=None, paths=None) -> dict
+    async def start_debugger(self, port=5678) -> dict
+    async def list_analyses(self) -> list[str]
+    async def analyze(self, analysis, elements, options=None) -> dict
+
+def call_live(method, params=None, *, info=None, timeout=330.0) -> Any   # synchronous one-off
+```
+
+`LiveServerNotFoundError` means no server could be reached; `LiveServerError` (`.code`, `.message`) wraps JSON-RPC errors and rejected handshakes.
+
+### revitpy.rpc
+
+`JsonRpcWebSocketServer(host, port, auth_token, allowed_origins=())` is the base class of `McpServer` and `LiveServer`: lifecycle (`start`, `stop`, `port`), bearer-token and Origin checks on the handshake, and JSON-RPC 2.0 frame validation with id-correlated errors. Subclasses implement `async _handle_message(request)`.
+
+---
+
 ## Command-line interface (`revitpy.cli`)
 
 Installed as the `revitpy` console script.
@@ -711,6 +758,12 @@ Installed as the `revitpy` console script.
 | `revitpy --version` / `revitpy version` | Print the installed RevitPy version |
 | `revitpy doctor [--json]` | Check the Python version, platform, core and optional dependencies (pythonnet, ifcopenshell, specklepy, defusedxml) and whether the Revit API can be loaded. Exits with status 1 if a core dependency is missing |
 | `revitpy mcp-serve [--host 127.0.0.1] [--port 8765] [--token TOKEN]` | Run the MCP server without a live Revit connection (`--token` falls back to `REVITPY_MCP_TOKEN`). Tools that need a document report that RevitPy is not connected; use the add-in's MCP Server button (or `start_mcp_server`) to work on a live model |
+
+| `revitpy live status [--json]` | Show the Revit session behind the running Live Server |
+| `revitpy live run SCRIPT` | Run a script in Revit (`live/runFile`); exits 1 if it fails |
+| `revitpy live exec CODE` | Execute code in Revit (`live/execute`) |
+| `revitpy live reload MODULE...` | Reload modules by name or `.py` path (`live/reload`) |
+| `revitpy live debug [--port 5678]` | Start `debugpy` in Revit (`debug/start`) |
 
 `revitpy.cli.collect_checks()` returns the `doctor` checks as a list of `{"name", "status", "detail"}` dicts (`status` is `"ok"`, `"warn"` or `"missing"`).
 

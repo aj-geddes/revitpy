@@ -1,94 +1,46 @@
-# Change Log
+# Changelog
 
-All notable changes to the RevitPy VS Code extension will be documented in this file.
+All notable changes to the RevitPy VS Code extension.
+
+## [2.0.0] - Unreleased
+
+Rewritten as a client of the RevitPy Live Server (JSON-RPC 2.0 over WebSocket inside Revit). The
+1.0.0 extension talked to a C# host WebSocket (`ws://host:port/revitpy`) that no longer exists, so
+none of its Revit features worked.
+
+### Added
+- Connection manager that finds the Live Server through its discovery file
+  (`~/.revitpy/live.json` / `REVITPY_LIVE_DISCOVERY` / `revitpy.discoveryFile`), authenticates with
+  the bearer token and reconnects on demand. Commands **Connect to Revit**, **Disconnect from Revit**,
+  **Show Status**; status bar item with Revit version and active document.
+- **Run Script in Revit** (`live/runFile`, saves first; `live/execute` for untitled editors) and
+  **Run Selection in Revit** (`live/execute`, dedented, current line when nothing is selected).
+  Output and tracebacks go to the **RevitPy** output channel.
+- **Reload Current Module in Revit** and the `revitpy.reloadOnSave` setting (`live/reload`).
+- **Attach Debugger to Revit**: `debug/start`, then a standard `debugpy` attach session
+  (requires the `ms-python.debugpy` extension and `debugpy` in Revit's Python).
+- **Create Project**: runs `revitpy-dev create project` in a terminal.
+- **Configure Revit API Stubs Folder**: adds a stubs folder to `python.analysis.extraPaths`.
+- Unit tests (vitest) against an in-process fake Live Server.
+
+### Changed
+- Snippets rewritten for Python files against the current `revitpy` API and the Revit API.
+- Toolchain: TypeScript 5.9, esbuild bundle (`out/extension.js`), ESLint 10 flat config with
+  typescript-eslint, `@vscode/vsce` 3, VS Code engine `^1.110.0`; `package-lock.json` is committed.
+- Settings: `revitpy.host`, `revitpy.port`, `revitpy.enableHotReload`, `revitpy.enableIntelliSense`
+  and `revitpy.logLevel` are gone (the connection comes from the discovery file); see the README
+  for the current settings.
+
+### Removed
+- The custom language server (`src/server/*`) and its hard-coded Revit API completion data: Python
+  files are handled by the Python extension / Pylance, with real stubs configured as above.
+- The custom `revitpy` debug adapter: debugging uses the standard debugpy attach.
+- The `.rvtpy` language, its TextMate grammar and language configuration: RevitPy scripts are
+  ordinary `.py` files.
+- The package manager tree view and the "RevitPy Packages"/"RevitPy Connection" views: they were
+  not connected to any working backend. Use the `revitpy-dev` / `revitpy-install` CLIs for packages.
+- The broken `postinstall` script and the `scripts/build.js` / `scripts/install.js` helpers.
 
 ## [1.0.0] - 2024-01-15
 
-### Added
-- 🎯 **Syntax Highlighting**: Custom language support for RevitPy scripts
-- 🧠 **IntelliSense**: Full Revit API auto-completion with <500ms response time
-- 🐛 **Integrated Debugging**: Step-through debugging with breakpoints and variable inspection
-- 🔗 **Hot-Reload Integration**: Live connection to RevitPy development server
-- 📦 **Package Management**: Browse, search, and install packages from VS Code
-- 🚀 **Project Management**: Multiple project templates and scaffolding
-- 🎨 **UI Components**: Custom tree views, status bar, and command palette integration
-
-### Features
-
-#### Language Server
-- Fast auto-completion for Revit API classes and methods
-- Context-aware suggestions with documentation
-- Parameter information and type signatures
-- Diagnostic support for common issues
-- Definition provider for go-to-definition
-
-#### Debugging
-- Custom debug adapter for RevitPy scripts
-- Breakpoint support with conditions and hit counts
-- Variable inspection in locals and globals scopes
-- Expression evaluation in debug console
-- Step-through debugging (step in, step out, step over)
-
-#### Hot-Reload
-- WebSocket connection to Revit environment
-- Automatic script execution on file changes
-- Real-time status updates and error reporting
-- Connection management with auto-reconnection
-
-#### Package Manager
-- Web-based package browser with search functionality
-- Install/uninstall packages directly from VS Code
-- Dependency management and conflict resolution
-- Package update notifications
-
-#### Project Templates
-- **Basic Script**: Simple RevitPy script template
-- **Revit Add-in**: Complete add-in with UI and commands
-- **Data Export Tool**: Template for data export utilities
-- **Test Suite**: Testing framework for Revit API functionality
-
-#### Syntax & Snippets
-- Custom TextMate grammar for RevitPy syntax highlighting
-- 20+ code snippets for common RevitPy patterns
-- Smart indentation and bracket matching
-- Context-sensitive keyword completion
-
-### Technical Implementation
-- TypeScript-based extension with strict type checking
-- Language Server Protocol (LSP) implementation
-- Debug Adapter Protocol (DAP) support
-- WebSocket communication with Revit
-- Efficient caching and memory management
-- Comprehensive error handling and logging
-
-### Performance
-- IntelliSense response time: <500ms (requirement met)
-- WebSocket connection with <100ms latency
-- Optimized package operations with batching
-- Lazy loading of heavy resources
-
-### Configuration
-- Configurable connection settings (host, port)
-- Customizable IntelliSense behavior
-- Adjustable logging levels
-- Flexible stub path configuration
-
-### Known Issues
-- Debugging requires active Revit session
-- Package installation requires network connectivity
-- Some complex type inference scenarios may be incomplete
-
-### Breaking Changes
-- None (initial release)
-
-## [Unreleased]
-
-### Planned Features
-- Enhanced debugging with call stack visualization
-- Intellisense for custom user libraries
-- Advanced refactoring tools
-- Integration with Revit Dynamo
-- Code formatting and linting
-- Git integration for RevitPy projects
-- Performance profiling tools
-- Advanced project templates
+Initial release (targeted the retired C# host WebSocket API).

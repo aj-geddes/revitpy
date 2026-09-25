@@ -59,7 +59,7 @@ Key points:
 
 ### Registered Markers
 
-All markers are registered in `pyproject.toml`: `slow`, `integration`, `unit`, `performance`, `benchmark`, `security`, `regression`, `compatibility`, `mock_revit`, `real_revit`, `bridge`, `e2e`. `tests/conftest.py` registers the same names again and adds the path-based auto-marking.
+All markers are registered in `pyproject.toml`: `slow`, `integration`, `unit`, `performance`, `benchmark`, `security`, `regression`, `compatibility`, `mock_revit`, `real_revit`, `e2e`. `tests/conftest.py` registers the same names again and adds the path-based auto-marking.
 
 | Marker | Description |
 |---|---|
@@ -69,7 +69,7 @@ All markers are registered in `pyproject.toml`: `slow`, `integration`, `unit`, `
 | `security` | Security-focused tests |
 | `mock_revit` | Tests using the mock Revit environment |
 | `real_revit` | Tests requiring an actual Revit installation (auto-skipped when Revit is unavailable) |
-| `compatibility` / `regression` / `bridge` | Cross-version, regression and legacy bridge tests |
+| `compatibility` / `regression` | Cross-version and regression tests |
 
 The `conftest.py` hook `pytest_collection_modifyitems` assigns markers based on file path. For example, files whose path contains `performance` get the `performance` marker.
 

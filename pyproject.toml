@@ -168,7 +168,6 @@ ignore = [
 "__init__.py" = ["F401"]
 "tests/**/*" = ["S101", "D", "F401", "E402"]
 "**/tests/**/*" = ["S101", "S105", "S106", "D", "F401", "E402"]
-"bridge/**/*" = ["F401", "E402"]
 "revitpy/performance/**/*" = ["F401"]
 "cli/**/*" = ["F401", "E402", "B904"]
 "revitpy-package-manager/**/*" = ["F401", "E402", "F403", "F405", "S"]
@@ -192,7 +191,6 @@ markers = [
     "compatibility: cross-version compatibility tests",
     "mock_revit: tests using the mock Revit environment",
     "real_revit: tests that require a real Revit installation",
-    "bridge: tests for the Python/Revit bridge",
     "e2e: end-to-end workflow tests",
 ]
 asyncio_mode = "auto"

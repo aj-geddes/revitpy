@@ -45,7 +45,6 @@ def pytest_configure(config):
         "performance: Performance and benchmark tests",
         "security: Security-focused tests",
         "slow: Tests that take more than 10 seconds",
-        "bridge: Tests for Python-C# bridge functionality",
         "mock_revit: Tests using mock Revit environment",
         "real_revit: Tests requiring actual Revit installation",
         "compatibility: Cross-version compatibility tests",

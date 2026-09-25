@@ -19,6 +19,7 @@ python_path = C:\dev\my-venv\Lib\site-packages
 python_path = C:\dev\my-tools
 startup_script = %USERPROFILE%\revitpy\startup.py
 initialize_on_startup = false
+start_live_server = false
 ```
 
 | Key | Default | Description |
@@ -28,6 +29,7 @@ initialize_on_startup = false
 | `python_path` | *(none)* | Extra `sys.path` entry. Repeatable, and `;`-separated lists are accepted. Point it at the `site-packages` where `revitpy` is installed. |
 | `startup_script` | *(none)* | Python file run once after the interpreter starts (no `__revit__`). Repeatable. |
 | `initialize_on_startup` | `false` | `true`/`1`/`yes` starts Python when Revit finishes initializing. Otherwise Python starts on the first ribbon command. |
+| `start_live_server` | `false` | `true` starts the Live Server (used by the VS Code extension, dev server and `revitpy live`) when Revit finishes initializing. |
 
 Environment overrides: `REVITPY_PYTHON_DLL` and `REVITPY_PYTHON_HOME` replace the file's values, and `REVITPY_PYTHON_PATH` (`;`-separated) adds more paths. **RevitPy > About** shows the settings path and Python version.
 
@@ -42,6 +44,17 @@ Environment overrides: `REVITPY_PYTHON_DLL` and `REVITPY_PYTHON_HOME` replace th
 | `REVITPY_MCP_TOKEN` | random per start | Bearer token clients must send (`Authorization: Bearer ...`) |
 
 Tools that change the model need a Yes/No confirmation in Revit. `revitpy mcp-serve --host --port --token` (which also reads `REVITPY_MCP_TOKEN`) runs the same server outside Revit, without a live model.
+
+### Live Server
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `REVITPY_LIVE_HOST` | `127.0.0.1` | Bind address |
+| `REVITPY_LIVE_PORT` | `8766` | Bind port |
+| `REVITPY_LIVE_TOKEN` | random per start | Bearer token; clients read it from the discovery file |
+| `REVITPY_LIVE_DISCOVERY` | `~/.revitpy/live.json` | Where the server publishes its URL and token (and where clients look) |
+
+See the [Live Server protocol]({{ '/developer/live-server/' | relative_url }}).
 
 ## Config
 

@@ -1,71 +1,86 @@
-# RevitPy Proof-of-Concept Applications
+# RevitPy proofs of concept
 
-## Overview
+Five small demos of data-science work on Revit model data with RevitPy. Each one
+reads elements through the RevitPy API, analyses them with the scientific Python
+stack (NumPy, pandas, SciPy, scikit-learn), and writes a result back to the model
+inside a transaction.
 
-This directory contains 5 compelling proof-of-concept applications that demonstrate RevitPy's unique value proposition - capabilities that are **impossible** with PyRevit/IronPython and provide clear ROI for data science and ML use cases in AEC.
+They are demos, not products. The analyses are deliberately simple, most input
+data (weather, meter readings, occupancy counts, sensor feeds, site photos) is
+synthetic, and the engineering checks are not code checks. What they do show is
+the plumbing a real tool needs, and that plumbing runs the same way against a live
+Revit session and against RevitPy's mock model.
 
-## Proof-of-Concepts
+| Directory | Package | What it does |
+|---|---|---|
+| [`energy-analytics/`](energy-analytics/README.md) | `energy_analytics` | Envelope heat loss (U x A) from walls and windows, a change-point regression and a random-forest model on meter data, embodied carbon of walls and floors. Flags poor elements. |
+| [`ml-space-planning/`](ml-space-planning/README.md) | `space_planning` | Room utilization features from occupancy counts, k-means clustering, an occupancy forecast against a naive baseline, and team-to-room assignment (Hungarian algorithm). |
+| [`iot-sensor-integration/`](iot-sensor-integration/README.md) | `iot_monitor` | Replays a sensor feed through an asyncio pipeline, applies comfort-limit and step-change alarm rules per sensor, and writes each room's latest status. |
+| [`structural-analysis/`](structural-analysis/README.md) | `structural_analysis` | Simplified steel beam and column checks, a 2D frame solved with the direct stiffness method, modal periods of a shear-building model, steel tonnage and carbon. |
+| [`computer-vision-progress/`](computer-vision-progress/README.md) | `progress_vision` | Detects installed precast panels in a rectified facade photo (Otsu threshold, per-cell fill ratio) and records progress on the model's panel grid. |
 
-### 1. Building Energy Performance Analytics Dashboard
-**Directory:** `energy-analytics/`
-**Problem:** PyRevit cannot perform advanced statistical analysis or create interactive visualizations
-**Solution:** Modern data science stack (NumPy, Pandas, Plotly) for comprehensive energy analysis
-**ROI:** Replace $50K+ external energy modeling software with Python-based solution
+`common/poc_common` holds what they share: connecting to Revit or the demo model,
+parameter helpers and unit conversion, the demo building, and the synthetic data
+generators.
 
-### 2. ML-Powered Space Planning Optimization
-**Directory:** `ml-space-planning/`
-**Problem:** PyRevit cannot run machine learning algorithms for design optimization
-**Solution:** TensorFlow/scikit-learn for intelligent space planning
-**ROI:** 30-50% improvement in space efficiency vs manual planning
+## Running them
 
-### 3. Real-time IoT Sensor Integration with Cloud APIs
-**Directory:** `iot-sensor-integration/`
-**Problem:** PyRevit cannot handle async operations or modern cloud API integration
-**Solution:** Async/await with cloud SDKs for real-time building monitoring
-**ROI:** Enable $100K+ facility management automation and predictive maintenance
+From a RevitPy checkout (Python 3.11+):
 
-### 4. Advanced Structural Analysis with Modern Libraries
-**Directory:** `structural-analysis/`
-**Problem:** PyRevit cannot perform complex numerical computations or structural analysis
-**Solution:** SciPy, NumPy for advanced engineering calculations
-**ROI:** Replace $25K+ structural analysis software licenses
+```bash
+pip install -e . -e "./proof-of-concepts[test]"
+python -m energy_analytics        # or space_planning, iot_monitor,
+                                  #    structural_analysis, progress_vision
+cd proof-of-concepts && pytest    # 76 tests, about 10 seconds
+```
 
-### 5. Construction Progress Monitoring with Computer Vision
-**Directory:** `computer-vision-progress/`
-**Problem:** PyRevit cannot process images or run computer vision algorithms
-**Solution:** OpenCV, TensorFlow for automated progress tracking
-**ROI:** 60-80% reduction in manual progress reporting time
+Each `python -m` entry point builds the demo building, runs the analysis, writes
+its results into the mock model and prints a short report. `--help` lists the
+options, and `--no-write` skips the write-back. The same commands are installed as
+`poc-energy`, `poc-space-planning`, `poc-iot`, `poc-structural` and `poc-progress`.
 
-## Common Infrastructure
+## Running inside Revit
 
-The `common/` directory contains shared utilities, mock data generators, and base classes used across all POCs.
+Every package exposes `run(app=None, ...)`. Pass Revit's `UIApplication` to work on
+the open model:
 
-## Running the POCs
+```python
+from energy_analytics import run
 
-Each POC directory contains:
-- `src/` - Source code and main application
-- `tests/` - Unit and integration tests
-- `data/` - Sample datasets and test data
-- `docs/` - Detailed documentation and ROI analysis
-- `examples/` - Usage examples and tutorials
+print(run(__revit__).to_text())
+```
 
-## Requirements
+Run that with **RevitPy > Run Script**, or send it from a terminal with
+`revitpy live run script.py` while the Live Server is on. The interpreter RevitPy
+embeds must be able to import the packages, so install this project into the
+environment its `python_path` setting points at. Each PoC directory has an
+`examples/run_in_revit.py` like the one above.
 
-All POCs require RevitPy with access to the modern Python ecosystem:
-- NumPy, Pandas, SciPy for numerical computing
-- TensorFlow, scikit-learn for machine learning
-- OpenCV for computer vision
-- asyncio, aiohttp for async operations
-- Plotly, Matplotlib for visualizations
-- Azure/AWS SDKs for cloud integration
+On a real model the demos read the parameters described in each PoC's README.
+Some are built-in Revit parameters (`Area`, `Volume`, `Length`, `Level`, `Mark`,
+`Comments`). Others are project parameters you would add, such as
+`U-Value (W/m2K)` or `Sensor ID`. Elements without them are skipped. Results are
+written to `Comments` because every element has it.
 
-## Key Differentiators from PyRevit
+## What RevitPy adds here
 
-1. **Modern Python Libraries** - Access to the full scientific Python ecosystem
-2. **Async/Await Support** - Real-time data processing and cloud integration
-3. **Machine Learning** - Advanced algorithms for optimization and prediction
-4. **Computer Vision** - Image processing and automated analysis
-5. **High-Performance Computing** - Complex numerical computations
-6. **Cloud Integration** - Modern API clients and IoT platforms
+pyRevit also runs CPython 3 now, so "impossible in pyRevit" is not the argument.
+These demos lean on what RevitPy adds on top of running Python in Revit:
 
-Each POC demonstrates capabilities that are fundamentally impossible with PyRevit's IronPython 2.7 limitations.
+- **A typed, queryable API.** `api.query(Room).execute()` returns `Room` wrappers.
+  Parameters are read with `get_parameter_value()`. New categories are one class
+  away (`StructuralColumn` in `poc_common` is three lines).
+- **Transactions as context managers.** `with api.transaction("..."):` commits on
+  success and rolls back on any exception. `test_write_back_is_atomic` checks
+  this.
+- **Testing without Revit.** `revitpy.testing.mock_revit.MockApplication` stands
+  in for Revit, so the same `run()` is exercised in CI on Linux.
+- **Model data helpers.** `revitpy.extract.QuantityExtractor` converts Revit's
+  internal feet, ft² and ft³ to metric. `revitpy.sustainability` provides
+  embodied-carbon factors and RIBA 2030 benchmarks.
+- **Normal packaging.** The demos are ordinary Python packages with a
+  `pyproject.toml`, installed into a normal virtual environment with the
+  scientific stack. Revit imports them through RevitPy's `python_path`.
+
+See [MASTER_DOCUMENTATION.md](MASTER_DOCUMENTATION.md) for how the pieces fit
+together and what each demo leaves out.

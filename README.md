@@ -67,7 +67,7 @@ Things to keep in mind with a live model:
 
 ### Option 1: The RevitPy add-in
 
-`src/RevitPy.Addin` is a Revit add-in (`RevitPy.Addin.RevitPyApplication`) that embeds CPython through pythonnet. It adds a **RevitPy** ribbon tab with **Run Script**, **Rerun**, **MCP Server** and **About** buttons. Scripts run on Revit's main thread with `__revit__` bound to the `UIApplication`.
+`src/RevitPy.Addin` is a Revit add-in (`RevitPy.Addin.RevitPyApplication`) that embeds CPython through pythonnet. It adds a **RevitPy** ribbon tab with **Run Script**, **Rerun**, **Live Server**, **MCP Server** and **About** buttons. Scripts run on Revit's main thread with `__revit__` bound to the `UIApplication`.
 
 Requirements: Windows, Revit 2024–2027, and a 64-bit CPython 3.11–3.14 with `revitpy` installed (a venv is fine).
 
@@ -97,6 +97,8 @@ python_path = C:\dev\my-venv\Lib\site-packages
 startup_script = %USERPROFILE%\revitpy\startup.py
 # true = start Python when Revit starts instead of on first use.
 initialize_on_startup = false
+# true = start the Live Server (for VS Code / dev tools) when Revit starts.
+start_live_server = false
 ```
 
 Comments must be on their own line (`#` or `;`). Values are expanded with `%VAR%` environment variables.
@@ -105,7 +107,7 @@ The environment variables `REVITPY_PYTHON_DLL`, `REVITPY_PYTHON_HOME` and `REVIT
 
 The **MCP Server** button starts an MCP server inside the Revit session (default `ws://127.0.0.1:8765`, override with `REVITPY_MCP_HOST` / `REVITPY_MCP_PORT` / `REVITPY_MCP_TOKEN`). It requires a bearer token (a random one is generated if you don't set it), and Revit asks you to confirm any tool that changes the model.
 
-> The other C# projects under `src/` (Core, Runtime, Bridge, Host, WebHost, Compatibility, and so on) are legacy code. They do not compile and are not part of the build.
+The **Live Server** button (or `start_live_server = true`) lets development tools run code in the open session: the [VS Code extension](vscode-extension/), the file-watching [dev server](dev-server/), the pyRevit bridge and `revitpy live ...`. It listens on `ws://127.0.0.1:8766`, always requires a bearer token, and publishes its URL and token in `~/.revitpy/live.json` for those clients. See the [Live Server protocol](https://aj-geddes.github.io/revitpy/developer/live-server/).
 
 ### Option 2: pyRevit (CPython engine)
 
@@ -247,6 +249,10 @@ The MCP server for AI agents lives in `revitpy.ai`. Speckle (projects/models/ver
 revitpy version                 # installed version
 revitpy doctor [--json]         # check Python, dependencies, optional integrations
 revitpy mcp-serve --port 8765 --token SECRET   # MCP server without a live Revit (use the add-in for a live model)
+revitpy live status             # the Revit session behind the Live Server
+revitpy live run script.py      # run a script in Revit
+revitpy live reload mymodule    # reload modules (names or .py paths) in Revit
+revitpy live debug              # start debugpy in Revit, then attach your editor
 ```
 
 ## Architecture
@@ -254,8 +260,10 @@ revitpy mcp-serve --port 8765 --token SECRET   # MCP server without a live Revit
 ```
 revitpy/
   api/             RevitAPI, Element + typed Wall/Floor/Door/Window/Room/Level, Transaction, QueryBuilder
-  revit/           Live Revit: pythonnet adapters (adapters.py), in-Revit host helpers + MCP (host.py)
-  cli.py           `revitpy` command (version, doctor, mcp-serve)
+  revit/           Live Revit: pythonnet adapters, host helpers + MCP (host.py), Live Server (live.py)
+  rpc.py           Authenticated JSON-RPC over WebSocket (shared by MCP and the Live Server)
+  live_client.py   Client for the Live Server
+  cli.py           `revitpy` command (version, doctor, mcp-serve, live)
   orm/             RevitContext, change tracking, caching, relationships, validation models
   events/          EventManager, dispatcher, decorators, filters
   extensions/      Extension, ExtensionManager, dependency injection

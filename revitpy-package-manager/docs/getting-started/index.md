@@ -47,6 +47,6 @@ If you run into issues:
 1. Check our [Troubleshooting Guide](../guides/troubleshooting.md)
 2. Search the [Community Forum](https://forum.revitpy.dev)
 3. Join our [Discord](https://discord.gg/revitpy) for real-time help
-4. [Report bugs](https://github.com/highvelocitysolutions/revitpy/issues) if needed
+4. [Report bugs](https://github.com/aj-geddes/revitpy/issues) if needed
 
 Ready? Let's [install RevitPy Package Manager](installation.md)!

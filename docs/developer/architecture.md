@@ -24,6 +24,7 @@ graph TD
     subgraph Python["CPython (embedded via pythonnet)"]
         Scripts["User scripts / pyRevit scripts<br/>(__revit__)"]
         Host["revitpy.revit.host<br/>call_on_revit_thread, in-Revit MCP"]
+        Live["revitpy.revit.live<br/>Live Server (dev tools)"]
         API["revitpy.api<br/>RevitAPI, Element + Wall/Floor/Door/Window/Room/Level,<br/>Transaction, QueryBuilder"]
         Adapters["revitpy.revit.adapters<br/>RevitApplication/Document/ElementAdapter"]
         ORM["revitpy.orm"]
@@ -71,11 +72,11 @@ graph TD
 
 | File | Responsibility |
 |---|---|
-| `RevitPyApplication.cs` | `IExternalApplication` (`RevitPy.Addin.RevitPyApplication`). Loads settings, registers the dispatcher, and builds the **RevitPy** ribbon tab (Run Script, Rerun, MCP Server, About). Optionally initializes Python at startup. |
-| `AddinSettings.cs` | Reads `%APPDATA%\RevitPy\settings.ini` (`python_dll`, `python_home`, `python_path`\*, `startup_script`\*, `initialize_on_startup`). Env overrides: `REVITPY_PYTHON_DLL` / `_HOME` / `_PATH`. Finds a CPython 3.11–3.14 DLL. |
+| `RevitPyApplication.cs` | `IExternalApplication` (`RevitPy.Addin.RevitPyApplication`). Loads settings, registers the dispatcher, and builds the **RevitPy** ribbon tab (Run Script, Rerun, Live Server, MCP Server, About). Optionally initializes Python and starts the Live Server at startup. |
+| `AddinSettings.cs` | Reads `%APPDATA%\RevitPy\settings.ini` (`python_dll`, `python_home`, `python_path`\*, `startup_script`\*, `initialize_on_startup`, `start_live_server`). Env overrides: `REVITPY_PYTHON_DLL` / `_HOME` / `_PATH`. Finds a CPython 3.11–3.14 DLL. |
 | `PythonHost.cs` | Initializes CPython via pythonnet on Revit's main thread and appends `python_path` entries to `sys.path`. Exposes the dispatcher as `builtins.__revitpy_dispatcher__`, then releases the GIL. Runs scripts as `__main__` with `__revit__` bound and stdout/stderr captured. |
 | `RevitDispatcher.cs` | `IExternalEventHandler` queue that runs Python callables on Revit's main thread. |
-| `Commands.cs` | The four ribbon commands. The MCP button runs `revitpy.revit.host.toggle_mcp_server(__revit__)`. |
+| `Commands.cs` | The ribbon commands. The Live Server and MCP buttons run `revitpy.revit.live.toggle_live_server(__revit__)` and `revitpy.revit.host.toggle_mcp_server(__revit__)`. |
 | `RevitPy.addin` | Manifest, installed next to a `RevitPy\` folder that holds the DLLs. |
 
 The project builds one Revit version at a time: `dotnet build -c Release -p:RevitVersion=2025`. The mapping is 2024 → net48, 2025/2026 → net8.0-windows, 2027 → net10.0-windows. Revit API reference assemblies come from the `Nice3point.Revit.Api.*` NuGet packages, so the build also works on Linux CI. `scripts/install-addin.ps1` builds and installs it.
@@ -113,6 +114,10 @@ sequenceDiagram
 
 `start_mcp_server(uiapp)` builds a `RevitAPI` connected to the live session and wraps its tools in `MainThreadRevitTools`, which runs every tool through `call_on_revit_thread`. It then runs `McpServer` on a daemon thread with its own asyncio loop. Defaults come from `REVITPY_MCP_HOST` (`127.0.0.1`), `REVITPY_MCP_PORT` (`8765`) and `REVITPY_MCP_TOKEN` (random if unset). The server requires `Authorization: Bearer <token>`. The `SafetyGuard` uses `revit_confirmation`, a Yes/No `TaskDialog` shown on the main thread, to approve model-changing tools. Any failure or timeout denies the call.
 
+### Live Server (`revitpy/revit/live.py`)
+
+`start_live_server(uiapp)` runs a `LiveServer` (JSON-RPC over WebSocket, `ws://127.0.0.1:8766`) on a daemon thread. Development tools use it to run scripts, reload modules, start `debugpy` and call registered analyses; every request executes on Revit's main thread through `call_on_revit_thread`. A bearer token is mandatory and published only in the user-only discovery file `~/.revitpy/live.json`. `revitpy.rpc.JsonRpcWebSocketServer` provides the shared lifecycle, handshake authentication and JSON-RPC validation for both this server and `McpServer`. Full protocol: [Live Server Protocol]({{ '/developer/live-server/' | relative_url }}).
+
 ## Directory Structure
 
 ```
@@ -120,7 +125,9 @@ revitpy/
   __init__.py        Public API (RevitAPI, Element, Transaction, FilterOperator,
                      EventManager, EventType, EventPriority, event_handler,
                      Extension, MockRevit, Config, feature-module classes)
-  cli.py             `revitpy` command: version, doctor, mcp-serve
+  cli.py             `revitpy` command: version, doctor, mcp-serve, live
+  rpc.py             JsonRpcWebSocketServer (auth + JSON-RPC base for MCP and Live Server)
+  live_client.py     LiveClient / call_live for the Live Server
   config.py          Config, ConfigManager
 
   api/

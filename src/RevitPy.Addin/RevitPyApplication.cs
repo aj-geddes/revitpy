@@ -24,13 +24,22 @@ public sealed class RevitPyApplication : IExternalApplication
             Dispatcher.Register();
             CreateRibbon(application);
 
-            if (Settings.InitializeOnStartup)
+            if (Settings.InitializeOnStartup || Settings.StartLiveServer)
             {
-                application.ControlledApplication.ApplicationInitialized += (_, _) =>
+                application.ControlledApplication.ApplicationInitialized += (sender, _) =>
                 {
                     try
                     {
                         EnsurePython();
+                        if (Settings.StartLiveServer && sender is Autodesk.Revit.ApplicationServices.Application app)
+                        {
+                            var result = PythonHost.RunCode(
+                                LiveServerCommand.ToggleCode, "<revitpy-live>", new UIApplication(app));
+                            if (!result.Success)
+                            {
+                                Trace.TraceError("RevitPy: Live Server failed to start:\n{0}", result.Error);
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -93,6 +102,7 @@ public sealed class RevitPyApplication : IExternalApplication
 
         AddButton(panel, assemblyPath, "RunScript", "Run\nScript", typeof(RunScriptCommand), "Run a Python script with RevitPy");
         AddButton(panel, assemblyPath, "RerunScript", "Rerun", typeof(RerunScriptCommand), "Run the last script again");
+        AddButton(panel, assemblyPath, "LiveServer", "Live\nServer", typeof(LiveServerCommand), "Start or stop the Live Server used by VS Code and the dev server");
         AddButton(panel, assemblyPath, "McpServer", "MCP\nServer", typeof(McpServerCommand), "Start or stop the RevitPy MCP server for AI agents");
         AddButton(panel, assemblyPath, "About", "About", typeof(AboutCommand), "RevitPy version and Python status");
     }

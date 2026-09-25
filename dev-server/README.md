@@ -1,380 +1,160 @@
-# RevitPy Development Server
+# @revitpy/dev-server
 
-A high-performance hot-reload development server for RevitPy with instant feedback during development.
+The edit-save-see loop for RevitPy: watch your Python files, and on every save
+reload the changed modules inside a running Revit and re-run your script.
 
-## 🚀 Features
+It is a small client of the **RevitPy Live Server**, the authenticated JSON-RPC
+WebSocket endpoint that the RevitPy add-in runs inside Revit (see
+[Live Server protocol](../docs/developer/live-server.md)). It has no server of its own and
+does nothing Revit could not already do through `revitpy live ...`. It does the
+watching, debouncing, reconnecting and output formatting for you.
 
-### Performance Targets
-- **<500ms** Python module reload time
-- **<200ms** UI component hot-reload time
-- **<100ms** file change detection
-- **10+** concurrent development sessions
+## Requirements
 
-### Core Capabilities
-- **File Watching**: Intelligent file monitoring with debouncing and filtering
-- **WebSocket Communication**: Real-time communication with Revit, VS Code, and browsers
-- **Hot Module Replacement**: Update running code without losing application state
-- **UI Hot-Reload**: Instant updates for WebView2-based panels with React/Vue support
-- **Error Recovery**: Graceful handling of syntax errors with automatic rollback
-- **Performance Monitoring**: Real-time metrics and optimization recommendations
+- Node.js 20 or newer.
+- Revit with the RevitPy add-in, and the Live Server started (the **Live Server** button on
+  the RevitPy ribbon tab, or `start_live_server = true` in `%APPDATA%\RevitPy\settings.ini`).
+- The dev server runs on the same machine as Revit. It finds the server through the discovery
+  file `~/.revitpy/live.json` (or `$REVITPY_LIVE_DISCOVERY`), and file paths are sent to Revit
+  as local absolute paths.
 
-### Integration Points
-- **RevitPy Host Application**: Direct code execution in Revit
-- **VS Code Extension**: Editor integration with problem matching
-- **CLI Tools**: Command-line development workflow
-- **WebView2 Panels**: Hot-reload for embedded web UIs
-- **Package System**: Automatic dependency updates
+## Install
 
-## 📦 Installation
+From this directory:
 
 ```bash
-npm install @revitpy/dev-server
+npm ci
+npm run build
+npm install -g .        # or: npx revitpy-dev-server ... / node dist/bin.js ...
 ```
 
-Or install globally for CLI usage:
+## Usage
+
+### `watch`: reload on save
 
 ```bash
-npm install -g @revitpy/dev-server
+revitpy-dev-server watch [paths...] --run <entry.py> [--debounce <ms>] [--ignore <glob>...]
+revitpy-dev-server watch [paths...] --reload-only    [--debounce <ms>] [--ignore <glob>...]
 ```
 
-## 🔧 Usage
+- Watches `paths` (default: the current directory) recursively for added or changed `.py`
+  files. `__pycache__`, dot-directories (`.venv`, `.git`, ...) and `node_modules` are always
+  ignored; add more with `--ignore` (repeatable, globs relative to a watched path, for example
+  `--ignore 'build/**'`).
+- Changes are debounced (`--debounce`, default 150 ms after the last change) and handled as one
+  batch. chokidar reports saves of the same file less than about 50 ms apart as one event, so
+  keep the debounce at 50 ms or more; the server always reads the file as it is when the batch
+  runs. The batch:
+  1. `live/reload {paths: [...changed files]}`: every module already imported in Revit whose
+     source is one of the changed files is reloaded with `importlib.reload`. Files that are not
+     imported modules are ignored by the server.
+  2. With `--run entry.py`: `live/runFile {path: entry}`. The script runs as `__main__` with
+     `__revit__` bound; its output and, on failure, its traceback are printed. If the reload
+     reported an error (a syntax error, say) the run is skipped so you do not run stale code.
+- Exactly one of `--run` or `--reload-only` is required.
+- Saves that arrive while a cycle is running are merged into one follow-up cycle.
+- If Revit or the Live Server is not running yet, or restarts (new port and token), the dev
+  server re-reads the discovery file and retries with backoff (250 ms, doubling to at most 5 s),
+  printing `waiting ...` once per distinct problem and `connected ...` when it gets through.
+  A request that was cut off by a disconnect is reported, not re-sent, because it may already
+  have run in Revit.
+- Ctrl+C stops watching and closes the connection (a second Ctrl+C exits immediately).
 
-### CLI Usage
+Example session (captured against `test/fixtures/real_live_server.py`, the real Live Server
+running outside Revit; inside Revit the times depend on your script and on Revit):
 
-Start the development server:
+```text
+$ revitpy-dev-server watch src --run src/report.py
+Watching src for .py changes; running src/report.py after each reload. Press Ctrl+C to stop.
+connected to the RevitPy Live Server at ws://127.0.0.1:33675 (Revit 2026)
+
+[18:52:23] changed src/report.py
+  reload  no imported module matched (18 ms)
+  run     src/report.py ok in 6 ms (Revit 0 ms)
+  | walls: 128 in DevServer.rvt
+
+[18:52:24] changed src/walls.py
+  reload  1 module (walls) in 16 ms
+  run     src/report.py ok in 6 ms (Revit 0 ms)
+  | walls: 131 in DevServer.rvt
+^CStopped.
+```
+
+The first save runs the script, which imports `walls`; after that, saving `walls.py` reloads
+it before the re-run. The two times on the `run` line are the round trip seen by the dev server
+and the execution time reported by the Live Server.
+
+### `run`: run a file once
 
 ```bash
-revitpy-dev-server start --port 3000 --watch src --root ./my-project
+revitpy-dev-server run script.py
 ```
 
-Check server status:
+Prints the output (and traceback). Exit code 0 on success, 1 when the script fails or the Live
+Server cannot be reached, 2 when the file does not exist. Unlike `watch`, it does not wait for a
+server that is not running.
+
+### `status`
 
 ```bash
 revitpy-dev-server status
 ```
 
-Generate configuration file:
+Shows the Live Server URL, Revit version, open document, RevitPy and Python versions, debugger
+state and registered analyses (`live/status`).
+
+### Options for all commands
+
+| Option | Meaning |
+|---|---|
+| `--discovery <file>` | Discovery file to use instead of `$REVITPY_LIVE_DISCOVERY` / `~/.revitpy/live.json` |
+| `NO_COLOR=1` / `FORCE_COLOR=1` | Disable / force colored output (default: color on a terminal) |
+
+## Library use
+
+The pieces are exported for editor integrations and scripts:
+
+```ts
+import { LiveClient, LiveSession, readDiscovery } from '@revitpy/dev-server';
+
+const client = await LiveClient.connect(await readDiscovery());
+console.log(await client.status());
+const result = await client.runFile('C:/scripts/report.py');
+await client.close();
+```
+
+`LiveSession` adds reconnect-with-backoff on top of `LiveClient`; `DevLoop`, `ChangeBatcher`
+and `watchPython` are the building blocks of `watch`.
+
+## Design notes
+
+- **File watching: chokidar 4.** Node's built-in `fs.watch` is recursive on Linux only since
+  Node 20 and reports editors' atomic saves (write to a temp file, then rename) as rename events
+  that vary by platform and editor. chokidar normalises those into `add`/`change` (its `atomic`
+  option) on Windows, macOS and Linux, and v4 has a single dependency. Globs for `--ignore` are
+  matched with picomatch.
+- The protocol client (`src/client.ts`) mirrors `revitpy/live_client.py`: one WebSocket,
+  `Authorization: Bearer <token>`, no `Origin` header, JSON-RPC 2.0 requests matched by id, a
+  330 s request timeout (the server waits up to 300 s for Revit's main thread).
+
+## Development
 
 ```bash
-revitpy-dev-server config --init
+npm ci
+npm run lint     # eslint (typescript-eslint strict, type-checked) + tsc --noEmit
+npm run build    # tsc -> dist/
+npm test         # vitest
 ```
 
-Run performance benchmarks:
-
-```bash
-revitpy-dev-server benchmark
-```
-
-### Programmatic Usage
-
-```typescript
-import { DevServer } from '@revitpy/dev-server';
-
-const config = {
-  host: 'localhost',
-  port: 3000,
-  projectRoot: '/path/to/project',
-  watchPaths: ['src', 'components'],
-  hotReload: {
-    enabled: true,
-    pythonModules: true,
-    uiComponents: true
-  },
-  revit: {
-    enabled: true,
-    autoConnect: true
-  }
-};
-
-const server = new DevServer(config);
-
-// Start server
-await server.start();
-
-// Listen for events
-server.on('client-connected', (client) => {
-  console.log(`Client connected: ${client.type}`);
-});
-
-server.on('module-reloaded', (result) => {
-  console.log(`Module reloaded: ${result.module} in ${result.duration}ms`);
-});
-
-// Stop server
-await server.stop();
-```
-
-## ⚙️ Configuration
-
-### Default Configuration
-
-```json
-{
-  "host": "localhost",
-  "port": 3000,
-  "websocketPort": 3001,
-  "projectRoot": "./",
-  "watchPaths": ["src"],
-  "buildOutputPath": "dist",
-  "debounceMs": 300,
-  "maxReloadTime": 5000,
-  "hotReload": {
-    "enabled": true,
-    "pythonModules": true,
-    "uiComponents": true,
-    "preserveState": true
-  },
-  "moduleReloader": {
-    "enabled": true,
-    "safeReload": true,
-    "dependencyTracking": true,
-    "statePreservation": true,
-    "rollbackOnError": true
-  },
-  "uiReload": {
-    "enabled": true,
-    "webview2Integration": true,
-    "reactRefresh": true,
-    "vueHmr": true,
-    "cssHotReload": true
-  },
-  "errorRecovery": {
-    "enabled": true,
-    "automaticRecovery": true,
-    "maxRetries": 3
-  },
-  "performance": {
-    "monitoring": true,
-    "metrics": true,
-    "optimization": true
-  },
-  "revit": {
-    "enabled": true,
-    "autoConnect": true,
-    "port": 5678
-  },
-  "vscode": {
-    "enabled": true,
-    "debugAdapter": true
-  },
-  "webview": {
-    "enabled": true,
-    "devTools": true
-  }
-}
-```
-
-### Environment Variables
-
-- `LOG_LEVEL`: Set logging level (debug, info, warn, error)
-- `NODE_ENV`: Environment mode (development, production)
-- `REVITPY_DEV_PORT`: Override default port
-- `REVITPY_DEV_HOST`: Override default host
-
-## 🏗️ Architecture
-
-### Core Services
-
-```
-┌─────────────────┐
-│   DevServer     │  ← Main orchestrator
-├─────────────────┤
-│ FileWatcher     │  ← High-perf file monitoring
-│ WebSocket Mgr   │  ← Multi-client communication
-│ Module Reloader │  ← Python hot-reload
-│ UI Reloader     │  ← WebView2 HMR
-│ Build System    │  ← Asset processing
-│ Error Recovery  │  ← Graceful error handling
-│ Performance     │  ← Metrics & optimization
-└─────────────────┘
-```
-
-### Communication Flow
-
-```
-┌─────────┐   WebSocket   ┌─────────────┐   Python   ┌───────┐
-│ VS Code │◄─────────────►│ Dev Server  │◄───────────►│ Revit │
-└─────────┘               └─────────────┘             └───────┘
-                               │
-                          WebSocket
-                               │
-                          ┌─────────┐
-                          │WebView2 │
-                          │ Panels  │
-                          └─────────┘
-```
-
-### File Change Pipeline
-
-```
-File Change → Debounce → Filter → Analyze → Strategy
-     │                                        │
-     └─ Python? → Module Reloader ───────────┘
-     │                                        │
-     └─ UI? → Component HMR ─────────────────┘
-     │                                        │
-     └─ Asset? → Build System ───────────────┘
-     │                                        │
-     └─ Error? → Recovery System ────────────┘
-```
-
-## 🔌 Integrations
-
-### Revit Host Application
-
-The development server communicates with Revit through:
-
-- **Python Bridge**: Direct execution of Python code in Revit context
-- **WebSocket Connection**: Real-time command/response communication
-- **Module Reloader**: Safe reloading of Python modules with state preservation
-
-### VS Code Extension
-
-Integration features:
-
-- **Problem Matcher**: Automatic error detection and highlighting
-- **Debug Adapter**: Debugging support for Python code
-- **File Operations**: Synchronized file operations between editor and server
-
-### WebView2 Panels
-
-UI development features:
-
-- **Hot Module Replacement**: React/Vue component updates without page refresh
-- **CSS Hot Reload**: Instant style updates
-- **State Preservation**: Maintain component state during updates
-- **Error Boundaries**: Graceful error handling in UI components
-
-## 📊 Performance
-
-### Benchmarks
-
-Target performance metrics:
-
-```
-File Change Detection: < 100ms
-Python Module Reload:  < 500ms
-UI Component Update:   < 200ms
-WebSocket Latency:     < 50ms
-Memory Usage:          < 200MB
-CPU Usage:             < 10%
-```
-
-### Optimization Features
-
-- **Intelligent Caching**: Multi-layer caching for build artifacts
-- **Incremental Builds**: Only rebuild changed components
-- **Parallel Processing**: Concurrent file processing
-- **Memory Management**: Automatic cleanup and optimization
-- **Network Optimization**: Efficient WebSocket message batching
-
-## 🛠️ Development
-
-### Building from Source
-
-```bash
-git clone https://github.com/revitpy/dev-server.git
-cd dev-server
-npm install
-npm run build
-```
-
-### Running Tests
-
-```bash
-npm test
-npm run test:watch
-npm run test:performance
-```
-
-### Performance Profiling
-
-```bash
-npm run perf
-clinic doctor -- npm start
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Server won't start:**
-- Check port availability
-- Verify project root path exists
-- Check Node.js version (>= 18.0.0)
-
-**Hot reload not working:**
-- Verify WebSocket connection
-- Check file patterns in configuration
-- Ensure files are within watched paths
-
-**Python modules not reloading:**
-- Check Python interpreter path
-- Verify module dependencies
-- Check for syntax errors in Python files
-
-**Performance issues:**
-- Enable performance monitoring
-- Check memory usage
-- Verify file patterns aren't too broad
-
-### Debug Mode
-
-Enable debug logging:
-
-```bash
-LOG_LEVEL=debug revitpy-dev-server start
-```
-
-### Health Check
-
-Monitor server health:
-
-```bash
-curl http://localhost:3000/health
-```
-
-## 📝 API Reference
-
-### REST API
-
-- `GET /health` - Server health status
-- `POST /api/build` - Trigger manual build
-- `POST /api/reload/module` - Reload specific Python module
-- `POST /api/reload/ui` - Reload UI component
-- `GET /api/metrics` - Performance metrics
-- `GET /api/clients` - Connected clients
-
-### WebSocket Messages
-
-**Client → Server:**
-- `ping` - Heartbeat
-- `subscribe` - Subscribe to channel
-- `build` - Request build
-- `revit-command` - Send command to Revit
-
-**Server → Client:**
-- `pong` - Heartbeat response
-- `file-changed` - File change notification
-- `build-complete` - Build completion
-- `module-reload` - Python module reloaded
-- `ui-reload` - UI component reloaded
-- `error-recovery` - Error recovery action
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## 📞 Support
-
-- GitHub Issues: [Report bugs or request features](https://github.com/revitpy/dev-server/issues)
-- Documentation: [Full documentation](https://revitpy.dev/docs/dev-server)
-- Community: [Discord server](https://discord.gg/revitpy)
+The tests run headless. Most use an in-process fake Live Server (`test/helpers/fakeLiveServer.ts`)
+that enforces the bearer token and speaks JSON-RPC. `test/real-server.test.ts` starts the real
+Python Live Server outside Revit (`test/fixtures/real_live_server.py`, with a stand-in for
+Revit's main-thread dispatcher) and runs `status`, `run` and `watch` against it. It needs a
+Python with revitpy installed (`pip install -e .` at the repository root): set `REVITPY_PYTHON`
+to that interpreter, otherwise `python3` (`python` on Windows) is tried and the suite is skipped
+with the reason in its name. With `REVITPY_REQUIRE_REAL_SERVER=1` (as in CI) a missing revitpy
+fails the run instead.
+
+## License
+
+MIT

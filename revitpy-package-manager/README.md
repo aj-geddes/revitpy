@@ -51,7 +51,7 @@ A comprehensive package management system for the RevitPy framework, providing e
 pip install revitpy-package-manager
 
 # Or install from source
-git clone https://github.com/highvelocitysolutions/revitpy.git
+git clone https://github.com/aj-geddes/revitpy.git
 cd revitpy/revitpy-package-manager
 pip install -e .
 ```
@@ -209,7 +209,7 @@ endpoint other than `/auth/refresh`.
 
 ```bash
 # Clone repository
-git clone https://github.com/highvelocitysolutions/revitpy.git
+git clone https://github.com/aj-geddes/revitpy.git
 cd revitpy/revitpy-package-manager
 
 # Install in development mode
@@ -347,9 +347,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- 📖 Documentation: https://docs.revitpy.dev
+- 📖 Documentation: https://aj-geddes.github.io/revitpy/
 - 💬 Community: https://discord.gg/revitpy
-- 🐛 Issues: https://github.com/highvelocitysolutions/revitpy/issues
+- 🐛 Issues: https://github.com/aj-geddes/revitpy/issues
 - 📧 Email: support@revitpy.dev
 
 ## Roadmap
