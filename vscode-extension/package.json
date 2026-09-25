@@ -1,14 +1,23 @@
 {
   "name": "revitpy-vscode",
   "displayName": "RevitPy",
-  "description": "Comprehensive VS Code extension for RevitPy development",
-  "version": "1.0.0",
+  "description": "Run, reload and debug Python scripts inside Autodesk Revit through the RevitPy Live Server.",
+  "version": "2.0.0",
   "publisher": "revitpy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aj-geddes/revitpy.git",
+    "directory": "vscode-extension"
+  },
+  "bugs": {
+    "url": "https://github.com/aj-geddes/revitpy/issues"
+  },
+  "homepage": "https://github.com/aj-geddes/revitpy/tree/main/vscode-extension#readme",
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.110.0"
   },
   "categories": [
-    "Programming Languages",
     "Debuggers",
     "Snippets",
     "Other"
@@ -17,93 +26,100 @@
     "revit",
     "python",
     "bim",
-    "architecture",
-    "autocomplete",
-    "debugging"
+    "revitpy",
+    "autodesk"
   ],
   "activationEvents": [
-    "onLanguage:python",
-    "onCommand:revitpy.createProject",
-    "onCommand:revitpy.connectToRevit",
-    "workspaceContains:**/*.rvtpy",
-    "workspaceContains:revitpy.json"
+    "onLanguage:python"
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "languages": [
-      {
-        "id": "revitpy",
-        "aliases": ["RevitPy", "revitpy"],
-        "extensions": [".rvtpy"],
-        "configuration": "./language-configuration.json"
-      }
-    ],
-    "grammars": [
-      {
-        "language": "revitpy",
-        "scopeName": "source.revitpy",
-        "path": "./syntaxes/revitpy.tmGrammar.json"
-      }
-    ],
     "commands": [
       {
-        "command": "revitpy.createProject",
-        "title": "Create RevitPy Project",
-        "category": "RevitPy"
-      },
-      {
-        "command": "revitpy.connectToRevit",
+        "command": "revitpy.connect",
         "title": "Connect to Revit",
         "category": "RevitPy"
       },
       {
-        "command": "revitpy.disconnectFromRevit",
+        "command": "revitpy.disconnect",
         "title": "Disconnect from Revit",
+        "category": "RevitPy"
+      },
+      {
+        "command": "revitpy.showStatus",
+        "title": "Show Status",
         "category": "RevitPy"
       },
       {
         "command": "revitpy.runScript",
         "title": "Run Script in Revit",
+        "category": "RevitPy",
+        "icon": "$(play)"
+      },
+      {
+        "command": "revitpy.runSelection",
+        "title": "Run Selection in Revit",
         "category": "RevitPy"
       },
       {
-        "command": "revitpy.debugScript",
-        "title": "Debug Script in Revit",
+        "command": "revitpy.reloadModule",
+        "title": "Reload Current Module in Revit",
         "category": "RevitPy"
       },
       {
-        "command": "revitpy.openPackageManager",
-        "title": "Open Package Manager",
+        "command": "revitpy.attachDebugger",
+        "title": "Attach Debugger to Revit",
         "category": "RevitPy"
       },
       {
-        "command": "revitpy.refreshPackages",
-        "title": "Refresh Packages",
+        "command": "revitpy.createProject",
+        "title": "Create Project",
         "category": "RevitPy"
       },
       {
-        "command": "revitpy.generateStubs",
-        "title": "Generate API Stubs",
+        "command": "revitpy.configureStubs",
+        "title": "Configure Revit API Stubs Folder",
         "category": "RevitPy"
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "revitpy.runScript",
+          "when": "editorLangId == python"
+        },
+        {
+          "command": "revitpy.runSelection",
+          "when": "editorLangId == python"
+        },
+        {
+          "command": "revitpy.reloadModule",
+          "when": "editorLangId == python"
+        }
+      ],
+      "editor/title/run": [
+        {
+          "command": "revitpy.runScript",
+          "when": "resourceLangId == python",
+          "group": "navigation@10"
+        }
+      ],
       "editor/context": [
         {
-          "when": "resourceExtname == .py || resourceExtname == .rvtpy",
           "command": "revitpy.runScript",
+          "when": "resourceLangId == python",
           "group": "revitpy@1"
         },
         {
-          "when": "resourceExtname == .py || resourceExtname == .rvtpy",
-          "command": "revitpy.debugScript",
+          "command": "revitpy.runSelection",
+          "when": "resourceLangId == python && editorHasSelection",
           "group": "revitpy@2"
         }
       ],
       "explorer/context": [
         {
-          "when": "resourceExtname == .py || resourceExtname == .rvtpy",
           "command": "revitpy.runScript",
+          "when": "resourceLangId == python",
           "group": "revitpy@1"
         }
       ]
@@ -111,155 +127,104 @@
     "configuration": {
       "title": "RevitPy",
       "properties": {
-        "revitpy.host": {
+        "revitpy.discoveryFile": {
           "type": "string",
-          "default": "localhost",
-          "description": "Host for RevitPy connection"
+          "default": "",
+          "markdownDescription": "Path of the Live Server discovery file. Empty uses `REVITPY_LIVE_DISCOVERY` or `~/.revitpy/live.json`."
         },
-        "revitpy.port": {
+        "revitpy.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Try to connect to a running Live Server when the extension starts (silently; errors are only logged)."
+        },
+        "revitpy.requestTimeoutSeconds": {
           "type": "number",
-          "default": 8080,
-          "description": "Port for RevitPy connection"
+          "default": 330,
+          "minimum": 5,
+          "description": "How long to wait for Revit to answer a request. Code runs on Revit's UI thread, so requests wait while Revit is busy or a dialog is open."
         },
-        "revitpy.enableHotReload": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable hot-reload functionality"
+        "revitpy.statusRefreshSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "description": "While connected, refresh the status bar (Revit version and active document) this often. 0 disables periodic refresh."
         },
-        "revitpy.enableIntelliSense": {
+        "revitpy.reloadOnSave": {
           "type": "boolean",
-          "default": true,
-          "description": "Enable IntelliSense for Revit API"
+          "default": false,
+          "markdownDescription": "When a `.py` file is saved while connected, send `live/reload` for it so Revit picks up the change without a restart."
+        },
+        "revitpy.debugPort": {
+          "type": "number",
+          "default": 5678,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Port debugpy listens on inside Revit (127.0.0.1)."
+        },
+        "revitpy.debugPathMappings": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Optional `pathMappings` for the debugpy attach configuration (only needed when the files Revit runs are at a different path than in this workspace).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "localRoot": {
+                "type": "string"
+              },
+              "remoteRoot": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "localRoot",
+              "remoteRoot"
+            ]
+          }
+        },
+        "revitpy.debugJustMyCode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Value of justMyCode for the debugpy attach configuration."
+        },
+        "revitpy.devCliPath": {
+          "type": "string",
+          "default": "revitpy-dev",
+          "description": "The RevitPy dev CLI executable used by RevitPy: Create Project."
         },
         "revitpy.stubsPath": {
           "type": "string",
-          "description": "Path to Revit API stubs"
-        },
-        "revitpy.logLevel": {
-          "type": "string",
-          "enum": ["error", "warn", "info", "debug"],
-          "default": "info",
-          "description": "Logging level for RevitPy extension"
+          "default": "",
+          "markdownDescription": "Folder containing Revit API `.pyi` stubs (an `Autodesk/` package). Set it with **RevitPy: Configure Revit API Stubs Folder**, which also adds it to `python.analysis.extraPaths`."
         }
       }
-    },
-    "debuggers": [
-      {
-        "type": "revitpy",
-        "label": "RevitPy",
-        "configurationAttributes": {
-          "launch": {
-            "required": ["script"],
-            "properties": {
-              "script": {
-                "type": "string",
-                "description": "Path to the RevitPy script to debug"
-              },
-              "host": {
-                "type": "string",
-                "description": "Host for Revit connection",
-                "default": "localhost"
-              },
-              "port": {
-                "type": "number",
-                "description": "Port for Revit connection",
-                "default": 8080
-              },
-              "stopOnEntry": {
-                "type": "boolean",
-                "description": "Automatically stop after launch",
-                "default": true
-              }
-            }
-          }
-        },
-        "initialConfigurations": [
-          {
-            "name": "Debug RevitPy Script",
-            "type": "revitpy",
-            "request": "launch",
-            "script": "${file}",
-            "stopOnEntry": true
-          }
-        ],
-        "configurationSnippets": [
-          {
-            "label": "RevitPy: Debug Script",
-            "description": "Debug a RevitPy script in Revit",
-            "body": {
-              "name": "Debug RevitPy Script",
-              "type": "revitpy",
-              "request": "launch",
-              "script": "^\"${file}\"",
-              "stopOnEntry": true
-            }
-          }
-        ]
-      }
-    ],
-    "views": {
-      "explorer": [
-        {
-          "id": "revitpyPackages",
-          "name": "RevitPy Packages",
-          "when": "workspaceHasRevitPyProject"
-        },
-        {
-          "id": "revitpyConnection",
-          "name": "RevitPy Connection",
-          "when": "workspaceHasRevitPyProject"
-        }
-      ]
-    },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "revitpy-explorer",
-          "title": "RevitPy",
-          "icon": "$(symbol-class)"
-        }
-      ]
     },
     "snippets": [
       {
         "language": "python",
         "path": "./snippets/revitpy.json"
-      },
-      {
-        "language": "revitpy",
-        "path": "./snippets/revitpy.json"
       }
     ]
   },
   "scripts": {
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
-    "package": "vsce package",
-    "publish": "vsce publish",
-    "build": "node scripts/build.js",
-    "install-local": "node scripts/install.js",
-    "postinstall": "cd client && npm install && cd ../server && npm install && cd .."
+    "vscode:prepublish": "npm run compile -- --production",
+    "compile": "npm run typecheck && node esbuild.mjs",
+    "typecheck": "tsc -p . --noEmit",
+    "watch": "node esbuild.mjs --watch",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "package": "vsce package"
   },
   "devDependencies": {
-    "@types/vscode": "^1.80.0",
-    "@types/node": "18.x",
-    "@typescript-eslint/eslint-plugin": "^6.4.1",
-    "@typescript-eslint/parser": "^6.4.1",
-    "eslint": "^8.47.0",
-    "typescript": "^5.1.6",
-    "@vscode/test-electron": "^2.3.4",
-    "@vscode/vsce": "^2.19.0"
-  },
-  "dependencies": {
-    "vscode-languageclient": "^8.1.0",
-    "vscode-languageserver": "^8.1.0",
-    "vscode-languageserver-textdocument": "^1.0.8",
-    "ws": "^8.13.0",
-    "axios": "^1.4.0",
-    "glob": "^10.3.3",
-    "yaml": "^2.3.1"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^20.19.43",
+    "@types/vscode": "~1.110.0",
+    "@types/ws": "^8.18.1",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.11.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^4.1.11",
+    "ws": "^8.21.3"
   }
 }

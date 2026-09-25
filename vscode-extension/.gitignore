@@ -1,9 +1,9 @@
-out
-node_modules
+out/
+node_modules/
 .vscode-test/
 *.vsix
-.DS_Store
 *.log
-.nyc_output
 coverage/
-test-results.xml
+# The repository root ignores lock files; this extension tracks its own for
+# reproducible installs (npm ci).
+!package-lock.json
