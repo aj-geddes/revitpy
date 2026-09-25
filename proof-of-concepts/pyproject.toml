@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Not published. Install next to RevitPy from a checkout:
+#   pip install -e . -e "./proof-of-concepts[test]"
+[project]
+name = "revitpy-pocs"
+version = "0.1.0"
+description = "Proof-of-concept data-science demos on Revit data with RevitPy"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+classifiers = ["Private :: Do Not Upload"]
+dependencies = [
+    "revitpy",
+    "loguru>=0.7",
+    "numpy>=2.3",
+    "pandas>=2.3",
+    "scipy>=1.16",
+    "scikit-learn>=1.7",
+    "plotly>=6.3",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.4"]
+
+[project.scripts]
+poc-energy = "energy_analytics.__main__:main"
+poc-space-planning = "space_planning.__main__:main"
+poc-iot = "iot_monitor.__main__:main"
+poc-structural = "structural_analysis.__main__:main"
+poc-progress = "progress_vision.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "common/poc_common",
+    "energy-analytics/src/energy_analytics",
+    "ml-space-planning/src/space_planning",
+    "iot-sensor-integration/src/iot_monitor",
+    "structural-analysis/src/structural_analysis",
+    "computer-vision-progress/src/progress_vision",
+]
+
+# Run from this directory: `pytest` (the repository root config targets tests/).
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --strict-markers --import-mode=importlib"
+testpaths = [
+    "tests",
+    "energy-analytics/tests",
+    "ml-space-planning/tests",
+    "iot-sensor-integration/tests",
+    "structural-analysis/tests",
+    "computer-vision-progress/tests",
+]

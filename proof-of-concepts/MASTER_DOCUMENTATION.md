@@ -1,378 +1,107 @@
-# RevitPy Proof-of-Concept Applications
+# Proofs of concept: how they are built
 
-## Overview
+This document covers the structure the five demos share, how model data flows
+through them, and what they leave out. The top-level [README](README.md) covers
+running them. Each PoC's README covers its analysis.
 
-This directory contains **5 comprehensive proof-of-concept applications** that demonstrate the revolutionary capabilities RevitPy brings to the AEC industry. Each POC showcases advanced features that are **IMPOSSIBLE** in PyRevit due to IronPython limitations, positioning RevitPy as the "Modern Python Gateway" that complements PyRevit's strengths while unlocking entirely new possibilities.
-
----
-
-## POC Portfolio Summary
-
-### 🏗️ **Total Value Proposition: $500K+ Annual Savings**
-
-| POC | Domain | Annual Value | Key Innovation |
-|-----|--------|--------------|----------------|
-| [Energy Analytics](#1-building-energy-performance-analytics) | Building Performance | $75K+ | ML-powered energy optimization |
-| [ML Space Planning](#2-ml-powered-space-planning-optimization) | Space Optimization | $45K+ | Neural network space allocation |
-| [IoT Integration](#3-real-time-iot-sensor-integration) | Facility Management | $205K+ | Async real-time monitoring |
-| [Structural Analysis](#4-advanced-structural-analysis) | Engineering | $35K+ | Finite element analysis |
-| [Computer Vision](#5-construction-progress-monitoring) | Construction Monitoring | $145K+ | AI-powered progress tracking |
-
----
-
-## 1. Building Energy Performance Analytics
-
-**Directory**: [`energy-analytics/`](./energy-analytics/)
-
-### Value Proposition
-Replace $75K+ energy analysis software with advanced machine learning models that predict consumption patterns, optimize HVAC systems, and generate interactive energy dashboards.
-
-### Key Capabilities (IMPOSSIBLE in PyRevit)
-- **Machine Learning**: scikit-learn models for energy prediction
-- **Advanced Optimization**: SciPy algorithms for HVAC optimization
-- **Interactive Visualizations**: Plotly dashboards with real-time updates
-- **Async Data Processing**: Concurrent building system monitoring
-
-### Technical Highlights
-```python
-# Energy consumption prediction with ML
-consumption_forecast = await analyzer.predict_energy_consumption(
-    building_data=historical_data,
-    forecast_days=30,
-    weather_integration=True
-)
-
-# HVAC optimization with SciPy
-optimized_settings = analyzer.optimize_hvac_systems(
-    current_settings=hvac_data,
-    comfort_constraints=comfort_requirements,
-    cost_objectives=['minimize_energy', 'maintain_comfort']
-)
-```
-
-### ROI Metrics
-- **Software Replacement**: $75,000 (energy analysis tools)
-- **Energy Savings**: 15-25% through ML optimization
-- **Analysis Speed**: 10x faster than manual processes
-- **Prediction Accuracy**: 92% for monthly consumption forecasts
-
----
-
-## 2. ML-Powered Space Planning Optimization
-
-**Directory**: [`ml-space-planning/`](./ml-space-planning/)
-
-### Value Proposition
-Replace $30K+ space planning software with neural networks that predict occupancy patterns, optimize layouts, and enable data-driven space allocation decisions.
-
-### Key Capabilities (IMPOSSIBLE in PyRevit)
-- **Deep Learning**: TensorFlow/Keras for occupancy prediction
-- **Multi-Objective Optimization**: SciPy optimization with constraints
-- **Space Clustering**: Machine learning for space classification
-- **Predictive Analytics**: Future space needs forecasting
-
-### Technical Highlights
-```python
-# Neural network occupancy prediction
-occupancy_forecast = await optimizer.predict_space_occupancy(
-    historical_data=space_usage_data,
-    seasonal_patterns=True,
-    forecast_months=12
-)
-
-# Multi-objective space optimization
-optimized_layout = optimizer.optimize_space_layout(
-    spaces=current_layout,
-    objectives=['maximize_utilization', 'minimize_circulation'],
-    constraints=adjacency_requirements
-)
-```
-
-### ROI Metrics
-- **Software Replacement**: $30,000 (space planning tools)
-- **Space Efficiency**: 15-20% improvement in utilization
-- **Planning Speed**: 50% reduction in planning cycles
-- **Prediction Accuracy**: 94% for occupancy forecasting
-
----
-
-## 3. Real-time IoT Sensor Integration
-
-**Directory**: [`iot-sensor-integration/`](./iot-sensor-integration/)
-
-### Value Proposition
-Replace $100K+ facility automation systems with real-time IoT monitoring, predictive maintenance, and intelligent building management through modern cloud connectivity.
-
-### Key Capabilities (IMPOSSIBLE in PyRevit)
-- **Async Programming**: Concurrent sensor monitoring with asyncio
-- **Cloud IoT Integration**: Azure IoT Hub, AWS IoT Core connectivity
-- **Real-time Processing**: WebSocket dashboards with sub-second updates
-- **Predictive Maintenance**: ML models for equipment failure prediction
-
-### Technical Highlights
-```python
-# Concurrent sensor monitoring
-monitoring_tasks = [
-    monitor.monitor_hvac_sensors(),
-    monitor.monitor_occupancy_sensors(),
-    monitor.monitor_energy_meters()
-]
-await asyncio.gather(*monitoring_tasks)
-
-# Cloud IoT platform integration
-await azure_client.send_device_to_cloud_message(sensor_data)
-command = await azure_client.receive_cloud_to_device_message()
-```
-
-### ROI Metrics
-- **System Replacement**: $100,000 (facility automation software)
-- **Maintenance Savings**: 60% reduction in emergency repairs
-- **Energy Optimization**: 15% cost savings through smart monitoring
-- **Response Time**: <100ms for critical alerts
-
----
-
-## 4. Advanced Structural Analysis
-
-**Directory**: [`structural-analysis/`](./structural-analysis/)
-
-### Value Proposition
-Replace $25K+ structural analysis software with finite element analysis, seismic modeling, and advanced numerical methods for professional-grade engineering analysis.
-
-### Key Capabilities (IMPOSSIBLE in PyRevit)
-- **Sparse Matrix Solvers**: SciPy sparse linear algebra for large structures
-- **Finite Element Analysis**: Complete FEA framework with NumPy
-- **Seismic Analysis**: Time-history integration with differential equation solvers
-- **Design Optimization**: Multi-objective optimization algorithms
-
-### Technical Highlights
-```python
-# Sparse matrix structural analysis
-K = build_global_stiffness_matrix(elements)  # Sparse CSC matrix
-F = build_load_vector(elements)
-displacements = spsolve(K, F)  # Efficient sparse solver
-
-# Seismic time-history analysis
-solution = solve_ivp(
-    equations_of_motion,
-    time_span=(0, 60),
-    initial_conditions=initial_state,
-    method='RK45'
-)
-```
-
-### ROI Metrics
-- **Software Replacement**: $25,000 (SAP2000, ETABS licenses)
-- **Analysis Speed**: 10-100x faster for large structures
-- **Design Optimization**: 20% material savings through optimization
-- **Accuracy**: 0.1% error vs commercial software
-
----
-
-## 5. Construction Progress Monitoring with Computer Vision
-
-**Directory**: [`computer-vision-progress/`](./computer-vision-progress/)
-
-### Value Proposition
-Replace $50K+ construction monitoring software with AI-powered progress tracking, automated quality assessment, and real-time safety compliance monitoring.
-
-### Key Capabilities (IMPOSSIBLE in PyRevit)
-- **Computer Vision**: OpenCV for advanced image processing
-- **Deep Learning**: TensorFlow object detection and classification
-- **Real-time Processing**: Live camera feed analysis
-- **Quality Assessment**: Automated defect detection and compliance checking
-
-### Technical Highlights
-```python
-# Computer vision construction analysis
-image = cv2.imread(construction_photo)
-detections = model.detect_construction_elements(image)
-progress = calculate_completion_percentage(detections)
-
-# Deep learning quality assessment
-quality_score = cnn_model.assess_construction_quality(image_patch)
-defects = defect_detector.find_surface_defects(processed_image)
-```
-
-### ROI Metrics
-- **Software Replacement**: $50,000 (construction monitoring systems)
-- **Inspection Automation**: 40 hours/week labor savings
-- **Quality Improvement**: 89% defect detection accuracy
-- **Safety Enhancement**: 70% reduction in safety incidents
-
----
-
-## Shared Infrastructure
-
-### Common Utilities (`common/src/`)
-
-#### Performance Benchmarking (`performance_utils.py`)
-- **PerformanceBenchmark**: Execution time and memory monitoring
-- **PyRevit Comparisons**: Baseline performance metrics
-- **Async Benchmarking**: Performance testing for concurrent operations
-
-#### PyRevit Integration (`integration_helpers.py`)
-- **PyRevitBridge**: Seamless workflow integration
-- **WorkflowRequest/Response**: Structured data exchange
-- **Export/Import**: JSON-based result sharing
-
-#### Mock Data Generation (`data_generators.py`, `revitpy_mock.py`)
-- **Building Elements**: Realistic Revit element simulation
-- **Sensor Data**: IoT sensor data generation
-- **Construction Scenarios**: Sample project data
-
----
-
-## Technical Architecture
-
-### Modern Python Stack (IMPOSSIBLE in PyRevit)
-
-| Technology | Usage | PyRevit Limitation | RevitPy Advantage |
-|------------|-------|-------------------|------------------|
-| **asyncio** | Concurrent operations | No async support | Real-time processing |
-| **NumPy/SciPy** | Scientific computing | Limited numerical libraries | Professional-grade analysis |
-| **TensorFlow/Keras** | Machine learning | No ML frameworks | AI-powered insights |
-| **OpenCV** | Computer vision | No image processing | Automated visual analysis |
-| **Plotly** | Interactive visualization | Static displays only | Modern web dashboards |
-| **aiohttp** | Async HTTP clients | Basic HTTP only | Cloud API integration |
-| **Pandas** | Data analysis | Limited data handling | Advanced analytics |
-
-### Performance Comparison
-
-| Capability | PyRevit (IronPython) | RevitPy | Improvement |
-|------------|---------------------|---------|-------------|
-| **Numerical Computing** | Basic math operations | SciPy/NumPy suite | 10-100x performance |
-| **Data Processing** | Manual loops | Vectorized operations | 5-50x faster |
-| **ML Predictions** | Impossible | scikit-learn/TensorFlow | New capability |
-| **Async Operations** | Blocking only | asyncio concurrency | Unlimited scalability |
-| **Visualization** | Static charts | Interactive dashboards | Modern UX |
-
----
-
-## Implementation Strategy
-
-### 1. Complementary Workflow
-
-RevitPy **complements** PyRevit rather than replacing it:
+## Layout
 
 ```
-PyRevit → Extract Data → RevitPy → Advanced Processing → Results → Import Results → PyRevit → Update Model → Revit
+proof-of-concepts/
+├── pyproject.toml            # one non-published project: revitpy-pocs
+├── common/poc_common/        # shared: connect, params/units, demo model, synthetic data
+├── tests/                    # entry-point smoke tests, in-Revit example tests
+└── <poc>/
+    ├── README.md
+    ├── examples/run_in_revit.py
+    ├── src/<package>/
+    │   ├── __init__.py       # run(app=None, ...) -> Report with .to_text()
+    │   ├── __main__.py       # python -m <package>
+    │   ├── model_data.py     # RevitPy queries and write-back
+    │   └── analysis.py       # pure NumPy/pandas/SciPy/scikit-learn, no Revit
+    └── tests/
+        ├── test_analysis.py  # analysis functions against known answers
+        └── test_*_model.py   # run() against the demo model
 ```
 
-### 2. Integration Pattern
+Keeping `analysis.py` free of Revit calls is deliberate. The analysis is tested
+on plain DataFrames, and `model_data.py` is the only layer that touches the
+model.
 
-Each POC follows this integration pattern:
+## Data flow
 
-1. **PyRevit Data Export**: Extract Revit data with PyRevit scripts
-2. **RevitPy Processing**: Advanced analysis with modern Python libraries
-3. **Result Generation**: Create comprehensive analysis results
-4. **PyRevit Import**: Import results back to update Revit model
-
-### 3. Development Approach
-
-- **Modular Design**: Each POC is self-contained with clear interfaces
-- **Extensible Architecture**: Easy to add new analysis capabilities
-- **Testing Framework**: Comprehensive test suites for validation
-- **Documentation**: Complete implementation and usage guides
-
----
-
-## Getting Started
-
-### Prerequisites
-- **Python 3.11+**: Modern Python with full library ecosystem
-- **Required Packages**: See individual POC requirements.txt files
-- **PyRevit Installation**: For Revit integration workflow
-
-### Installation
-```bash
-# Clone the repository
-git clone <repository-url>
-cd revitpy/proof-of-concepts
-
-# Install common dependencies
-pip install -r common/requirements.txt
-
-# Install POC-specific dependencies
-cd energy-analytics && pip install -r requirements.txt
-cd ../ml-space-planning && pip install -r requirements.txt
-cd ../iot-sensor-integration && pip install -r requirements.txt
-cd ../structural-analysis && pip install -r requirements.txt
-cd ../computer-vision-progress && pip install -r requirements.txt
+```
+app (__revit__ in Revit, MockApplication elsewhere)
+  └─ poc_common.connect(app) ─► RevitAPI
+       ├─ api.query(Room | Wall | Window | Floor | Level | StructuralColumn ...)
+       │     .execute()  ─► typed Element wrappers
+       ├─ element.get_parameter_value("Area") ... internal units (ft, ft², ft³)
+       │     └─ converted to metric (poc_common.FT2_TO_M2, QuantityExtractor)
+       ├─ model_data.*  ─► pandas DataFrames
+       ├─ analysis.*    ─► results
+       └─ with api.transaction("..."):
+             element.set_parameter_value("Comments", ...)   # all-or-nothing
 ```
 
-### Running Demonstrations
-```bash
-# Energy Analytics Demo
-python energy-analytics/examples/advanced_energy_analytics_demo.py
+`connect(None)` builds the demo building (`poc_common.demo_model`): three
+storeys with 24 rooms, an exterior envelope with walls and windows, slabs, a
+5 x 3 steel column grid with beams, and 60 precast facade panels. It is a
+`revitpy.testing.mock_revit.MockApplication`, the mock RevitPy's own test suite
+uses, so queries, parameter reads, typed wrappers and transaction rollback
+behave as they do against Revit through `revitpy.revit`'s adapters.
 
-# ML Space Planning Demo
-python ml-space-planning/examples/ml_space_optimization_demo.py
+## Conventions
 
-# IoT Integration Demo
-python iot-sensor-integration/examples/iot_real_time_demo.py
+- **Units.** Revit reports lengths in feet, areas in ft² and volumes in ft³.
+  Every conversion to metric happens in `model_data.py` or through
+  `QuantityExtractor`, never in the analysis code.
+- **Missing data.** `poc_common.param()` and `number()` return a default when
+  a parameter is missing, so elements without the needed parameters are
+  skipped rather than crashing the run. Each run raises a clear `ValueError`
+  if nothing usable is found.
+- **Write-back.** Results go to `Comments` in one named transaction per run.
+  Every element has `Comments`. A production tool would use dedicated shared
+  parameters. Pass `write=False` (CLI `--no-write`) to leave the model
+  untouched.
+- **Synthetic inputs.** Anything that doesn't come from the model is generated
+  by `poc_common.timeseries` from a seed: weather, meter data, occupancy, sensor
+  feeds and facade photos. Every `run()` accepts the real equivalent as an
+  argument, and the report says when an input was synthetic.
 
-# Structural Analysis Demo
-python structural-analysis/examples/structural_engineering_demo.py
+## Dependencies
 
-# Computer Vision Demo
-python computer-vision-progress/examples/computer_vision_demo.py
-```
+Declared in `pyproject.toml`, only what the code imports:
 
-### Running Test Suites
-```bash
-# Run all tests
-python -m pytest
+| Package | Used for |
+|---|---|
+| `revitpy` | model access, quantities, carbon factors (installed from this repo) |
+| `numpy`, `pandas` | everything |
+| `scipy` | change-point fit, assignment, frame solve, eigenproblem, image labelling |
+| `scikit-learn` | random forest, k-means, gradient boosting |
+| `plotly` | optional HTML chart in `energy_analytics` |
+| `loguru` | quieting RevitPy's logging in the CLIs |
+| `pytest` (extra `test`) | tests |
 
-# Run specific POC tests
-python energy-analytics/tests/test_energy_analytics.py
-python ml-space-planning/tests/test_ml_space_planning.py
-python iot-sensor-integration/tests/test_iot_integration.py
-python structural-analysis/tests/test_structural_analysis.py
-python computer-vision-progress/tests/test_computer_vision.py
-```
+The earlier `requirements.txt` files listed TensorFlow, PyTorch, Detectron2,
+FEniCS, cloud IoT SDKs and several packages that don't exist on PyPI. The code
+never used them, so they were removed. The READMEs say where a lighter method
+replaced a heavy framework.
 
----
+## CI
 
-## Business Impact Summary
+The `pocs` job in `.github/workflows/ci.yml` installs RevitPy and this project
+on Python 3.12, then runs `pytest` from this directory, using the
+`[tool.pytest.ini_options]` in this `pyproject.toml` rather than the repository
+root's. `ruff check proof-of-concepts` and `ruff format --check
+proof-of-concepts` pass under the root ruff configuration.
 
-### Quantified Benefits
+## What the demos do not do
 
-| Metric | PyRevit Baseline | RevitPy Capability | Business Impact |
-|--------|------------------|-------------------|-----------------|
-| **Software Licenses** | $225K+/year | $0 (replaced) | $225K+ annual savings |
-| **Analysis Speed** | Manual processes | 10-100x automation | 50-80% time savings |
-| **Accuracy** | Manual assessment | 90-95% AI accuracy | Reduced errors/rework |
-| **Capabilities** | Basic automation | Advanced AI/ML | New revenue opportunities |
-
-### Strategic Advantages
-
-1. **Competitive Differentiation**: Offer AI-powered AEC services
-2. **Future-Proofing**: Built on modern Python ecosystem
-3. **Scalability**: Cloud-ready architecture for enterprise deployment
-4. **Innovation Platform**: Foundation for continued AI/ML development
-
-### Implementation Timeline
-
-- **Phase 1** (Weeks 1-2): Select and implement 1-2 POCs based on immediate needs
-- **Phase 2** (Weeks 3-6): Full POC portfolio implementation and integration
-- **Phase 3** (Weeks 7-8): User training and workflow optimization
-- **Phase 4** (Ongoing): Continuous improvement and feature expansion
-
----
-
-## Conclusion
-
-These five proof-of-concept applications demonstrate that RevitPy enables revolutionary capabilities in the AEC industry that are fundamentally impossible with PyRevit's IronPython limitations. By providing access to the complete modern Python ecosystem, RevitPy:
-
-- **Unlocks $500K+ in annual value** through software replacement and process automation
-- **Enables cutting-edge AI and ML** for intelligent building design and management
-- **Provides real-time capabilities** through async programming and cloud connectivity
-- **Delivers professional-grade analysis** with scientific computing libraries
-- **Creates modern user experiences** with interactive visualizations and dashboards
-
-RevitPy doesn't replace PyRevit—it **supercharges** it, creating a powerful complementary workflow that brings the AEC industry into the age of artificial intelligence and modern software development.
-
----
-
-*For detailed implementation guidance, refer to the individual POC documentation and example code provided in each subdirectory.*
+- They make no claims about savings, ROI or market size. Earlier drafts of this
+  directory did, without evidence, and those documents were removed.
+- They are not engineering or energy-modelling tools. The structural checks
+  are not design-code checks, the energy model is a U x A screening model, and
+  the carbon factors are generic cradle-to-gate averages.
+- They have not been run against a large production model. The API calls are
+  the ones RevitPy's live adapters implement, but nothing here has been tuned
+  for performance.
