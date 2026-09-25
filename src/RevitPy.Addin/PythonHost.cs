@@ -157,7 +157,10 @@ public static class PythonHost
                         "import sys\n"
                         + "_host = sys.modules.get('revitpy.revit.host')\n"
                         + "if _host is not None:\n"
-                        + "    _host.stop_mcp_server(timeout=2.0)\n");
+                        + "    _host.stop_mcp_server(timeout=2.0)\n"
+                        + "_live = sys.modules.get('revitpy.revit.live')\n"
+                        + "if _live is not None:\n"
+                        + "    _live.stop_live_server(timeout=2.0)\n");
                 }
 
                 PythonEngine.Shutdown();

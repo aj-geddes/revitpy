@@ -24,17 +24,21 @@ are reported as ``tools/call`` results with ``isError: true``, per MCP.
 
 from __future__ import annotations
 
-import asyncio
-import hmac
-import importlib
-import ipaddress
 import json
-from collections.abc import Callable, Mapping
-from http import HTTPStatus
-from typing import Any, TypeAlias
+from typing import Any
 
 from loguru import logger
 
+from ..rpc import (
+    INTERNAL_ERROR,
+    INVALID_PARAMS,
+    INVALID_REQUEST,
+    METHOD_NOT_FOUND,
+    PARSE_ERROR,
+    JsonRpcWebSocketServer,
+    RequestId,
+    is_loopback_host,
+)
 from ._protocol import McpRequest, McpResponse
 from .exceptions import (
     McpServerError,
@@ -47,36 +51,19 @@ from .safety import SafetyGuard
 from .tools import RevitTools
 from .types import McpServerConfig, ToolCategory
 
+__all__ = [
+    "INTERNAL_ERROR",
+    "INVALID_PARAMS",
+    "INVALID_REQUEST",
+    "LATEST_PROTOCOL_VERSION",
+    "METHOD_NOT_FOUND",
+    "PARSE_ERROR",
+    "McpServer",
+    "is_loopback_host",
+]
+
 LATEST_PROTOCOL_VERSION = "2025-11-25"
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
-
-# JSON-RPC 2.0 error codes
-PARSE_ERROR = -32700
-INVALID_REQUEST = -32600
-METHOD_NOT_FOUND = -32601
-INVALID_PARAMS = -32602
-INTERNAL_ERROR = -32603
-
-RequestId: TypeAlias = str | int | None
-
-# (status, body, extra headers) for a rejected WebSocket handshake.
-HandshakeRejection: TypeAlias = tuple[HTTPStatus, str, dict[str, str]]
-
-
-def _load_serve() -> tuple[Callable[..., Any], bool]:
-    """Return ``(serve, is_new_api)`` for the installed websockets.
-
-    Prefers the asyncio implementation (``websockets.asyncio.server``,
-    websockets >= 13).  Falls back to the legacy ``websockets.server``
-    implementation only for older releases, which the package still
-    allows.
-    """
-    try:
-        module = importlib.import_module("websockets.asyncio.server")
-        return module.serve, True
-    except ImportError:  # pragma: no cover - depends on installed version
-        module = importlib.import_module("websockets.server")
-        return module.serve, False
 
 
 def _error(request_id: RequestId, code: int, message: str) -> McpResponse:
@@ -93,17 +80,7 @@ def _tool_error(request_id: RequestId, text: str) -> McpResponse:
     )
 
 
-def is_loopback_host(host: str) -> bool:
-    """Return ``True`` when *host* only accepts local connections."""
-    if host.lower() == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        return False
-
-
-class McpServer:
+class McpServer(JsonRpcWebSocketServer):
     """Asynchronous MCP WebSocket server.
 
     Args:
@@ -115,6 +92,10 @@ class McpServer:
             created when not supplied.
     """
 
+    server_name = "revitpy-mcp"
+    request_cls = McpRequest
+    response_cls = McpResponse
+
     def __init__(
         self,
         tools: RevitTools,
@@ -123,242 +104,25 @@ class McpServer:
         safety_guard: SafetyGuard | None = None,
         prompt_library: PromptLibrary | None = None,
     ) -> None:
-        self._tools = tools
         self._config = config or McpServerConfig()
+        super().__init__(
+            host=self._config.host,
+            port=self._config.port,
+            auth_token=self._config.auth_token,
+            allowed_origins=self._config.allowed_origins,
+        )
+        self._tools = tools
         self._safety = safety_guard or SafetyGuard()
         self._prompts = prompt_library or PromptLibrary()
-        self._connections: set[Any] = set()
-        self._server: Any | None = None
 
     @property
     def config(self) -> McpServerConfig:
         """Return the active server configuration."""
         return self._config
 
-    @property
-    def connections(self) -> set[Any]:
-        """Return the set of active WebSocket connections."""
-        return set(self._connections)
-
-    @property
-    def port(self) -> int | None:
-        """Return the bound port while running (useful with ``port=0``)."""
-        if self._server is None:
-            return None
-        sockets = list(self._server.sockets)
-        return int(sockets[0].getsockname()[1]) if sockets else None
-
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
-
-    async def start(self) -> None:
-        """Start the WebSocket server."""
-        host = self._config.host
-        port = self._config.port
-        logger.info("Starting MCP server on {}:{}", host, port)
-        if self._config.auth_token is None and not is_loopback_host(host):
-            logger.warning(
-                "MCP server is binding to non-loopback address {} WITHOUT "
-                "authentication - anyone who can reach this port can run tools "
-                "against the open Revit model. Set McpServerConfig.auth_token.",
-                host,
-            )
-        try:
-            serve, is_new_api = _load_serve()
-            process_request = (
-                self._process_request if is_new_api else self._legacy_process_request
-            )
-            self._server = await serve(
-                self._handle_connection,
-                host,
-                port,
-                process_request=process_request,
-            )
-            logger.info("MCP server started on port {}", self.port)
-        except OSError as exc:
-            raise McpServerError(
-                f"Failed to start server: {exc}",
-                host=host,
-                port=port,
-                cause=exc,
-            ) from exc
-
-    async def stop(self, timeout: float = 5.0) -> None:
-        """Gracefully stop the server.
-
-        Args:
-            timeout: Seconds to wait for connections to close.
-        """
-        logger.info("Stopping MCP server")
-        if self._server is not None:
-            self._server.close()
-            await asyncio.wait_for(self._server.wait_closed(), timeout=timeout)
-            self._server = None
-        self._connections.clear()
-        logger.info("MCP server stopped")
-
-    async def __aenter__(self) -> McpServer:
-        await self.start()
-        return self
-
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: Any,
-    ) -> None:
-        await self.stop()
-
-    # ------------------------------------------------------------------
-    # Handshake checks
-    # ------------------------------------------------------------------
-
-    def _check_handshake(self, headers: Mapping[str, str]) -> HandshakeRejection | None:
-        """Validate handshake headers; return a rejection or ``None`` to accept.
-
-        Rejects any ``Origin`` not in ``allowed_origins`` (403) and, when
-        ``auth_token`` is configured, any request without a matching
-        ``Authorization: Bearer`` header (401).  The token comparison is
-        constant-time and the token is never logged.
-        """
-        origin = headers.get("Origin")
-        if origin is not None and origin not in self._config.allowed_origins:
-            logger.warning(
-                "Rejected WebSocket handshake from disallowed origin {}", origin
-            )
-            return HTTPStatus.FORBIDDEN, "Forbidden origin\n", {}
-
-        token = self._config.auth_token
-        if token is not None:
-            header = headers.get("Authorization") or ""
-            scheme, _, supplied = header.partition(" ")
-            authorized = scheme.lower() == "bearer" and hmac.compare_digest(
-                supplied.strip().encode("utf-8"), token.encode("utf-8")
-            )
-            if not authorized:
-                logger.warning("Rejected unauthenticated WebSocket handshake")
-                return (
-                    HTTPStatus.UNAUTHORIZED,
-                    "Unauthorized\n",
-                    {"WWW-Authenticate": 'Bearer realm="revitpy-mcp"'},
-                )
-
-        return None
-
-    def _process_request(self, connection: Any, request: Any) -> Any:
-        """``process_request`` hook for the websockets asyncio server."""
-        rejection = self._check_handshake(request.headers)
-        if rejection is None:
-            return None
-        status, body, extra_headers = rejection
-        response = connection.respond(status, body)
-        for name, value in extra_headers.items():
-            response.headers[name] = value
-        return response
-
-    async def _legacy_process_request(
-        self, path: str, request_headers: Any
-    ) -> tuple[HTTPStatus, list[tuple[str, str]], bytes] | None:
-        """``process_request`` hook for legacy websockets (< 13)."""
-        rejection = self._check_handshake(request_headers)
-        if rejection is None:
-            return None
-        status, body, extra_headers = rejection
-        return status, list(extra_headers.items()), body.encode("utf-8")
-
-    # ------------------------------------------------------------------
-    # Connection handling
-    # ------------------------------------------------------------------
-
-    async def _handle_connection(self, websocket: Any) -> None:
-        """Handle a single WebSocket client connection."""
-        self._connections.add(websocket)
-        logger.info(
-            "Client connected; total connections = {}",
-            len(self._connections),
-        )
-        try:
-            async for raw_message in websocket:
-                response = await self._process_raw(raw_message)
-                if response is not None:
-                    await websocket.send(response.to_json())
-        finally:
-            self._connections.discard(websocket)
-            logger.info(
-                "Client disconnected; total connections = {}",
-                len(self._connections),
-            )
-
-    async def _process_raw(self, raw: str | bytes) -> McpResponse | None:
-        """Parse and validate one raw frame, then dispatch it.
-
-        Never raises.  Returns ``None`` for notifications and client
-        responses, which must not be answered.
-        """
-        if isinstance(raw, bytes):
-            try:
-                raw = raw.decode("utf-8")
-            except UnicodeDecodeError:
-                return _error(None, PARSE_ERROR, "Parse error: invalid UTF-8")
-
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError:
-            return _error(None, PARSE_ERROR, "Parse error")
-
-        if isinstance(data, list):
-            return _error(
-                None,
-                INVALID_REQUEST,
-                "Invalid Request: JSON-RPC batching is not supported",
-            )
-        if not isinstance(data, dict):
-            return _error(
-                None, INVALID_REQUEST, "Invalid Request: expected a JSON object"
-            )
-
-        request_id = data.get("id")
-        if request_id is not None and (
-            isinstance(request_id, bool) or not isinstance(request_id, (str, int))
-        ):
-            return _error(
-                None, INVALID_REQUEST, "Invalid Request: id must be a string or integer"
-            )
-
-        if "method" not in data:
-            if "result" in data or "error" in data:
-                logger.debug("Ignoring client response for id {}", request_id)
-                return None
-            return _error(
-                request_id, INVALID_REQUEST, "Invalid Request: missing 'method'"
-            )
-
-        if data.get("jsonrpc") != "2.0":
-            return _error(
-                request_id, INVALID_REQUEST, "Invalid Request: jsonrpc must be '2.0'"
-            )
-
-        method = data["method"]
-        if not isinstance(method, str):
-            return _error(
-                request_id, INVALID_REQUEST, "Invalid Request: method must be a string"
-            )
-
-        if request_id is None:
-            logger.debug("Received notification {}", method)
-            return None
-
-        params = data.get("params")
-        if params is None:
-            params = {}
-        if not isinstance(params, dict):
-            return _error(
-                request_id, INVALID_PARAMS, "Invalid params: params must be an object"
-            )
-
-        return await self._handle_message(
-            McpRequest(id=request_id, method=method, params=params)
+    def _startup_error(self, message: str, cause: OSError) -> Exception:
+        return McpServerError(
+            message, host=self._config.host, port=self._config.port, cause=cause
         )
 
     # ------------------------------------------------------------------

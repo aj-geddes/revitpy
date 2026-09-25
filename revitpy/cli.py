@@ -5,6 +5,7 @@ Commands:
     revitpy version      Print the installed RevitPy version.
     revitpy doctor       Check the Python environment and optional integrations.
     revitpy mcp-serve    Run the RevitPy MCP server for AI agents.
+    revitpy live ...     Run code in Revit through the Live Server.
 """
 
 from __future__ import annotations
@@ -181,6 +182,95 @@ def mcp_serve(host: str, port: int, token: str | None) -> None:
         asyncio.run(_serve_forever(server))
     except KeyboardInterrupt:
         console.print("Stopped.")
+
+
+# -- revitpy live -------------------------------------------------------------
+
+
+@main.group()
+def live() -> None:
+    """Talk to the Live Server running inside Revit."""
+
+
+def _live_call(method: str, params: dict[str, Any] | None = None) -> Any:
+    from .live_client import LiveServerError, LiveServerNotFoundError, call_live
+
+    try:
+        return call_live(method, params)
+    except (LiveServerNotFoundError, LiveServerError, OSError, TimeoutError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+def _report(result: dict[str, Any]) -> None:
+    if result.get("output"):
+        click.echo(result["output"], nl=False)
+    if not result.get("success", False):
+        click.echo(result.get("error") or "Failed", err=True)
+        raise SystemExit(1)
+
+
+@live.command("status")
+@click.option("--json", "as_json", is_flag=True, help="Output results as JSON.")
+def live_status(as_json: bool) -> None:
+    """Show the connected Revit session."""
+    status = _live_call("live/status")
+    if as_json:
+        click.echo(json.dumps(status, indent=2))
+        return
+    click.echo(f"Revit {status.get('revit_version') or '?'}")
+    click.echo(f"Document: {status.get('document') or '(none)'}")
+    click.echo(
+        f"RevitPy {status.get('revitpy_version')} on Python {status.get('python_version')}"
+    )
+    debug = status.get("debug") or {}
+    if debug.get("listening"):
+        click.echo(f"debugpy listening on port {debug.get('port')}")
+
+
+@live.command("run")
+@click.argument("script", type=click.Path(exists=True, dir_okay=False))
+def live_run(script: str) -> None:
+    """Run SCRIPT inside Revit (the path must be readable on the Revit machine)."""
+    from pathlib import Path
+
+    _report(_live_call("live/runFile", {"path": str(Path(script).resolve())}))
+
+
+@live.command("exec")
+@click.argument("code")
+def live_exec(code: str) -> None:
+    """Execute CODE inside Revit."""
+    _report(_live_call("live/execute", {"code": code, "filename": "<revitpy live>"}))
+
+
+@live.command("reload")
+@click.argument("modules", nargs=-1, required=True)
+def live_reload(modules: tuple[str, ...]) -> None:
+    """Reload imported MODULES (names or .py paths) inside Revit."""
+    from pathlib import Path
+
+    names = [m for m in modules if not m.endswith(".py")]
+    paths = [str(Path(m).resolve()) for m in modules if m.endswith(".py")]
+    result = _live_call("live/reload", {"modules": names, "paths": paths})
+    for name in result.get("reloaded", []):
+        click.echo(f"reloaded {name}")
+    for name, error in (result.get("errors") or {}).items():
+        click.echo(f"{name}: {error}", err=True)
+    if result.get("errors"):
+        raise SystemExit(1)
+
+
+@live.command("debug")
+@click.option("--port", default=5678, show_default=True, type=int)
+def live_debug(port: int) -> None:
+    """Start debugpy inside Revit so an editor can attach."""
+    result = _live_call("debug/start", {"port": port})
+    if not result.get("listening"):
+        raise click.ClickException(result.get("error") or "debugger did not start")
+    click.echo(
+        f"debugpy listening on 127.0.0.1:{result['port']}; attach with a "
+        '"debugpy" attach configuration.'
+    )
 
 
 if __name__ == "__main__":

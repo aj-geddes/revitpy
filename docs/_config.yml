@@ -92,6 +92,8 @@ navigation:
       url: /developer/setup/
     - title: API Reference
       url: /developer/api-reference/
+    - title: Live Server Protocol
+      url: /developer/live-server/
     - title: Testing
       url: /developer/testing/
     - title: Contributing

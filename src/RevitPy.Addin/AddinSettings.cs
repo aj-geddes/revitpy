@@ -16,6 +16,7 @@ namespace RevitPy.Addin;
 /// python_path = C:\projects\my-venv\Lib\site-packages
 /// startup_script = %USERPROFILE%\revitpy\startup.py
 /// initialize_on_startup = false
+/// start_live_server = false
 /// </code>
 /// </example>
 public sealed class AddinSettings
@@ -47,6 +48,9 @@ public sealed class AddinSettings
     public List<string> StartupScripts { get; } = new List<string>();
 
     public bool InitializeOnStartup { get; private set; }
+
+    /// <summary>Start the RevitPy Live Server (for VS Code / dev tools) when Revit starts.</summary>
+    public bool StartLiveServer { get; private set; }
 
     public string SettingsPath { get; }
 
@@ -104,6 +108,9 @@ public sealed class AddinSettings
                     break;
                 case "initialize_on_startup":
                     settings.InitializeOnStartup = ParseBool(value);
+                    break;
+                case "start_live_server":
+                    settings.StartLiveServer = ParseBool(value);
                     break;
             }
         }

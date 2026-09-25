@@ -121,6 +121,33 @@ public class McpServerCommand : IExternalCommand
     }
 }
 
+/// <summary>Starts or stops the RevitPy Live Server used by VS Code and dev tools.</summary>
+[Transaction(TransactionMode.Manual)]
+[Regeneration(RegenerationOption.Manual)]
+public class LiveServerCommand : IExternalCommand
+{
+    internal const string ToggleCode =
+        "from revitpy.revit.live import toggle_live_server\n"
+        + "print(toggle_live_server(__revit__))\n";
+
+    public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+    {
+        ScriptResult result;
+        try
+        {
+            RevitPyApplication.EnsurePython();
+            result = PythonHost.RunCode(ToggleCode, "<revitpy-live>", commandData.Application);
+        }
+        catch (InvalidOperationException ex)
+        {
+            message = ex.Message;
+            return Result.Failed;
+        }
+
+        return RunScriptCommand.Report("RevitPy Live Server", result, ref message);
+    }
+}
+
 /// <summary>Shows version, Python status and the settings file location.</summary>
 [Transaction(TransactionMode.ReadOnly)]
 [Regeneration(RegenerationOption.Manual)]
