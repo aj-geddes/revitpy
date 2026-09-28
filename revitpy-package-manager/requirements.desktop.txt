@@ -9,7 +9,7 @@ pydantic==2.13.5
 pydantic-settings==2.15.0
 
 # Database (SQLite support)
-sqlalchemy[asyncio]==2.0.54
+sqlalchemy[asyncio]==2.1.1
 aiosqlite==0.22.1
 
 # File handling
