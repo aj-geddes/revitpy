@@ -42,7 +42,7 @@
     <!-- Reference-only Revit API assemblies; Revit supplies the real ones at runtime. -->
     <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="$(RevitVersion).*" PrivateAssets="all" ExcludeAssets="runtime" />
     <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="$(RevitVersion).*" PrivateAssets="all" ExcludeAssets="runtime" />
-    <PackageReference Include="pythonnet" Version="3.1.0" />
+    <PackageReference Include="pythonnet" Version="3.2.1" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
