@@ -30,7 +30,7 @@ packaging==26.3
 # CLI and output
 click==8.5.0
 rich==15.0.0
-typer==0.27.2
+typer==0.27.3
 
 # Configuration
 pyyaml==6.0.3
