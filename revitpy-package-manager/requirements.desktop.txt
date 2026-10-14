@@ -3,7 +3,7 @@
 # Test tooling lives in the `test` extra: pip install -e ".[test]"
 
 # Core web framework
-fastapi==0.141.1
+fastapi==0.143.0
 uvicorn[standard]==0.53.0
 pydantic==2.13.5
 pydantic-settings==2.15.0
